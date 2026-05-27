@@ -3,7 +3,7 @@
 #include <CommonLib/Math.h>
 #include <Katline/Controllers/IO.h>
 
-#include <cstdarg>
+#include <stdarg.h>
 
 namespace Katline {
 
@@ -13,7 +13,7 @@ uint const PORT = 0x3f8;
 
 class SerialController {
 public:
-    SerialController() {};
+    SerialController() { };
     bool Init();
     int Received();
     char Read();

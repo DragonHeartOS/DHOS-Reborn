@@ -1,4 +1,4 @@
-#!/usr/bin/bash
+#!/usr/bin/env bash
 
 if [ "$(basename $PWD)" != "Build" ] ; then
     echo 'Not in build directory. Please go into Build/'

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <cstdarg>
+#include <stdarg.h>
 
 namespace Katline {
 

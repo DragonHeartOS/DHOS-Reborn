@@ -1,7 +1,7 @@
 #include <Katline/Debug.h>
 #include <Katline/Katline.h>
 
-#include <cstdarg>
+#include <stdarg.h>
 
 // TODO: Move all of those into separate library
 size_t
@@ -59,7 +59,7 @@ void itoa(int n, char s[])
     i = 0;
     do {                       /* generate digits in reverse order */
         s[i++] = n % 10 + '0'; /* get next digit */
-    } while ((n /= 10) > 0);   /* delete it */
+    } while ((n /= 10) > 0); /* delete it */
     if (sign < 0)
         s[i++] = '-';
     s[i] = '\0';

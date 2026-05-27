@@ -1,7 +1,7 @@
 #pragma once
 
-#include <cstdint>
-#include <cstddef>
+#include <stddef.h>
+#include <stdint.h>
 
 typedef unsigned int uint;
 typedef unsigned char u8;

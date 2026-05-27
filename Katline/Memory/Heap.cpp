@@ -1,7 +1,5 @@
 #include <CommonLib/Types.h>
 
-#include <cstring>
-
 namespace Katline {
 
 namespace Memory {
@@ -94,7 +92,7 @@ static inline void dlist_remove_from(DList** d1p, DList* d2)
     }
 }
 
-#define CONTAINER(C, l, v) ((C*)(((char*)v) - (intptr_t) & (((C*)0)->l)))
+#define CONTAINER(C, l, v) ((C*)(((char*)v) - (intptr_t)&(((C*)0)->l)))
 #define OFFSETOF(TYPE, MEMBER) __builtin_offsetof(TYPE, MEMBER)
 
 #define DLIST_INIT(v, l) dlist_init(&v->l)

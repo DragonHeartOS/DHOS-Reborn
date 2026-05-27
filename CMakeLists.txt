@@ -20,22 +20,23 @@ include_directories(${CMAKE_CURRENT_LIST_DIR})
 
 add_subdirectory (Katline)
 
-add_custom_target(image)
-add_custom_command(
-  TARGET   image
-  COMMAND  "../Util/BuildDiskImage.sh"
-  USES_TERMINAL
+add_custom_target(image
+    COMMAND "${CMAKE_SOURCE_DIR}/Util/BuildDiskImage.sh"
+    WORKING_DIRECTORY "${CMAKE_BINARY_DIR}"
+    DEPENDS ${KERNEL_TARGET}
+    USES_TERMINAL
 )
 
-add_custom_target(cdrom)
-add_custom_command(
-  TARGET   cdrom
-  COMMAND  "../Util/BuildCDROMImage.sh"
+add_custom_target(cdrom
+    COMMAND "${CMAKE_SOURCE_DIR}/Util/BuildCDROMImage.sh"
+    WORKING_DIRECTORY "${CMAKE_BINARY_DIR}"
+    DEPENDS ${KERNEL_TARGET}
+    USES_TERMINAL
 )
 
-add_custom_target(run)
-add_custom_command(
-  TARGET   run
-  COMMAND  "../Util/Run.sh"
-  USES_TERMINAL
+add_custom_target(run
+    COMMAND "${CMAKE_SOURCE_DIR}/Util/Run.sh"
+    WORKING_DIRECTORY "${CMAKE_BINARY_DIR}"
+    DEPENDS ${KERNEL_TARGET}
+    USES_TERMINAL
 )

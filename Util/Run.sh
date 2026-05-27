@@ -1,4 +1,4 @@
-#!/usr/bin/bash
+#!/usr/bin/env bash
 
 SYSTEM='QEMU'
 
@@ -12,9 +12,21 @@ if [ -f 'dhos.iso' ] ; then
     BOOT_MODE='CDROM'
 fi
 
+has_kvm() {
+    [ -e /dev/kvm ] && [ -r /dev/kvm ] && [ -w /dev/kvm ]
+}
+
 if [ "$SYSTEM" = 'QEMU' ] ; then
     QEMU_BIN='qemu-system-x86_64'
-    QEMU_ARGS="-enable-kvm -m 1G -serial stdio"
+    QEMU_ARGS="-m 1G -serial stdio"
+
+    if has_kvm ; then
+        echo 'Using KVM acceleration'
+        QEMU_ARGS="$QEMU_ARGS -enable-kvm"
+    else
+        echo 'KVM not available'
+    fi
+
     if [ "$BOOT_MODE" = 'DISK' ] ; then
         QEMU_ARGS="$QEMU_ARGS -drive format=raw,file=_disk_image"
     elif [ "$BOOT_MODE" = 'CDROM' ] ; then
@@ -24,5 +36,5 @@ if [ "$SYSTEM" = 'QEMU' ] ; then
         exit 1
     fi
 
-    $QEMU_BIN $QEMU_ARGS
+    exec $QEMU_BIN $QEMU_ARGS
 fi
