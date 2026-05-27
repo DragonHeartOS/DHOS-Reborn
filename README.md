@@ -13,20 +13,21 @@ The operating system is made to give you full control over your hardware from th
 The system can be build and ran like this:
 
 ```
-$ cd Toolchain
-$ ./install.sh  # This builds the toolchain for you
 $ cd .. && mkdir Build && cd Build # Create Build directory
-$ cmake .. -GNinja
-$ ninja         # Compile!
-$ ninja image   # Create disk image
-$ ninja run     # Run virtual machine
+$ cmake -B Build -G Ninja \
+  -DCMAKE_TOOLCHAIN_FILE=cmake/x86_64-elf-clang.cmake \
+  -DCMAKE_C_COMPILER=clang \
+  -DCMAKE_CXX_COMPILER=clang++
+$ cmake --build Build           # Compile!
+$ cmake --build Build -- image  # Create disk image
+$ cmake --build Build -- run    # Run virtual machine
 ```
 
 ## Goals
 
  - 64-bit
  - Multitasking kernel
- - Everything is easly accessible to the user, including the hardware
+ - Everything is easly accessible to the user, including the hardware (ring-0)
  - Filesystem: FAT-32
 
 ## Components
@@ -49,4 +50,4 @@ $ ninja run     # Run virtual machine
 
 ## License
 
-This software is licensed under the MIT license. Learn more about it [here](LICENSE).
+This software is licensed under the AGPLv3 license. Learn more about it [here](LICENSE).
