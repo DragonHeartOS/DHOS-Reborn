@@ -16,10 +16,10 @@ FramebufferController::FramebufferController(Framebuffer* framebuffer)
 {
     this->m_framebuffer = framebuffer;
 
-    PutLogo(Logo::Data, Logo::Width, Logo::Height, 10, 10);
+    put_logo(Logo::Data, Logo::Width, Logo::Height, 10, 10);
 }
 
-void FramebufferController::PlotPixel(uint y, uint x)
+void FramebufferController::plot_pixel(uint y, uint x)
 {
     if (y > (uint)m_framebuffer->height - 1)
         y = m_framebuffer->height - 1;
@@ -36,7 +36,7 @@ void FramebufferController::PlotPixel(uint y, uint x)
     fb[3] = 0xff;
 }
 
-void FramebufferController::Rect(uint y1, uint x1, uint y2, uint x2)
+void FramebufferController::rect(uint y1, uint x1, uint y2, uint x2)
 {
     if (x1 > x2) {
         uint temp_x = x1;
@@ -52,10 +52,10 @@ void FramebufferController::Rect(uint y1, uint x1, uint y2, uint x2)
 
     for (uint i = y1; i < y2; i++)
         for (uint j = x1; j < x2; j++)
-            PlotPixel(i, j);
+            plot_pixel(i, j);
 }
 
-void FramebufferController::DrawRawCharacter(char ch, uint y, uint x, bool inverted)
+void FramebufferController::draw_raw_character(char ch, uint y, uint x, bool inverted)
 {
     y += FRAMEBUFFER_TEXT_Y_OFFSET;
     for (uint temp_y = 0; temp_y < 8; temp_y++) {
@@ -63,14 +63,14 @@ void FramebufferController::DrawRawCharacter(char ch, uint y, uint x, bool inver
             auto character = Katline::Font::KernelFontStd[(uint)ch * 8 + temp_y];
             character = (character >> temp_x) & 1;
             if (character == (!inverted))
-                PlotPixel(temp_y + y, x + 8 - temp_x);
+                plot_pixel(temp_y + y, x + 8 - temp_x);
         }
     }
 }
 
-void FramebufferController::DrawCharacter(char ch, bool inverted)
+void FramebufferController::draw_character(char ch, bool inverted)
 {
-    DrawRawCharacter(ch, (uint)cursor_position.Y(), (uint)cursor_position.X(), inverted);
+    draw_raw_character(ch, (uint)cursor_position.Y(), (uint)cursor_position.X(), inverted);
 }
 
 // TODO: Put this in Marine
@@ -81,18 +81,18 @@ void memset(void* destination, int value, size_t size)
         destination_ptr[i] = (unsigned char)value;
 }
 
-void FramebufferController::PutCharacter(char ch, bool inverted)
+void FramebufferController::put_character(char ch, bool inverted)
 {
     if (ch == '\n') {
         cursor_position.SetX(0);
 
         if ((uint)cursor_position.Y() + FRAMEBUFFER_TEXT_Y_OFFSET + 8 > m_framebuffer->height) {
-            ScrollDown();
+            scroll_down();
         } else {
             cursor_position.SetY(cursor_position.Y() + 8);
         }
     } else {
-        DrawCharacter(ch, inverted);
+        draw_character(ch, inverted);
 
         cursor_position.SetX(cursor_position.X() + 8);
 
@@ -103,16 +103,16 @@ void FramebufferController::PutCharacter(char ch, bool inverted)
     }
 }
 
-void FramebufferController::PutStringSafe(char const* string, size_t size, bool inverted)
+void FramebufferController::put_string_safe(char const* string, size_t size, bool inverted)
 {
     for (size_t i = 0; i < size; i++)
-        PutCharacter(string[i], inverted);
+        put_character(string[i], inverted);
 }
 
-void FramebufferController::PutString(char const* string, bool inverted)
+void FramebufferController::put_string(char const* string, bool inverted)
 {
     while (string[0] != '\0') {
-        PutCharacter(string[0], inverted);
+        put_character(string[0], inverted);
         string++;
     }
 }
@@ -127,7 +127,7 @@ void memcpy(void* dest, void* source, size_t size)
 }
 
 // TODO: Fix this
-void FramebufferController::ScrollDown(uint lines)
+void FramebufferController::scroll_down(uint lines)
 {
     memcpy(
         m_framebuffer->data + m_framebuffer->pitch * FRAMEBUFFER_TEXT_Y_OFFSET,
@@ -140,17 +140,17 @@ void FramebufferController::ScrollDown(uint lines)
         m_framebuffer->pitch * (lines * 8));
 }
 
-void FramebufferController::PutLogo(u8 const* data, uint width, uint height, uint x, uint y)
+void FramebufferController::put_logo(u8 const* data, uint width, uint height, uint x, uint y)
 {
-    auto old_color = color;
+    auto const old_color { color };
 
-    for (uint i = 0; i < height; i++) {
-        for (uint j = 0; j < width; j++) {
+    for (uint i {}; i < height; i++) {
+        for (uint j {}; j < width; j++) {
             color.r = data[i * width * 3 + j * 3];
             color.g = data[i * width * 3 + j * 3 + 1];
             color.b = data[i * width * 3 + j * 3 + 2];
 
-            PlotPixel(i + y, j + x);
+            plot_pixel(i + y, j + x);
         }
     }
 

@@ -10,10 +10,10 @@ namespace Memory {
 
 class MemoryManager {
 public:
-    static void Init(MemoryMap const* mmap);
+    static void init(MemoryMap const* mmap);
 
-    static void* Allocate(size_t size);
-    static void Free(void* ptr);
+    static void* allocate(size_t size);
+    static void free(void* ptr);
 };
 
 using MM = MemoryManager;

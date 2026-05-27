@@ -16,15 +16,15 @@ public:
         u32 ignore;
     };
 
-    static void SetOffset(Entry& entry, u64 offset);
-    static u64 GetOffset(Entry& entry);
+    static void set_offset(Entry& entry, u64 offset);
+    static u64 get_offset(Entry& entry);
 
     struct [[gnu::packed]] IDTR {
         u16 limit;
         u64 base;
     };
 
-    static void Init();
+    static void init();
 };
 
 }

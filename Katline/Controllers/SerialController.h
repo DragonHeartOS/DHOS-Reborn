@@ -14,13 +14,14 @@ uint const PORT = 0x3f8;
 class SerialController {
 public:
     SerialController() { };
-    bool Init();
-    int Received();
-    char Read();
-    int IsTransmitEmpty();
-    void Write(char ch);
-    void WriteStringSafe(char const* string, size_t size);
-    void WriteString(char const* string);
+
+    bool init();
+    int received();
+    char read();
+    int is_transmit_empty();
+    void write(char ch);
+    void write_string_safe(char const* string, size_t size);
+    void write_string(char const* string);
 
 private:
     bool m_enabled = false;

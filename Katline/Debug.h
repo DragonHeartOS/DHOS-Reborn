@@ -6,8 +6,8 @@ namespace Katline {
 
 namespace Debug {
 
-void SetFramebufferLoggingEnabled(bool enabled);
-void WriteFormatted(char const* str, ...);
+void set_framebuffer_logging_enabled(bool enabled);
+void write_formatted(char const* str, ...);
 
 }
 

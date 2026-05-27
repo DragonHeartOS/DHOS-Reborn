@@ -9,7 +9,7 @@ namespace Katline {
 
 namespace Memory {
 
-void MemoryManager::Init(MemoryMap const* mmap)
+void MemoryManager::init(MemoryMap const* mmap)
 {
     bool initialized = false;
 
@@ -29,20 +29,20 @@ void MemoryManager::Init(MemoryMap const* mmap)
     }
 
     if (!initialized) {
-        Debug::WriteFormatted("[MemoryManager] Failed to initialize: no usable memory region.\n");
+        Debug::write_formatted("[MemoryManager] Failed to initialize: no usable memory region.\n");
         for (;;)
             asm("hlt");
     }
 
-    Debug::WriteFormatted("[MemoryManager] Initialized.\n");
+    Debug::write_formatted("[MemoryManager] Initialized.\n");
 }
 
-void* MemoryManager::Allocate(size_t size)
+void* MemoryManager::allocate(size_t size)
 {
     return mrvn_malloc(size);
 }
 
-void MemoryManager::Free(void* ptr)
+void MemoryManager::free(void* ptr)
 {
     mrvn_free(ptr);
 }

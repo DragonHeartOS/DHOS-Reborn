@@ -72,12 +72,12 @@ namespace Debug {
 
 static bool s_framebuffer_logging_enabled = false;
 
-void SetFramebufferLoggingEnabled(bool enabled)
+void set_framebuffer_logging_enabled(bool enabled)
 {
     s_framebuffer_logging_enabled = enabled;
 }
 
-void WriteFormatted(char const* str, ...)
+void write_formatted(char const* str, ...)
 {
     va_list vl;
     int i = 0;
@@ -110,10 +110,10 @@ void WriteFormatted(char const* str, ...)
         i++;
     }
 
-    k_serial_controller.WriteString(buffer);
+    k_serial_controller.write_string(buffer);
 
     if (s_framebuffer_logging_enabled)
-        k_framebuffer_controller.PutString(buffer);
+        k_framebuffer_controller.put_string(buffer);
 }
 
 }

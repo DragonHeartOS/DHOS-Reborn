@@ -54,14 +54,14 @@ IDT::Entry entries[256];
 static_assert(sizeof(IDT::Entry) == 16, "IDT entry must be 16 bytes");
 static_assert(sizeof(IDT::IDTR) == 10, "IDTR must be 10 bytes");
 
-void IDT::SetOffset(Entry& entry, u64 offset)
+void IDT::set_offset(Entry& entry, u64 offset)
 {
     entry.offset0 = (u16)(offset & 0x000000000000ffff);
     entry.offset1 = (u16)((offset & 0x00000000ffff0000) >> 16);
     entry.offset2 = (u32)((offset & 0xffffffff00000000) >> 32);
 }
 
-u64 IDT::GetOffset(Entry& entry)
+u64 IDT::get_offset(Entry& entry)
 {
     u64 offset = 0;
     offset |= (u64)entry.offset0;
@@ -70,11 +70,11 @@ u64 IDT::GetOffset(Entry& entry)
     return offset;
 }
 
-void IDT::Init()
+void IDT::init()
 {
     u16 code_selector;
     asm volatile("mov %%cs, %0"
-                 : "=r"(code_selector));
+        : "=r"(code_selector));
 
     for (u16 i = 0; i < 256; i++) {
         entries[i] = {};
@@ -84,9 +84,9 @@ void IDT::Init()
         entries[i].ignore = 0;
 
         if (vector_has_error_code((u8)i))
-            SetOffset(entries[i], (u64)&idt_default_handler_ec);
+            set_offset(entries[i], (u64)&idt_default_handler_ec);
         else
-            SetOffset(entries[i], (u64)&idt_default_handler);
+            set_offset(entries[i], (u64)&idt_default_handler);
     }
 
     idtr.limit = (u16)(sizeof(entries) - 1);
@@ -97,7 +97,7 @@ void IDT::Init()
         :
         : "m"(idtr));
 
-    Debug::WriteFormatted("[IDT]: Loaded.\n");
+    Debug::write_formatted("[IDT]: Loaded.\n");
 }
 
 }
