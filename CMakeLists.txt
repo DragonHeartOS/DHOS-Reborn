@@ -5,20 +5,20 @@ set(CMAKE_C_COMPILER "Toolchain/build/bin/x86_64-elf-gcc")
 set(CMAKE_CXX_COMPILER "Toolchain/build/bin/x86_64-elf-g++")
 set(CMAKE_LINKER "Toolchain/build/bin/x86_64-elf-ld")
 
-project (dhos VERSION 0.1 LANGUAGES C CXX ASM_NASM)
+project(dhos VERSION 0.1 LANGUAGES C CXX ASM_NASM)
 
-set (WARNING_FLAGS -Wall -Wextra -Wconversion -Wsign-conversion -Wno-varargs)
-set (COMMON_COMPILER_FLAGS ${WARNING_FLAGS})
-set (C_COMPILER_FLAGS ${COMMON_COMPILER_FLAGS})
-set (CXX_COMPILER_FLAGS ${COMMON_COMPILER_FLAGS} -fno-exceptions -fno-rtti)
-set (CMAKE_CXX_STANDARD 20)
-set (CMAKE_C_STANDARD 11)
+set(WARNING_FLAGS -Wall -Wextra -Wconversion -Wsign-conversion -Wno-varargs)
+set(COMMON_COMPILER_FLAGS ${WARNING_FLAGS})
+set(C_COMPILER_FLAGS ${COMMON_COMPILER_FLAGS})
+set(CXX_COMPILER_FLAGS ${COMMON_COMPILER_FLAGS} -fno-exceptions -fno-rtti)
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_C_STANDARD 23)
 
 set(KERNEL_TARGET katline)
 
 include_directories(${CMAKE_CURRENT_LIST_DIR})
 
-add_subdirectory (Katline)
+add_subdirectory(Katline)
 
 add_custom_target(image
     COMMAND "${CMAKE_SOURCE_DIR}/Util/BuildDiskImage.sh"
