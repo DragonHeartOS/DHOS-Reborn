@@ -75,16 +75,16 @@ extern "C" void kernel_start()
             asm("hlt");
     }
 
-    auto* fb_tag = framebuffer_request.response->framebuffers[0];
-    auto* mmap_tag = memmap_request.response;
-    u64 hhdm_offset = hhdm_request.response->offset;
+    auto* fb_tag { framebuffer_request.response->framebuffers[0] };
+    auto* mmap_tag { memmap_request.response };
+    u64 hhdm_offset { hhdm_request.response->offset };
 
     if (fb_tag->bpp != 32) {
         for (;;)
             asm("hlt");
     }
 
-    Katline::Controller::Framebuffer fb = {
+    Katline::Controller::Framebuffer fb {
         (u64)fb_tag->address,
         (u16)fb_tag->width,
         (u16)fb_tag->height,
@@ -94,13 +94,13 @@ extern "C" void kernel_start()
     };
 
     static Katline::Memory::MemoryData memory_map_entries[256];
-    u64 memory_map_entry_count = mmap_tag->entry_count;
+    auto memory_map_entry_count { mmap_tag->entry_count };
     if (memory_map_entry_count > 256)
         memory_map_entry_count = 256;
 
-    for (u64 i = 0; i < memory_map_entry_count; i++) {
-        auto* entry = mmap_tag->entries[i];
-        u64 base = entry->base;
+    for (u64 i {}; i < memory_map_entry_count; i++) {
+        auto* entry { mmap_tag->entries[i] };
+        auto base { entry->base };
 
         if (limine_type_to_katline_type(entry->type) == Katline::Memory::MemoryType::USABLE)
             base += hhdm_offset;

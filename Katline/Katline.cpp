@@ -14,13 +14,12 @@ Controller::SerialController k_serial_controller;
 void KatlineMain(Controller::Framebuffer* framebuffer, Memory::MemoryMap* mmap)
 {
     k_serial_controller.init();
+    k_framebuffer_controller = Controller::FramebufferController(framebuffer);
+    Debug::set_framebuffer_logging_enabled(true);
 
     Memory::MM::init(mmap);
 
     IDT::init();
-
-    k_framebuffer_controller = Controller::FramebufferController(framebuffer);
-    Debug::set_framebuffer_logging_enabled(true);
 }
 
 }

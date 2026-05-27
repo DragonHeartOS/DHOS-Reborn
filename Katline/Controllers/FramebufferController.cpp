@@ -26,9 +26,10 @@ void FramebufferController::plot_pixel(uint y, uint x)
     if (x > (uint)m_framebuffer->width - 1)
         x = m_framebuffer->width - 1;
 
-    auto fb = m_framebuffer->data + x * 4 + // X
-        y * m_framebuffer->pitch            // Y
-        ;
+    auto fb {
+        m_framebuffer->data + x * 4 + // X
+        y * m_framebuffer->pitch      // Y
+    };
 
     fb[0] = color.b;
     fb[1] = color.g;
@@ -50,38 +51,38 @@ void FramebufferController::rect(uint y1, uint x1, uint y2, uint x2)
         y2 = temp_y;
     }
 
-    for (uint i = y1; i < y2; i++)
-        for (uint j = x1; j < x2; j++)
+    for (auto i { y1 }; i < y2; i++)
+        for (auto j { x1 }; j < x2; j++)
             plot_pixel(i, j);
 }
 
-void FramebufferController::draw_raw_character(char ch, uint y, uint x, bool inverted)
+void FramebufferController::draw_raw_character(char const ch, uint const y, uint const x, bool const inverted)
 {
-    y += FRAMEBUFFER_TEXT_Y_OFFSET;
-    for (uint temp_y = 0; temp_y < 8; temp_y++) {
-        for (uint temp_x = 0; temp_x < 8; temp_x++) {
+    auto const y_ { y + FRAMEBUFFER_TEXT_Y_OFFSET };
+    for (uint temp_y {}; temp_y < 8; temp_y++) {
+        for (uint temp_x {}; temp_x < 8; temp_x++) {
             auto character = Katline::Font::KernelFontStd[(uint)ch * 8 + temp_y];
             character = (character >> temp_x) & 1;
             if (character == (!inverted))
-                plot_pixel(temp_y + y, x + 8 - temp_x);
+                plot_pixel(temp_y + y_, x + 8 - temp_x);
         }
     }
 }
 
-void FramebufferController::draw_character(char ch, bool inverted)
+void FramebufferController::draw_character(char const ch, bool const inverted)
 {
     draw_raw_character(ch, (uint)cursor_position.Y(), (uint)cursor_position.X(), inverted);
 }
 
 // TODO: Put this in Marine
-void memset(void* destination, int value, size_t size)
+void memset(void* destination, int const value, size_t const size)
 {
-    auto destination_ptr = (u8*)destination;
-    for (size_t i = 0; i < size; i++)
+    auto destination_ptr { (u8*)destination };
+    for (size_t i {}; i < size; i++)
         destination_ptr[i] = (unsigned char)value;
 }
 
-void FramebufferController::put_character(char ch, bool inverted)
+void FramebufferController::put_character(char const ch, bool const inverted)
 {
     if (ch == '\n') {
         cursor_position.SetX(0);
@@ -103,13 +104,13 @@ void FramebufferController::put_character(char ch, bool inverted)
     }
 }
 
-void FramebufferController::put_string_safe(char const* string, size_t size, bool inverted)
+void FramebufferController::put_string_safe(char const* string, size_t const size, bool const inverted)
 {
-    for (size_t i = 0; i < size; i++)
+    for (size_t i {}; i < size; i++)
         put_character(string[i], inverted);
 }
 
-void FramebufferController::put_string(char const* string, bool inverted)
+void FramebufferController::put_string(char const* string, bool const inverted)
 {
     while (string[0] != '\0') {
         put_character(string[0], inverted);
@@ -118,7 +119,7 @@ void FramebufferController::put_string(char const* string, bool inverted)
 }
 
 // TODO: Put this in Marine
-void memcpy(void* dest, void* source, size_t size)
+void memcpy(void* dest, void* source, size_t const size)
 {
     char* d = (char*)dest;
     char* s = (char*)source;
@@ -127,7 +128,7 @@ void memcpy(void* dest, void* source, size_t size)
 }
 
 // TODO: Fix this
-void FramebufferController::scroll_down(uint lines)
+void FramebufferController::scroll_down(uint const lines)
 {
     memcpy(
         m_framebuffer->data + m_framebuffer->pitch * FRAMEBUFFER_TEXT_Y_OFFSET,
@@ -140,7 +141,7 @@ void FramebufferController::scroll_down(uint lines)
         m_framebuffer->pitch * (lines * 8));
 }
 
-void FramebufferController::put_logo(u8 const* data, uint width, uint height, uint x, uint y)
+void FramebufferController::put_logo(u8 const* data, uint const width, uint const height, uint const x, uint const y)
 {
     auto const old_color { color };
 

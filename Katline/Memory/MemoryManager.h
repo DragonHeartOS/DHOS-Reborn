@@ -12,7 +12,7 @@ class MemoryManager {
 public:
     static void init(MemoryMap const* mmap);
 
-    static void* allocate(size_t size);
+    static void* allocate(size_t const size);
     static void free(void* ptr);
 };
 

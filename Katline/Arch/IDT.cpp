@@ -76,7 +76,7 @@ void IDT::init()
     asm volatile("mov %%cs, %0"
         : "=r"(code_selector));
 
-    for (u16 i = 0; i < 256; i++) {
+    for (u16 i {}; i < 256; i++) {
         entries[i] = {};
         entries[i].selector = code_selector;
         entries[i].ist = 0;

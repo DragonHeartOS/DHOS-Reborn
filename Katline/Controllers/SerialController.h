@@ -9,7 +9,7 @@ namespace Katline {
 
 namespace Controller {
 
-uint const PORT = 0x3f8;
+constexpr uint PORT { 0x3f8 };
 
 class SerialController {
 public:

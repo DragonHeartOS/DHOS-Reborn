@@ -6,14 +6,14 @@ namespace Katline {
 
 namespace IO {
 
-[[maybe_unused]] static inline void outb(u16 port, u8 val)
+[[maybe_unused]] static inline void outb(u16 const port, u8 const val)
 {
     asm volatile("outb %0, %1"
         :
         : "a"(val), "Nd"(port));
 }
 
-[[maybe_unused]] static inline u8 inb(u16 port)
+[[maybe_unused]] static inline u8 inb(u16 const port)
 {
     u8 ret;
     asm volatile("inb %1, %0"

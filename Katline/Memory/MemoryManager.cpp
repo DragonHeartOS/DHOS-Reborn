@@ -11,10 +11,10 @@ namespace Memory {
 
 void MemoryManager::init(MemoryMap const* mmap)
 {
-    bool initialized = false;
+    bool initialized {};
 
-    for (u64 i = 0; i < mmap->size; i++) {
-        MemoryData* md = &mmap->data[i];
+    for (u64 i {}; i < mmap->size; i++) {
+        auto* md = &mmap->data[i];
 
         if (md->type != MemoryType::USABLE || md->size == 0)
             continue;
@@ -37,7 +37,7 @@ void MemoryManager::init(MemoryMap const* mmap)
     Debug::write_formatted("[MemoryManager] Initialized.\n");
 }
 
-void* MemoryManager::allocate(size_t size)
+void* MemoryManager::allocate(size_t const size)
 {
     return mrvn_malloc(size);
 }

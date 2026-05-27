@@ -1,5 +1,6 @@
-#include <Katline/Controllers/IO.h>
 #include <Katline/Controllers/SerialController.h>
+
+#include <Katline/Controllers/IO.h>
 #include <Katline/Debug.h>
 #include <Katline/Katline.h>
 
@@ -71,7 +72,7 @@ void SerialController::write(char ch)
 void SerialController::write_string_safe(char const* string, size_t size)
 {
     if (m_enabled)
-        for (size_t i = 0; i < size; i++)
+        for (size_t i {}; i < size; i++)
             write(string[i]);
 }
 
