@@ -1,10 +1,10 @@
 #include <Katline/Katline.h>
 
+#include <Katline/Arch/IDT.h>
 #include <Katline/Controllers/SerialController.h>
 #include <Katline/Debug.h>
 #include <Katline/Memory/MemoryData.h>
 #include <Katline/Memory/MemoryManager.h>
-#include <Katline/Arch/IDT.h>
 
 namespace Katline {
 
@@ -21,7 +21,6 @@ void KatlineMain(Controller::Framebuffer* framebuffer, Memory::MemoryMap* mmap)
 
     k_framebuffer_controller = Controller::FramebufferController(framebuffer);
     Debug::SetFramebufferLoggingEnabled(true);
-
 }
 
 }

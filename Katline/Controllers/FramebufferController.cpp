@@ -142,7 +142,7 @@ void FramebufferController::ScrollDown(uint lines)
 
 void FramebufferController::PutLogo(u8 const* data, uint width, uint height, uint x, uint y)
 {
-    Color::RGBColor old_color = color;
+    auto old_color = color;
 
     for (uint i = 0; i < height; i++) {
         for (uint j = 0; j < width; j++) {

@@ -4,7 +4,7 @@
 
 #include <CommonLib/Types.h>
 
-namespace Color {
+namespace CL::Color {
 
 struct RGBColor {
     u8 r, g, b;

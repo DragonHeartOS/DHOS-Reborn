@@ -35,9 +35,9 @@ public:
 
     void PutLogo(u8 const* data, uint width, uint height, uint x, uint y);
 
-    Color::RGBColor color = Color::WHITE;
+    CL::Color::RGBColor color = CL::Color::WHITE;
 
-    Math::Point cursor_position;
+    CL::Math::Point cursor_position;
 
 private:
     Framebuffer* m_framebuffer;
