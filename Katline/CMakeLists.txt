@@ -6,7 +6,7 @@ set (SOURCES
     Debug.cpp
     Arch/Interrupts.cpp
     Arch/IDT.cpp
-    Arch/StivaleStart.cpp
+    Arch/LimineStart.cpp
     Katline.cpp)
 
 add_executable (${KERNEL_TARGET} ${SOURCES})

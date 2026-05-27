@@ -70,6 +70,13 @@ namespace Katline {
 
 namespace Debug {
 
+static bool s_framebuffer_logging_enabled = false;
+
+void SetFramebufferLoggingEnabled(bool enabled)
+{
+    s_framebuffer_logging_enabled = enabled;
+}
+
 void WriteFormatted(char const* str, ...)
 {
     va_list vl;
@@ -103,8 +110,10 @@ void WriteFormatted(char const* str, ...)
         i++;
     }
 
-    k_framebuffer_controller.PutString(buffer);
     k_serial_controller.WriteString(buffer);
+
+    if (s_framebuffer_logging_enabled)
+        k_framebuffer_controller.PutString(buffer);
 }
 
 }

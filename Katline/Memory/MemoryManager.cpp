@@ -11,11 +11,27 @@ namespace Memory {
 
 void MemoryManager::Init(MemoryMap const* mmap)
 {
+    bool initialized = false;
+
     for (u64 i = 0; i < mmap->size; i++) {
         MemoryData* md = &mmap->data[i];
 
-        if (i != 0 && md->type == MemoryType::USABLE)
+        if (md->type != MemoryType::USABLE || md->size == 0)
+            continue;
+
+        if (!initialized) {
             mrvn_memory_init((void*)md->base, md->size);
+            initialized = true;
+            continue;
+        }
+
+        mrvn_memory_add((void*)md->base, md->size);
+    }
+
+    if (!initialized) {
+        Debug::WriteFormatted("[MemoryManager] Failed to initialize: no usable memory region.\n");
+        for (;;)
+            asm("hlt");
     }
 
     Debug::WriteFormatted("[MemoryManager] Initialized.\n");

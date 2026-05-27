@@ -176,6 +176,60 @@ size_t mem_meta = 0;
 Chunk* first = NULL;
 Chunk* last = NULL;
 
+static void memory_chunk_init(Chunk* chunk);
+static size_t memory_chunk_size(Chunk const* chunk);
+static int memory_chunk_slot(size_t size);
+
+static int memory_chunk_bucket(size_t size)
+{
+    int n = memory_chunk_slot(size);
+    if (n < 0)
+        return 0;
+    if (n >= NUM_SIZES)
+        return NUM_SIZES - 1;
+    return n;
+}
+
+static bool memory_add_region(void* mem, size_t size)
+{
+    char* mem_start = (char*)(((intptr_t)mem + ALIGN - 1) & (~(ALIGN - 1)));
+    char* mem_end = (char*)(((unsigned long)mem + size) & ((unsigned long)~(ALIGN - 1)));
+
+    if (mem_end <= mem_start)
+        return false;
+
+    if ((size_t)(mem_end - mem_start) < (sizeof(Chunk) * 3))
+        return false;
+
+    Chunk* region_first = (Chunk*)mem_start;
+    Chunk* second = region_first + 1;
+    Chunk* region_last = ((Chunk*)mem_end) - 1;
+
+    if (second >= region_last)
+        return false;
+
+    memory_chunk_init(region_first);
+    memory_chunk_init(second);
+    memory_chunk_init(region_last);
+    dlist_insert_after(&region_first->all, &second->all);
+    dlist_insert_after(&second->all, &region_last->all);
+
+    region_first->used = 1;
+    region_last->used = 1;
+
+    size_t len = memory_chunk_size(second);
+    int n = memory_chunk_bucket(len);
+    DLIST_PUSH(&free_chunk[n], second, free);
+    mem_free += len - HEADER_SIZE;
+    mem_meta += sizeof(Chunk) * 2 + HEADER_SIZE;
+
+    if (first == NULL)
+        first = region_first;
+    last = region_last;
+
+    return true;
+}
+
 static void memory_chunk_init(Chunk* chunk)
 {
     // printf("%s(%p)\n", __FUNCTION__, chunk);
@@ -204,26 +258,21 @@ static int memory_chunk_slot(size_t size)
 
 void mrvn_memory_init(void* mem, size_t size)
 {
-    char* mem_start = (char*)(((intptr_t)mem + ALIGN - 1) & (~(ALIGN - 1)));
-    char* mem_end = (char*)(((unsigned long)mem + size) & ((unsigned long)~(ALIGN - 1)));
-    first = (Chunk*)mem_start;
-    Chunk* second = first + 1;
-    last = ((Chunk*)mem_end) - 1;
-    memory_chunk_init(first);
-    memory_chunk_init(second);
-    memory_chunk_init(last);
-    dlist_insert_after(&first->all, &second->all);
-    dlist_insert_after(&second->all, &last->all);
-    // make first/last as used so they never get merged
-    first->used = 1;
-    last->used = 1;
+    for (int i = 0; i < NUM_SIZES; i++)
+        free_chunk[i] = NULL;
 
-    size_t len = memory_chunk_size(second);
-    int n = memory_chunk_slot(len);
-    // printf("%s(%p, %#lx) : adding chunk %#lx [%d]\n", __FUNCTION__, mem, size, len, n);
-    DLIST_PUSH(&free_chunk[n], second, free);
-    mem_free = len - HEADER_SIZE;
-    mem_meta = sizeof(Chunk) * 2 + HEADER_SIZE;
+    mem_free = 0;
+    mem_used = 0;
+    mem_meta = 0;
+    first = NULL;
+    last = NULL;
+
+    (void)memory_add_region(mem, size);
+}
+
+bool mrvn_memory_add(void* mem, size_t size)
+{
+    return memory_add_region(mem, size);
 }
 
 void* mrvn_malloc(size_t size)
@@ -255,7 +304,7 @@ void* mrvn_malloc(size_t size)
         memory_chunk_init(chunk2);
         dlist_insert_after(&chunk->all, &chunk2->all);
         len = memory_chunk_size(chunk2);
-        int n = memory_chunk_slot(len);
+        int n = memory_chunk_bucket(len);
         // printf("  adding chunk @ %p %#lx [%d]\n", chunk2, len, n);
         DLIST_PUSH(&free_chunk[n], chunk2, free);
         mem_meta += HEADER_SIZE;
@@ -274,7 +323,7 @@ void* mrvn_malloc(size_t size)
 static void remove_free(Chunk* chunk)
 {
     size_t len = memory_chunk_size(chunk);
-    int n = memory_chunk_slot(len);
+    int n = memory_chunk_bucket(len);
     // printf("%s(%p) : removing chunk %#lx [%d]\n", __FUNCTION__, chunk, len, n);
     DLIST_REMOVE_FROM(&free_chunk[n], chunk, free);
     mem_free -= len - HEADER_SIZE;
@@ -283,7 +332,7 @@ static void remove_free(Chunk* chunk)
 static void push_free(Chunk* chunk)
 {
     size_t len = memory_chunk_size(chunk);
-    int n = memory_chunk_slot(len);
+    int n = memory_chunk_bucket(len);
     // printf("%s(%p) : adding chunk %#lx [%d]\n", __FUNCTION__, chunk, len, n);
     DLIST_PUSH(&free_chunk[n], chunk, free);
     mem_free += len - HEADER_SIZE;

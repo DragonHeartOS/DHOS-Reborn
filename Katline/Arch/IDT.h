@@ -6,7 +6,7 @@ namespace Katline {
 
 class IDT {
 public:
-    struct Entry {
+    struct [[gnu::packed]] Entry {
         u16 offset0;
         u16 selector;
         u8 ist;
@@ -19,10 +19,10 @@ public:
     static void SetOffset(Entry& entry, u64 offset);
     static u64 GetOffset(Entry& entry);
 
-    struct IDTR {
+    struct [[gnu::packed]] IDTR {
         u16 limit;
         u64 base;
-    } __attribute__((packed));
+    };
 
     static void Init();
 };

@@ -1,0 +1,125 @@
+#include <Katline/limine.h>
+
+#include <CommonLib/Types.h>
+#include <Katline/Controllers/FramebufferController.h>
+#include <Katline/Katline.h>
+#include <Katline/Memory/MemoryData.h>
+
+static Katline::Memory::MemoryType limine_type_to_katline_type(uint64_t type)
+{
+    switch (type) {
+    case LIMINE_MEMMAP_USABLE:
+        return Katline::Memory::MemoryType::USABLE;
+    case LIMINE_MEMMAP_RESERVED:
+        return Katline::Memory::MemoryType::RESERVED;
+    case LIMINE_MEMMAP_ACPI_RECLAIMABLE:
+        return Katline::Memory::MemoryType::ACPI_RECLAIMABLE;
+    case LIMINE_MEMMAP_ACPI_NVS:
+        return Katline::Memory::MemoryType::ACPI_NVS;
+    case LIMINE_MEMMAP_BAD_MEMORY:
+        return Katline::Memory::MemoryType::BAD_MEMORY;
+    case LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE:
+        return Katline::Memory::MemoryType::BOOTLOADER_RECLAIMABLE;
+    case LIMINE_MEMMAP_EXECUTABLE_AND_MODULES:
+        return Katline::Memory::MemoryType::KERNEL_AND_MODULES;
+    case LIMINE_MEMMAP_FRAMEBUFFER:
+        return Katline::Memory::MemoryType::FRAMEBUFFER;
+    default:
+        return Katline::Memory::MemoryType::RESERVED;
+    }
+}
+
+static constexpr uint64_t kernel_stack_size = 8192;
+
+extern "C" void kernel_start();
+
+__attribute__((used, section(".limine_requests"))) static volatile uint64_t limine_base_revision[] = LIMINE_BASE_REVISION(3);
+
+__attribute__((used, section(".limine_requests"))) static volatile struct limine_stack_size_request stack_size_request = {
+    .id = LIMINE_STACK_SIZE_REQUEST_ID,
+    .revision = 0,
+    .response = nullptr,
+    .stack_size = kernel_stack_size,
+};
+
+__attribute__((used, section(".limine_requests"))) static volatile struct limine_framebuffer_request framebuffer_request = {
+    .id = LIMINE_FRAMEBUFFER_REQUEST_ID,
+    .revision = 0,
+    .response = nullptr,
+};
+
+__attribute__((used, section(".limine_requests"))) static volatile struct limine_memmap_request memmap_request = {
+    .id = LIMINE_MEMMAP_REQUEST_ID,
+    .revision = 0,
+    .response = nullptr,
+};
+
+__attribute__((used, section(".limine_requests"))) static volatile struct limine_hhdm_request hhdm_request = {
+    .id = LIMINE_HHDM_REQUEST_ID,
+    .revision = 0,
+    .response = nullptr,
+};
+
+__attribute__((used, section(".limine_requests_start"))) static volatile uint64_t limine_requests_start_marker[] = LIMINE_REQUESTS_START_MARKER;
+__attribute__((used, section(".limine_requests_end"))) static volatile uint64_t limine_requests_end_marker[] = LIMINE_REQUESTS_END_MARKER;
+
+extern "C" void kernel_start()
+{
+    if (!LIMINE_BASE_REVISION_SUPPORTED(limine_base_revision)) {
+        for (;;)
+            asm("hlt");
+    }
+
+    if (framebuffer_request.response == nullptr || framebuffer_request.response->framebuffer_count == 0 || memmap_request.response == nullptr || hhdm_request.response == nullptr) {
+        for (;;)
+            asm("hlt");
+    }
+
+    auto* fb_tag = framebuffer_request.response->framebuffers[0];
+    auto* mmap_tag = memmap_request.response;
+    u64 hhdm_offset = hhdm_request.response->offset;
+
+    if (fb_tag->bpp != 32) {
+        for (;;)
+            asm("hlt");
+    }
+
+    Katline::Controller::Framebuffer fb = {
+        (u64)fb_tag->address,
+        (u16)fb_tag->width,
+        (u16)fb_tag->height,
+        (u16)fb_tag->pitch,
+        fb_tag->bpp,
+        (u8*)fb_tag->address,
+    };
+
+    static Katline::Memory::MemoryData memory_map_entries[256];
+    u64 memory_map_entry_count = mmap_tag->entry_count;
+    if (memory_map_entry_count > 256)
+        memory_map_entry_count = 256;
+
+    for (u64 i = 0; i < memory_map_entry_count; i++) {
+        auto* entry = mmap_tag->entries[i];
+        u64 base = entry->base;
+
+        if (limine_type_to_katline_type(entry->type) == Katline::Memory::MemoryType::USABLE)
+            base += hhdm_offset;
+
+        memory_map_entries[i] = {
+            .base = base,
+            .size = entry->length,
+            .type = limine_type_to_katline_type(entry->type),
+            .unused = 0,
+        };
+    }
+
+    Katline::Memory::MemoryMap mmap = {
+        .size = memory_map_entry_count,
+        .data = memory_map_entries,
+    };
+
+    Katline::KatlineMain(&fb, &mmap);
+
+    for (;;)
+        asm("hlt");
+}
