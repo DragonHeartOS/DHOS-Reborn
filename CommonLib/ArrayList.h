@@ -72,7 +72,7 @@ template<typename T> struct ArrayList {
 		other.m_capacity = 0;
 	}
 
-	ArrayList(std::initializer_list<T> init)
+	ArrayList(InitializerList<T> init)
 	{
 		reserve(init.size());
 		for (usize i = 0; i < init.size(); ++i)

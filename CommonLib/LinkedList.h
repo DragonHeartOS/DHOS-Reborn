@@ -1,5 +1,6 @@
 #pragma once
 
+#include <CommonLib/InitializerList.h>
 #include <CommonLib/Iterator.h>
 #include <CommonLib/Option.h>
 #include <CommonLib/Types.h>
@@ -109,6 +110,12 @@ public:
 		other.m_head = nullptr;
 		other.m_tail = nullptr;
 		other.m_size = 0;
+	}
+
+	LinkedList(InitializerList<T> init)
+	{
+		for (usize i = 0; i < init.size(); ++i)
+			emplace(init[i]);
 	}
 
 	~LinkedList() { clear(); }
