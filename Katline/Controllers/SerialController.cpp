@@ -8,7 +8,7 @@ namespace Katline {
 
 namespace Controller {
 
-bool SerialController::init()
+auto SerialController::init() -> bool
 {
 	m_enabled = false;
 
@@ -39,9 +39,9 @@ bool SerialController::init()
 	return true;
 }
 
-int SerialController::received() { return IO::inb(PORT + 5) & 1; }
+auto SerialController::received() -> int { return IO::inb(PORT + 5) & 1; }
 
-char SerialController::read()
+auto SerialController::read() -> char
 {
 	if (m_enabled) {
 		while (received() == 0)
@@ -53,9 +53,12 @@ char SerialController::read()
 	}
 }
 
-int SerialController::is_transmit_empty() { return IO::inb(PORT + 5) & 0x20; }
+auto SerialController::is_transmit_empty() -> int
+{
+	return IO::inb(PORT + 5) & 0x20;
+}
 
-void SerialController::write(char ch)
+auto SerialController::write(char ch) -> void
 {
 	if (m_enabled) {
 		while (is_transmit_empty() == 0)
@@ -65,14 +68,15 @@ void SerialController::write(char ch)
 	}
 }
 
-void SerialController::write_string_safe(char const *string, size_t size)
+auto SerialController::write_string_safe(char const *string, size_t size)
+    -> void
 {
 	if (m_enabled)
 		for (size_t i {}; i < size; i++)
 			write(string[i]);
 }
 
-void SerialController::write_string(char const *string)
+auto SerialController::write_string(char const *string) -> void
 {
 	if (m_enabled) {
 		while (string[0] != '\0') {

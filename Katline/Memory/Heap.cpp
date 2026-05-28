@@ -13,7 +13,7 @@ struct DList {
 };
 
 // initialize a one element DList
-static inline void dlist_init(DList *dlist)
+static inline auto dlist_init(DList *dlist) -> void
 {
 	// printf("%s(%p)\n", __FUNCTION__, dlist);
 	dlist->next = dlist;
@@ -21,7 +21,7 @@ static inline void dlist_init(DList *dlist)
 }
 
 // insert d2 after d1
-static inline void dlist_insert_after(DList *d1, DList *d2)
+static inline auto dlist_insert_after(DList *d1, DList *d2) -> void
 {
 	// printf("%s(%p, %p)\n", __FUNCTION__, d1, d2);
 	DList *n1 = d1->next;
@@ -34,7 +34,7 @@ static inline void dlist_insert_after(DList *d1, DList *d2)
 }
 
 // insert d2 before d1
-static inline void dlist_insert_before(DList *d1, DList *d2)
+static inline auto dlist_insert_before(DList *d1, DList *d2) -> void
 {
 	// printf("%s(%p, %p)\n", __FUNCTION__, d1, d2);
 	DList *e1 = d1->prev;
@@ -47,7 +47,7 @@ static inline void dlist_insert_before(DList *d1, DList *d2)
 }
 
 // remove d from the list
-static inline void dlist_remove(DList *d)
+static inline auto dlist_remove(DList *d) -> void
 {
 	// printf("%s(%p)\n", __FUNCTION__, d);
 	d->prev->next = d->next;
@@ -57,7 +57,7 @@ static inline void dlist_remove(DList *d)
 }
 
 // push d2 to the front of the d1p list
-static inline void dlist_push(DList **d1p, DList *d2)
+static inline auto dlist_push(DList **d1p, DList *d2) -> void
 {
 	// printf("%s(%p, %p)\n", __FUNCTION__, d1p, d2);
 	if (*d1p != NULL) {
@@ -67,7 +67,7 @@ static inline void dlist_push(DList **d1p, DList *d2)
 }
 
 // pop the front of the dp list
-static inline DList *dlist_pop(DList **dp)
+static inline auto dlist_pop(DList **dp) -> DList *
 {
 	// printf("%s(%p)\n", __FUNCTION__, dp);
 	DList *d1 = *dp;
@@ -82,7 +82,7 @@ static inline DList *dlist_pop(DList **dp)
 }
 
 // remove d2 from the list, advancing d1p if needed
-static inline void dlist_remove_from(DList **d1p, DList *d2)
+static inline auto dlist_remove_from(DList **d1p, DList *d2) -> void
 {
 	// printf("%s(%p, %p)\n", __FUNCTION__, d1p, d2);
 	if (*d1p == d2) {
@@ -176,11 +176,11 @@ size_t mem_meta = 0;
 Chunk *first = NULL;
 Chunk *last = NULL;
 
-static void memory_chunk_init(Chunk *chunk);
-static size_t memory_chunk_size(Chunk const *chunk);
-static int memory_chunk_slot(size_t size);
+static auto memory_chunk_init(Chunk *chunk) -> void;
+static auto memory_chunk_size(Chunk const *chunk) -> size_t;
+static auto memory_chunk_slot(size_t size) -> int;
 
-static int memory_chunk_bucket(size_t size)
+static auto memory_chunk_bucket(size_t size) -> int
 {
 	int n = memory_chunk_slot(size);
 	if (n < 0)
@@ -190,7 +190,7 @@ static int memory_chunk_bucket(size_t size)
 	return n;
 }
 
-static bool memory_add_region(void *mem, size_t size)
+static auto memory_add_region(void *mem, size_t size) -> bool
 {
 	char *mem_start = (char *)(((intptr_t)mem + ALIGN - 1) & (~(ALIGN - 1)));
 	char *mem_end
@@ -231,7 +231,7 @@ static bool memory_add_region(void *mem, size_t size)
 	return true;
 }
 
-static void memory_chunk_init(Chunk *chunk)
+static auto memory_chunk_init(Chunk *chunk) -> void
 {
 	// printf("%s(%p)\n", __FUNCTION__, chunk);
 	DLIST_INIT(chunk, all);
@@ -239,7 +239,7 @@ static void memory_chunk_init(Chunk *chunk)
 	DLIST_INIT(chunk, free);
 }
 
-static size_t memory_chunk_size(Chunk const *chunk)
+static auto memory_chunk_size(Chunk const *chunk) -> size_t
 {
 	// printf("%s(%p)\n", __FUNCTION__, chunk);
 	char *end = (char *)(chunk->all.next);
@@ -247,7 +247,7 @@ static size_t memory_chunk_size(Chunk const *chunk)
 	return (size_t)((end - start) - HEADER_SIZE);
 }
 
-static int memory_chunk_slot(size_t size)
+static auto memory_chunk_slot(size_t size) -> int
 {
 	int n = -1;
 	while (size > 0) {
@@ -257,7 +257,7 @@ static int memory_chunk_slot(size_t size)
 	return n;
 }
 
-void mrvn_memory_init(void *mem, size_t size)
+auto mrvn_memory_init(void *mem, size_t size) -> void
 {
 	for (int i = 0; i < NUM_SIZES; i++)
 		free_chunk[i] = NULL;
@@ -271,12 +271,12 @@ void mrvn_memory_init(void *mem, size_t size)
 	(void)memory_add_region(mem, size);
 }
 
-bool mrvn_memory_add(void *mem, size_t size)
+auto mrvn_memory_add(void *mem, size_t size) -> bool
 {
 	return memory_add_region(mem, size);
 }
 
-void *mrvn_malloc(size_t size)
+auto mrvn_malloc(size_t size) -> void *
 {
 	// printf("%s(%#lx)\n", __FUNCTION__, size);
 	size = (size + ALIGN - 1) & (unsigned long)(~(ALIGN - 1));
@@ -321,7 +321,7 @@ void *mrvn_malloc(size_t size)
 	return chunk->data;
 }
 
-static void remove_free(Chunk *chunk)
+static auto remove_free(Chunk *chunk) -> void
 {
 	size_t len = memory_chunk_size(chunk);
 	int n = memory_chunk_bucket(len);
@@ -331,7 +331,7 @@ static void remove_free(Chunk *chunk)
 	mem_free -= len - HEADER_SIZE;
 }
 
-static void push_free(Chunk *chunk)
+static auto push_free(Chunk *chunk) -> void
 {
 	size_t len = memory_chunk_size(chunk);
 	int n = memory_chunk_bucket(len);
@@ -340,7 +340,7 @@ static void push_free(Chunk *chunk)
 	mem_free += len - HEADER_SIZE;
 }
 
-void mrvn_free(void *mem)
+auto mrvn_free(void *mem) -> void
 {
 	Chunk *chunk = (Chunk *)((char *)mem - HEADER_SIZE);
 	Chunk *next = CONTAINER(Chunk, all, chunk->all.next);

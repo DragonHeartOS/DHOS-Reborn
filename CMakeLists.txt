@@ -18,6 +18,7 @@ set(KERNEL_TARGET katline)
 
 include_directories(${CMAKE_CURRENT_LIST_DIR})
 
+add_subdirectory(CommonLib)
 add_subdirectory(Katline)
 
 add_custom_target(image
@@ -35,8 +36,19 @@ add_custom_target(cdrom
 )
 
 add_custom_target(run
+    DEPENDS run-cdrom
+)
+
+add_custom_target(run-cdrom
     COMMAND "${CMAKE_SOURCE_DIR}/Util/Run.sh"
     WORKING_DIRECTORY "${CMAKE_BINARY_DIR}"
-    DEPENDS ${KERNEL_TARGET}
+    DEPENDS cdrom
+    USES_TERMINAL
+)
+
+add_custom_target(run-image
+    COMMAND "${CMAKE_SOURCE_DIR}/Util/Run.sh"
+    WORKING_DIRECTORY "${CMAKE_BINARY_DIR}"
+    DEPENDS image
     USES_TERMINAL
 )

@@ -10,6 +10,7 @@ set(SOURCES
     Katline.cpp)
 
 add_executable(${KERNEL_TARGET} ${SOURCES})
+target_link_libraries(${KERNEL_TARGET} PRIVATE CommonLib)
 target_include_directories(${KERNEL_TARGET} PUBLIC .)
 set_property(TARGET ${KERNEL_TARGET} PROPERTY OUTPUT_NAME Katline)
 set_property(TARGET ${KERNEL_TARGET} PROPERTY LINK_FLAGS "-T ${CMAKE_SOURCE_DIR}/Katline/linker.ld -nostdlib -zmax-page-size=0x1000 -static")

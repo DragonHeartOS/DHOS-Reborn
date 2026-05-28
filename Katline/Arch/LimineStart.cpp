@@ -5,7 +5,8 @@
 #include <Katline/Katline.h>
 #include <Katline/Memory/MemoryData.h>
 
-static Katline::Memory::MemoryType limine_type_to_katline_type(uint64_t type)
+static auto limine_type_to_katline_type(uint64_t type)
+    -> Katline::Memory::MemoryType
 {
 	switch (type) {
 	case LIMINE_MEMMAP_USABLE:
@@ -85,7 +86,7 @@ __attribute__((used, section(".limine_requests_end"))) static volatile uint64_t
     limine_requests_end_marker[]
     = LIMINE_REQUESTS_END_MARKER;
 
-extern "C" void kernel_start()
+extern "C" auto kernel_start() -> void
 {
 	if (!LIMINE_BASE_REVISION_SUPPORTED(limine_base_revision)) {
 		for (;;)
@@ -144,7 +145,7 @@ extern "C" void kernel_start()
 		.data = memory_map_entries,
 	};
 
-	Katline::KatlineMain(&fb, &mmap);
+	Katline::katline_main(&fb, &mmap);
 
 	for (;;)
 		asm("hlt");

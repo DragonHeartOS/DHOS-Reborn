@@ -1,17 +1,21 @@
 #pragma once
 
-#include <stddef.h>
 #include <stdint.h>
 
-typedef unsigned int uint;
-typedef unsigned char u8;
-typedef unsigned short u16;
-typedef unsigned int u32;
-typedef unsigned long u64;
-typedef signed char i8;
-typedef short i16;
-typedef int i32;
-typedef long i64;
-typedef float f32;
-typedef double f64;
-typedef unsigned long uptr;
+using uint = unsigned int;
+
+using u8 = unsigned char;
+using u16 = unsigned short;
+using u32 = unsigned int;
+using u64 = unsigned long;
+
+using i8 = signed char;
+using i16 = short;
+using i32 = int;
+using i64 = long;
+
+using f32 = float;
+using f64 = double;
+
+using uptr = unsigned long;
+using usize = decltype(sizeof(0));

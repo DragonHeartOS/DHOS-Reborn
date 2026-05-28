@@ -13,25 +13,25 @@ struct interrupt_frame {
 	u64 ss;
 };
 
-[[noreturn]] static void halt_forever()
+[[noreturn]] static auto halt_forever() -> void
 {
 	for (;;)
 		asm("hlt");
 }
 
-extern "C" __attribute__((interrupt)) void idt_default_handler(
-    interrupt_frame *)
+extern "C" __attribute__((interrupt)) auto idt_default_handler(
+    interrupt_frame *) -> void
 {
 	halt_forever();
 }
 
-extern "C" __attribute__((interrupt)) void idt_default_handler_ec(
-    interrupt_frame *, u64)
+extern "C" __attribute__((interrupt)) auto idt_default_handler_ec(
+    interrupt_frame *, u64) -> void
 {
 	halt_forever();
 }
 
-static bool vector_has_error_code(u8 vector)
+static auto vector_has_error_code(u8 vector) -> bool
 {
 	switch (vector) {
 	case 8:
@@ -56,14 +56,14 @@ IDT::Entry entries[256];
 static_assert(sizeof(IDT::Entry) == 16, "IDT entry must be 16 bytes");
 static_assert(sizeof(IDT::IDTR) == 10, "IDTR must be 10 bytes");
 
-void IDT::set_offset(Entry &entry, u64 offset)
+auto IDT::set_offset(Entry &entry, u64 offset) -> void
 {
 	entry.offset0 = (u16)(offset & 0x000000000000ffff);
 	entry.offset1 = (u16)((offset & 0x00000000ffff0000) >> 16);
 	entry.offset2 = (u32)((offset & 0xffffffff00000000) >> 32);
 }
 
-u64 IDT::get_offset(Entry &entry)
+auto IDT::get_offset(Entry &entry) -> u64
 {
 	u64 offset = 0;
 	offset |= (u64)entry.offset0;
@@ -72,7 +72,7 @@ u64 IDT::get_offset(Entry &entry)
 	return offset;
 }
 
-void IDT::init()
+auto IDT::init() -> void
 {
 	u16 code_selector;
 	asm volatile("mov %%cs, %0" : "=r"(code_selector));

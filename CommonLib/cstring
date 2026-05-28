@@ -1,0 +1,10 @@
+#pragma once
+
+#include <CommonLib/Types.h>
+
+usize strlen(char const *str);
+char *strcpy(char *destination, char const *source);
+void revstr(char *str1);
+void itoa(int n, char s[]);
+void memcpy(void *dst, void *src, usize size);
+

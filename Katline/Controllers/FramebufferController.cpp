@@ -78,7 +78,7 @@ void FramebufferController::draw_character(char const ch, bool const inverted)
 }
 
 // TODO: Put this in Marine
-void memset(void *destination, int const value, size_t const size)
+auto memset(void *destination, int const value, size_t const size) -> void
 {
 	auto destination_ptr { (u8 *)destination };
 	for (size_t i {}; i < size; i++)
@@ -124,7 +124,7 @@ void FramebufferController::put_string(char const *string, bool const inverted)
 }
 
 // TODO: Put this in Marine
-void memcpy(void *dest, void *source, size_t const size)
+auto memcpy(void *dest, void *source, size_t const size) -> void
 {
 	char *d = (char *)dest;
 	char *s = (char *)source;

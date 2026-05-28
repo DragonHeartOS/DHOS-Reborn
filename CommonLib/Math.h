@@ -12,11 +12,11 @@ public:
 	{
 	}
 
-	int Y() { return m_y; }
-	int X() { return m_x; }
+	auto Y() -> int { return m_y; }
+	auto X() -> int { return m_x; }
 
-	void SetY(int value) { m_y = value; }
-	void SetX(int value) { m_x = value; }
+	auto SetY(int value) -> void { m_y = value; }
+	auto SetX(int value) -> void { m_x = value; }
 
 private:
 	int m_y = 0;
