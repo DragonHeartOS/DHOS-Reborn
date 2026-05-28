@@ -76,6 +76,14 @@ template<typename... Ts> struct Variant {
 		construct<I>(forward<Args>(args)...);
 	}
 
+	template<typename T>
+	requires OneOf<RemoveConstRef<T>, Ts...> constexpr Variant(T &&value)
+	{
+		using U = RemoveConstRef<T>;
+		constexpr int I = detail::VariantIndex<U, Ts...>::value;
+		construct<I>(forward<T>(value));
+	}
+
 	/// @brief Create a Variant holding a value of the specified type
 	/// constructed with the given arguments.
 	/// @tparam I The index of the type to construct in the Variant.

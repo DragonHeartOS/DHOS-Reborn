@@ -86,4 +86,10 @@ using InvokeResult = decltype(declval<Fn>()(declval<Args>()...));
 template<typename Fn, typename... Args>
 using InvokeResultT = InvokeResult<Fn, Args...>;
 
+template<typename T, typename U>
+concept SameAs = __is_same(T, U);
+
+template<typename T, typename... Ts>
+concept OneOf = (SameAs<T, Ts> || ...);
+
 }
