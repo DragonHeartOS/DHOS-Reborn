@@ -19,20 +19,28 @@ template<DoubleEndedIterator Iter> struct ReverseIter;
 template<class Self> struct Iterator {
 	Self &self() { return static_cast<Self &>(*this); }
 
+	template<class F> auto map(F f) & = delete ("Iterator must be an rvalue");
+	;
 	template<class F> auto map(F f) &&
 	{
 		return MapIter<Self, F>(move(self()), move(f));
 	}
+	template<class P>
+	auto filter(P pred) & = delete ("Iterator must be an rvalue");
 	template<class P> auto filter(P pred) &&
 	{
 		return FilterIter<Self, P>(move(self()), move(pred));
 	}
+	template<class F>
+	void for_each(F f) & = delete ("Iterator must be an rvalue");
 	template<class F> void for_each(F f) &&
 	{
 		while (auto x { self().next() })
 			f(*x);
 	}
 
+	template<class Container>
+	auto collect() & -> Container = delete ("Iterator must be an rvalue");
 	template<class Container> auto collect() && -> Container
 	{
 		Container result;
@@ -41,6 +49,8 @@ template<class Self> struct Iterator {
 		return result;
 	}
 
+	template<class Other>
+	auto eq(Other other) & -> bool = delete ("Iterator must be an rvalue");
 	template<class Other> auto eq(Other other) && -> bool
 	{
 		while (true) {
@@ -58,6 +68,7 @@ template<class Self> struct Iterator {
 		}
 	}
 
+	auto rev() & = delete ("Iterator must be an rvalue");
 	auto rev() &&
 	requires DoubleEndedIterator<Self>
 	{
