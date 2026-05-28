@@ -10,21 +10,13 @@ namespace Debug {
 
 static bool s_framebuffer_logging_enabled = false;
 
-auto set_framebuffer_logging_enabled(bool enabled) -> void
+static auto write_formatted_impl(char const *str, va_list vl) -> void
 {
-	s_framebuffer_logging_enabled = enabled;
-}
-
-auto write_formatted(char const *str, ...) -> void
-{
-	va_list vl;
 	usize i = 0;
 	usize j = 0;
 
 	char buffer[100] = { 0 };
 	char temp[20];
-
-	va_start(vl, str);
 
 	while (str && str[i]) {
 		if (str[i] == '%') {
@@ -104,12 +96,32 @@ auto write_formatted(char const *str, ...) -> void
 
 	buffer[j] = '\0';
 
-	va_end(vl);
-
 	k_serial_controller.write_string(buffer);
 
 	if (s_framebuffer_logging_enabled)
 		k_framebuffer_controller.put_string(buffer);
+}
+
+auto set_framebuffer_logging_enabled(bool enabled) -> void
+{
+	s_framebuffer_logging_enabled = enabled;
+}
+
+auto write_formatted(char const *str, ...) -> void
+{
+	va_list vl;
+
+	va_start(vl, str);
+	write_formatted_impl(str, vl);
+	va_end(vl);
+}
+
+auto print_formatted(char const *str, ...) -> void
+{
+	va_list vl;
+	va_start(vl, str);
+	write_formatted_impl(str, vl);
+	va_end(vl);
 }
 
 }

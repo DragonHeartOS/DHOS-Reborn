@@ -44,7 +44,7 @@ template<typename Derived, typename T> struct OptionAccessBase {
 		return static_cast<Derived const &>(*this).get_unsafe();
 	}
 
-	auto operator->() -> T * { return &unwrap(); }
+	auto operator->() -> RemoveReferenceT<T> * { return &unwrap(); }
 
 	constexpr auto operator->() const
 	{

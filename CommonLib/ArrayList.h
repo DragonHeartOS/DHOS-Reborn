@@ -2,6 +2,7 @@
 
 #include <CommonLib/Iterator.h>
 #include <CommonLib/Option.h>
+#include <CommonLib/Platform.h>
 #include <CommonLib/Types.h>
 
 namespace CL {

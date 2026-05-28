@@ -1,5 +1,6 @@
 #include <Katline/Memory/MemoryManager.h>
 
+#include <CommonLib/Platform.h>
 #include <CommonLib/Types.h>
 #include <Katline/Debug.h>
 #include <Katline/Memory/Heap.h>
@@ -99,29 +100,6 @@ auto MemoryManager::free(void *ptr) -> void
 
 }
 
-namespace std {
-
-using size_t = ::usize;
-
-struct nothrow_t {
-	explicit nothrow_t() = default;
-};
-
-struct align_val_t {
-	explicit align_val_t(size_t a)
-	    : value(a)
-	{
-	}
-
-	size_t value;
-};
-
-inline constexpr nothrow_t nothrow {};
-
-class bad_alloc { };
-
-}
-
 using Katline::Memory::MemoryManager;
 
 [[noreturn]] static void allocation_panic()
@@ -130,7 +108,7 @@ using Katline::Memory::MemoryManager;
 		asm("hlt");
 }
 
-auto operator new(std::size_t size) -> void *
+auto operator new(usize size) -> void *
 {
 	if (size == 0)
 		size = 1;
@@ -141,7 +119,7 @@ auto operator new(std::size_t size) -> void *
 	allocation_panic();
 }
 
-auto operator new[](std::size_t size) -> void *
+auto operator new[](usize size) -> void *
 {
 	if (size == 0)
 		size = 1;
@@ -152,7 +130,7 @@ auto operator new[](std::size_t size) -> void *
 	allocation_panic();
 }
 
-auto operator new(std::size_t size, std::align_val_t alignment) -> void *
+auto operator new(usize size, std::align_val_t alignment) noexcept -> void *
 {
 	if (size == 0)
 		size = 1;
@@ -163,7 +141,7 @@ auto operator new(std::size_t size, std::align_val_t alignment) -> void *
 	allocation_panic();
 }
 
-auto operator new[](std::size_t size, std::align_val_t alignment) -> void *
+auto operator new[](usize size, std::align_val_t alignment) noexcept -> void *
 {
 	if (size == 0)
 		size = 1;
@@ -174,7 +152,7 @@ auto operator new[](std::size_t size, std::align_val_t alignment) -> void *
 	allocation_panic();
 }
 
-auto operator new(std::size_t size, std::nothrow_t const &) noexcept -> void *
+auto operator new(usize size, std::nothrow_t const &) noexcept -> void *
 {
 	if (size == 0)
 		size = 1;
@@ -182,7 +160,7 @@ auto operator new(std::size_t size, std::nothrow_t const &) noexcept -> void *
 	return MemoryManager::allocate(size);
 }
 
-auto operator new[](std::size_t size, std::nothrow_t const &) noexcept -> void *
+auto operator new[](usize size, std::nothrow_t const &) noexcept -> void *
 {
 	if (size == 0)
 		size = 1;
@@ -190,7 +168,7 @@ auto operator new[](std::size_t size, std::nothrow_t const &) noexcept -> void *
 	return MemoryManager::allocate(size);
 }
 
-auto operator new(std::size_t size, std::align_val_t alignment,
+auto operator new(usize size, std::align_val_t alignment,
     std::nothrow_t const &) noexcept -> void *
 {
 	if (size == 0)
@@ -199,7 +177,7 @@ auto operator new(std::size_t size, std::align_val_t alignment,
 	return MemoryManager::allocate_aligned(size, alignment.value);
 }
 
-auto operator new[](std::size_t size, std::align_val_t alignment,
+auto operator new[](usize size, std::align_val_t alignment,
     std::nothrow_t const &) noexcept -> void *
 {
 	if (size == 0)
@@ -212,12 +190,12 @@ auto operator delete(void *ptr) noexcept -> void { MemoryManager::free(ptr); }
 
 auto operator delete[](void *ptr) noexcept -> void { MemoryManager::free(ptr); }
 
-auto operator delete(void *ptr, std::size_t) noexcept -> void
+auto operator delete(void *ptr, usize) noexcept -> void
 {
 	MemoryManager::free(ptr);
 }
 
-auto operator delete[](void *ptr, std::size_t) noexcept -> void
+auto operator delete[](void *ptr, usize) noexcept -> void
 {
 	MemoryManager::free(ptr);
 }
@@ -232,12 +210,12 @@ auto operator delete[](void *ptr, std::align_val_t) noexcept -> void
 	MemoryManager::free(ptr);
 }
 
-auto operator delete(void *ptr, std::size_t, std::align_val_t) noexcept -> void
+auto operator delete(void *ptr, usize, std::align_val_t) noexcept -> void
 {
 	MemoryManager::free(ptr);
 }
 
-auto operator delete[](void *ptr, std::size_t, std::align_val_t) noexcept
+auto operator delete[](void *ptr, usize, std::align_val_t) noexcept
     -> void
 {
 	MemoryManager::free(ptr);
@@ -265,12 +243,12 @@ auto operator delete[](
 	MemoryManager::free(ptr);
 }
 
-inline auto operator new(std::size_t, void *ptr) noexcept -> void *
+inline auto operator new(usize, void *ptr) noexcept -> void *
 {
 	return ptr;
 }
 
-inline auto operator new[](std::size_t, void *ptr) noexcept -> void *
+inline auto operator new[](usize, void *ptr) noexcept -> void *
 {
 	return ptr;
 }
