@@ -141,6 +141,19 @@ template<typename Derived, typename T> struct OptionBase {
 
 }
 
+/// @brief A type that represents an optional value, which may be present or
+/// absent.
+/// @tparam T The type of the value that may be present in the Option.
+/// @code
+/// Option<int> a = 5; // a is an Option that contains the value 5
+/// Option<int> b; // b is an empty Option
+/// if (a) {
+///     // a contains a value, so this block will be executed
+/// }
+/// if (!b) {
+///     // b does not contain a value, so this block will be executed
+/// }
+/// @endcode
 template<typename T>
 struct Option
     : detail::OptionBase<Option<T>, T>
@@ -193,6 +206,10 @@ struct Option
 		return *this;
 	}
 
+	/// @brief Construct a value in place in the Option.
+	/// @tparam Args The types of the arguments to construct the value.
+	/// @param args The arguments to construct the value.
+	/// @return A reference to the constructed value.
 	template<typename... Args> constexpr auto emplace(Args &&...args) -> T &
 	{
 		reset();
@@ -203,6 +220,8 @@ struct Option
 		return m_union.value;
 	}
 
+	/// @brief Reset the Option to an empty state, destroying the contained
+	/// value if it is present.
 	constexpr auto reset() -> void
 	{
 		if (m_has_value) {
@@ -211,10 +230,20 @@ struct Option
 		}
 	}
 
+	/// @brief Get a reference to the value contained in the Option without
+	/// checking if it is present.
+	/// @return A reference to the value contained in the Option.
 	constexpr auto get_unsafe() -> T & { return m_union.value; }
+	/// @brief Get a reference to the value contained in the Option without
+	/// checking if it is present.
+	/// @return A reference to the value contained in the Option.
 	constexpr auto get_unsafe() const -> T const & { return m_union.value; }
 
+	/// @brief Check if the Option contains a value.
+	/// @return True if the Option contains a value, false otherwise.
 	constexpr auto is_some() -> bool { return m_has_value; }
+	/// @brief Check if the Option contains a value.
+	/// @return True if the Option contains a value, false otherwise.
 	constexpr auto is_some() const -> bool { return m_has_value; }
 
 	constexpr explicit operator bool() const { return m_has_value; }
@@ -240,12 +269,24 @@ struct Option<T &>
 	{
 	}
 
+	/// @brief Reset the Option to an empty state, destroying the contained
+	/// value if it is present.
 	constexpr auto reset() -> void { m_value = nullptr; }
 
+	/// @brief Get a reference to the value contained in the Option without
+	/// checking if it is present.
+	/// @return A reference to the value contained in the Option.
 	constexpr auto get_unsafe() -> T & { return *m_value; }
+	/// @brief Get a reference to the value contained in the Option without
+	/// checking if it is present.
+	/// @return A reference to the value contained in the Option.
 	constexpr auto get_unsafe() const -> T const & { return *m_value; }
 
+	/// @brief Check if the Option contains a value.
+	/// @return True if the Option contains a value, false otherwise.
 	constexpr auto is_some() -> bool { return m_value != nullptr; }
+	/// @brief Check if the Option contains a value.
+	/// @return True if the Option contains a value, false otherwise.
 	constexpr auto is_some() const -> bool { return m_value != nullptr; }
 
 	constexpr explicit operator bool() const { return is_some(); }

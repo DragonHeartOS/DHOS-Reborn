@@ -4,6 +4,8 @@
 
 namespace CL {
 
+/// @brief A non-owning view of a string of characters.
+/// @tparam CharTypeT The type of the characters in the string view.
 template<typename CharTypeT> struct BaseStringView {
 	static constexpr auto length(CharTypeT const *c_str) -> usize
 	{
@@ -26,10 +28,18 @@ template<typename CharTypeT> struct BaseStringView {
 	{
 	}
 
+	/// @brief Get a pointer to the characters in the string view.
+	/// @return A pointer to the characters in the string view.
 	constexpr auto data() -> CharTypeT const * { return m_data; }
+	/// @brief Get a pointer to the characters in the string view.
+	/// @return A pointer to the characters in the string view.
 	constexpr auto data() const -> CharTypeT const * { return m_data; }
 
+	/// @brief Get the size of the string view.
+	/// @return The size of the string view.
 	constexpr auto size() -> usize { return m_size; }
+	/// @brief Get the size of the string view.
+	/// @return The size of the string view.
 	constexpr auto size() const -> usize { return m_size; }
 
 	constexpr auto operator==(BaseStringView const &other) const -> bool

@@ -16,22 +16,44 @@ template<class Iter, class F> struct MapIter;
 template<class Iter, class P> struct FilterIter;
 template<DoubleEndedIterator Iter> struct ReverseIter;
 
+/// @brief A base class for iterators that provides common iterator methods such
+/// as map, filter, collect, etc.
+/// @tparam Self The type of the derived iterator class.
 template<class Self> struct Iterator {
 	Self &self() { return static_cast<Self &>(*this); }
 
 	template<class F> auto map(F f) & = delete ("Iterator must be an rvalue");
+	/// @brief Create a new iterator that applies a function to each element of
+	/// the original iterator.
+	/// @tparam F The type of the function to apply to each element of the
+	/// original iterator.
+	/// @param f The function to apply to each element of the original iterator.
+	/// @return A new iterator that applies the function to each element of the
+	/// original iterator.
 	template<class F> auto map(F f) &&
 	{
 		return MapIter<Self, F>(move(self()), move(f));
 	}
 	template<class P>
 	auto filter(P pred) & = delete ("Iterator must be an rvalue");
+	/// @brief Create a new iterator that filters the elements of the original
+	/// iterator using a predicate function.
+	/// @tparam P The type of the predicate function to use for filtering the
+	/// elements of the original iterator.
+	/// @param pred The predicate function to use for filtering the elements of
+	/// the original iterator.
+	/// @return A new iterator that filters the elements of the original
+	/// iterator using the specified predicate function.
 	template<class P> auto filter(P pred) &&
 	{
 		return FilterIter<Self, P>(move(self()), move(pred));
 	}
 	template<class F>
 	void for_each(F f) & = delete ("Iterator must be an rvalue");
+	/// @brief Apply a function to each element of the iterator.
+	/// @tparam F The type of the function to apply to each element of the
+	/// iterator.
+	/// @param f The function to apply to each element of the iterator.
 	template<class F> void for_each(F f) &&
 	{
 		while (auto x { self().next() })
@@ -40,6 +62,12 @@ template<class Self> struct Iterator {
 
 	template<class Container>
 	auto collect() & -> Container = delete ("Iterator must be an rvalue");
+	/// @brief Collect the elements of the iterator into a container.
+	/// @tparam Container The type of the container to collect the elements
+	/// into. The container must have a push method that can be used to add
+	/// elements to the container.
+	/// @param container The container to collect the elements into.
+	/// @return The container with the collected elements.
 	template<class Container> auto collect() && -> Container
 	{
 		Container result;
@@ -49,6 +77,10 @@ template<class Self> struct Iterator {
 	}
 
 	auto rev() & = delete ("Iterator must be an rvalue");
+	/// @brief Create a new iterator that iterates over the elements of the
+	/// original iterator in reverse order.
+	/// @return A new iterator that iterates over the elements of the original
+	/// iterator in reverse order.
 	auto rev() &&
 	requires DoubleEndedIterator<Self>
 	{
@@ -57,6 +89,14 @@ template<class Self> struct Iterator {
 
 	template<class Other>
 	auto eq(Other other) & -> bool = delete ("Iterator must be an rvalue");
+	/// @brief Check if the elements of the iterator are equal to the elements
+	/// of another iterator.
+	/// @tparam Other The type of the other iterator to compare with. The other
+	/// iterator must produce elements of the same type as the original
+	/// iterator.
+	/// @param other The other iterator to compare with.
+	/// @return True if the elements of the original iterator are equal to the
+	/// elements of the other iterator, false otherwise.
 	template<class Other> auto eq(Other other) && -> bool
 	{
 		while (true) {
@@ -76,6 +116,14 @@ template<class Self> struct Iterator {
 
 	template<class P>
 	auto any(P pred) & -> bool = delete ("Iterator must be an rvalue");
+	/// @brief Check if any element of the iterator satisfies a predicate
+	/// function.
+	/// @tparam P The type of the predicate function to use for checking the
+	/// elements of the iterator.
+	/// @param pred The predicate function to use for checking the elements of
+	/// the iterator.
+	/// @return True if any element of the iterator satisfies the predicate
+	/// function, false otherwise.
 	template<class P> auto any(P pred) && -> bool
 	{
 		return move(self()).find_if(move(pred)).has_value();
@@ -83,6 +131,14 @@ template<class Self> struct Iterator {
 
 	template<class P>
 	auto every(P pred) & -> bool = delete ("Iterator must be an rvalue");
+	/// @brief Check if every element of the iterator satisfies a predicate
+	/// function.
+	/// @tparam P The type of the predicate function to use for checking the
+	/// elements of the iterator.
+	/// @param pred The predicate function to use for checking the elements of
+	/// the iterator.
+	/// @return True if every element of the iterator satisfies the predicate
+	/// function, false otherwise.
 	template<class P> auto every(P pred) && -> bool
 	{
 		while (auto x { self().next() }) {
@@ -94,6 +150,15 @@ template<class Self> struct Iterator {
 
 	template<class P>
 	auto find_if(P pred) & = delete ("Iterator must be an rvalue");
+	/// @brief Find the first element of the iterator that satisfies a predicate
+	/// function.
+	/// @tparam P The type of the predicate function to use for finding the
+	/// element of the iterator.
+	/// @param pred The predicate function to use for finding the element of the
+	/// iterator.
+	/// @return An Option containing the first element of the iterator that
+	/// satisfies the predicate function if such an element exists, or an empty
+	/// Option if no such element exists.
 	template<class P> auto find_if(P pred) &&
 	{
 		while (auto x { self().next() }) {
@@ -105,6 +170,15 @@ template<class Self> struct Iterator {
 
 	template<class Value>
 	auto find(Value const &value) & = delete ("Iterator must be an rvalue");
+	/// @brief Find the first element of the iterator that is equal to a
+	/// specified value.
+	/// @tparam Value The type of the value to find in the iterator. The value
+	/// must be comparable with the elements of the iterator using the equality
+	/// operator.
+	/// @param value The value to find in the iterator.
+	/// @return An Option containing the first element of the iterator that is
+	/// equal to the specified value if such an element exists, or an empty
+	/// Option if no such element exists.
 	template<class Value> auto find(Value const &value) &&
 	{
 		return move(self()).find_if([&](auto const &x) { return x == value; });

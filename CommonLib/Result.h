@@ -521,16 +521,25 @@ protected:
 
 }
 
+/// @brief A type that represents either a success (Ok) or an error (Err) value.
+/// @tparam T The type of the success value.
+/// @tparam E The type of the error value.
 template<typename T, typename E>
 struct Result
     : detail::ResultOwnershipBase<detail::ResultStorage<T, E>>
     , detail::ResultBase<Result<T, E>, T, E>
     , detail::ResultAccessBase<Result<T, E>, T, E> {
+	/// @brief Create a new Result with an Ok value.
+	/// @param value The value to store in the Ok variant of the Result.
+	/// @return A new Result with the specified Ok value.
 	static constexpr auto Ok(T value) -> Result
 	{
 		return Result(detail::ResultOkTag {}, detail::move_ref(value));
 	}
 
+	/// @brief Create a new Result with an Err value.
+	/// @param error The error to store in the Err variant of the Result.
+	/// @return A new Result with the specified Err value.
 	static constexpr auto Err(E error) -> Result
 	{
 		return Result(detail::ResultErrTag {}, detail::move_ref(error));
@@ -558,12 +567,16 @@ struct Result
 		return *this;
 	}
 
+	/// @brief Get a reference to the success value in the Result without
+	/// checking if it is an Ok or Err variant.
 	constexpr auto get_ok_unsafe() -> T & { return this->m_storage.data.ok; }
 	constexpr auto get_ok_unsafe() const -> T const &
 	{
 		return this->m_storage.data.ok;
 	}
 
+	/// @brief Get a reference to the error value in the Result without checking
+	/// if it is an Ok or Err variant.
 	constexpr auto get_err_unsafe() -> E & { return this->m_storage.data.err; }
 	constexpr auto get_err_unsafe() const -> E const &
 	{
@@ -584,15 +597,23 @@ private:
 	}
 };
 
+/// @brief A specialization of the Result type for the case where the success
+/// value is void.
+/// @tparam E The type of the error value.
 template<typename E>
 struct Result<void, E>
     : detail::ResultOwnershipBase<detail::ResultStorage<void, E>>
     , detail::ResultVoidAccessBase<Result<void, E>, E> {
+	/// @brief Create a new Result with an Ok value.
+	/// @return A new Result with the Ok variant.
 	static constexpr auto Ok() -> Result
 	{
 		return Result(detail::ResultOkTag {});
 	}
 
+	/// @brief Create a new Result with an Err value.
+	/// @param error The error to store in the Err variant of the Result.
+	/// @return A new Result with the specified Err value.
 	static constexpr auto Err(E error) -> Result
 	{
 		return Result(detail::ResultErrTag {}, detail::move_ref(error));

@@ -6,6 +6,8 @@
 
 namespace CL {
 
+/// @brief An owning string of characters.
+/// @tparam CharTypeT The type of the characters in the string.
 template<typename CharTypeT> struct BaseString {
 	struct Iter : Iterator<Iter> {
 		ArrayList<CharTypeT>::Iter iter;
@@ -79,6 +81,8 @@ template<typename CharTypeT> struct BaseString {
 		m_data.push('\0');
 	}
 
+	/// @brief Get an iterator over the characters in the string.
+	/// @return An iterator over the characters in the string.
 	auto iter() -> Iter
 	{
 		return Iter {
@@ -87,6 +91,8 @@ template<typename CharTypeT> struct BaseString {
 		};
 	}
 
+	/// @brief Get an iterator over the characters in the string.
+	/// @return An iterator over the characters in the string.
 	auto iter() const -> ConstIter
 	{
 		return ConstIter {
@@ -95,29 +101,44 @@ template<typename CharTypeT> struct BaseString {
 		};
 	}
 
+	/// @brief Get the size of the string.
+	/// @return The size of the string.
 	constexpr auto size() const -> usize
 	{
 		return m_data.size() ? m_data.size() - 1 : 0;
 	}
 
+	/// @brief Check if the string is empty.
+	/// @return True if the string is empty, false otherwise.
 	constexpr auto is_empty() const -> bool { return size() == 0; }
 
+	/// @brief Get a pointer to the characters in the string.
+	/// @return A pointer to the characters in the string.
 	constexpr auto data() -> CharTypeT * { return m_data.data(); }
+	/// @brief Get a pointer to the characters in the string.
+	/// @return A pointer to the characters in the string.
 	constexpr auto data() const -> CharTypeT const * { return m_data.data(); }
 
+	/// @brief Get a null-terminated C string.
+	/// @return A null-terminated C string.
 	constexpr auto c_str() const -> CharTypeT const * { return m_data.data(); }
 
+	/// @brief Get a string view of the string.
+	/// @return A string view of the string.
 	constexpr auto view() const -> BaseStringView<CharTypeT>
 	{
 		return { data(), size() };
 	}
 
+	/// @brief Clear the string, making it empty.
 	auto clear() -> void
 	{
 		m_data.clear();
 		m_data.push('\0');
 	}
 
+	/// @brief Append a character to the end of the string.
+	/// @param ch The character to append.
 	auto append(CharTypeT ch) -> void
 	{
 		m_data.pop();
@@ -125,6 +146,8 @@ template<typename CharTypeT> struct BaseString {
 		m_data.push('\0');
 	}
 
+	/// @brief Append a string to the end of the string.
+	/// @param string The string to append.
 	auto append(BaseStringView<CharTypeT> const &string) -> void
 	{
 		m_data.pop();
@@ -158,6 +181,10 @@ template<typename CharTypeT> struct BaseString {
 		return m_data[index];
 	}
 
+	/// @brief Check if the string starts with the specified prefix.
+	/// @param prefix The prefix to check for.
+	/// @return True if the string starts with the specified prefix, false
+	/// otherwise.
 	constexpr auto starts_with(BaseStringView<CharTypeT> const &prefix) const
 	    -> bool
 	{
@@ -172,6 +199,10 @@ template<typename CharTypeT> struct BaseString {
 		return true;
 	}
 
+	/// @brief Check if the string ends with the specified suffix.
+	/// @param suffix The suffix to check for.
+	/// @return True if the string ends with the specified suffix, false
+	/// otherwise.
 	constexpr auto ends_with(BaseStringView<CharTypeT> const &suffix) const
 	    -> bool
 	{
@@ -188,6 +219,11 @@ template<typename CharTypeT> struct BaseString {
 		return true;
 	}
 
+	/// @brief Find the first occurrence of the specified substring in the
+	/// string.
+	/// @param needle The substring to find.
+	/// @return The index of the first occurrence of the substring in the
+	/// string, or npos if the substring was not found.
 	constexpr auto find(BaseStringView<CharTypeT> const &needle) const -> usize
 	{
 		if (needle.size() == 0)
@@ -213,30 +249,29 @@ template<typename CharTypeT> struct BaseString {
 		return npos;
 	}
 
+	/// @brief Check if the string contains the specified substring.
+	/// @param needle The substring to check for.
+	/// @return True if the string contains the specified substring, false
+	/// otherwise.
 	constexpr auto contains(BaseStringView<CharTypeT> const &needle) const
 	    -> bool
 	{
 		return find(needle) != npos;
 	}
 
-	auto substring(usize start, usize count) const -> BaseString
+	/// @brief Get a substring view of the string.
+	/// @param start The starting index of the substring.
+	/// @param count The number of characters in the substring.
+	/// @return A BaseStringView into the string.
+	auto substring(usize start, usize count) const -> BaseStringView<CharTypeT>
 	{
-		BaseString result;
-
 		if (start >= size())
-			return result;
+			return {};
 
 		if (start + count > size())
 			count = size() - start;
 
-		result.m_data.pop();
-		result.m_data.reserve(count + 1);
-
-		for (usize i {}; i < count; ++i)
-			result.m_data.push(data()[start + i]);
-
-		result.m_data.push('\0');
-		return result;
+		return BaseStringView(data() + start, count);
 	}
 
 	constexpr auto operator==(BaseStringView<CharTypeT> const &other) const

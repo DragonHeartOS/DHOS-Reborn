@@ -2,6 +2,8 @@
 
 namespace CL {
 
+/// @brief A smart pointer that owns a heap-allocated object of type T.
+/// @tparam T The type of the object owned by the Box.
 template<typename T> struct Box {
 	template<typename... Args>
 	explicit Box(Args &&...args)
@@ -20,6 +22,8 @@ template<typename T> struct Box {
 		other.m_data = nullptr;
 	}
 
+	/// @brief Leak the owned object and return a pointer to it.
+	/// @return A pointer to the owned object.
 	T *leak()
 	{
 		T *ptr = m_data;

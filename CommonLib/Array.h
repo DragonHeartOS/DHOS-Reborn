@@ -7,6 +7,9 @@
 
 namespace CL {
 
+/// @brief A fixed-size array of elements of type T.
+/// @tparam T The type of the elements in the array.
+/// @tparam N The size of the array.
 template<typename T, usize N> struct Array {
 	struct Iter : Iterator<Iter> {
 		T *current;

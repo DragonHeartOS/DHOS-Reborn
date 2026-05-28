@@ -66,6 +66,8 @@ struct VariantIndex<T, U, Ts...> {
 
 }
 
+/// @brief A typed union that can hold a value of one of the specified types.
+/// @tparam Ts The types that the Variant can hold.
 template<typename... Ts> struct Variant {
 	template<typename T, typename... Args>
 	explicit Variant(InPlace<T>, Args &&...args)
@@ -74,6 +76,11 @@ template<typename... Ts> struct Variant {
 		construct<I>(forward<Args>(args)...);
 	}
 
+	/// @brief Create a Variant holding a value of the specified type
+	/// constructed with the given arguments.
+	/// @tparam I The index of the type to construct in the Variant.
+	/// @tparam Args The types of the arguments to construct the value.
+	/// @param args The arguments to construct the value.
 	template<int I, typename... Args>
 	static auto make(Args &&...args) -> Variant
 	{
@@ -108,12 +115,22 @@ template<typename... Ts> struct Variant {
 		return *this;
 	}
 
+	/// @brief Get a reference to the value held by the Variant if it is of the
+	/// specified type.
+	/// @tparam I The index of the type to get in the Variant.
+	/// @return An Option containing a reference to the value if the Variant
+	/// holds a value of the specified type, or an empty Option if it does not.
 	template<int I>
 	auto get() -> Option<
 	    typename detail::VariantGet<I, detail::VariantStorage<Ts...>>::Type &>
 	{
 		return get_impl<I>(*this);
 	}
+	/// @brief Get a reference to the value held by the Variant if it is of the
+	/// specified type.
+	/// @tparam I The index of the type to get in the Variant.
+	/// @return An Option containing a reference to the value if the Variant
+	/// holds a value of the specified type, or an empty Option if it does not.
 	template<int I>
 	auto get() const -> Option<typename detail::VariantGet<I,
 	    detail::VariantStorage<Ts...>>::Type const &>
@@ -121,43 +138,78 @@ template<typename... Ts> struct Variant {
 		return get_impl<I>(*this);
 	}
 
+	/// @brief Get a reference to the value held by the Variant if it is of the
+	/// specified type.
+	/// @tparam T The type to get from the Variant.
+	/// @return An Option containing a reference to the value if the Variant
+	/// holds a value of the specified type, or an empty Option if it does not.
 	template<typename T> auto get() -> Option<T &>
 	{
 		constexpr int I = detail::VariantIndex<T, Ts...>::value;
 		return get<I>();
 	}
+	/// @brief Get a reference to the value held by the Variant if it is of the
+	/// specified type.
+	/// @tparam T The type to get from the Variant.
+	/// @return An Option containing a reference to the value if the Variant
+	/// holds a value of the specified type, or an empty Option if it does not.
 	template<typename T> auto get() const -> Option<T const &>
 	{
 		constexpr int I = detail::VariantIndex<T, Ts...>::value;
 		return get<I>();
 	}
 
+	/// @brief Apply a visitor to the value held by the Variant.
+	/// @tparam Visitor The type of the visitor.
+	/// @param visitor The visitor to apply.
+	/// @return The result of applying the visitor.
 	template<typename Visitor> auto visit(Visitor &&visitor) -> decltype(auto)
 	{
 		return visit_impl(*this, forward<Visitor>(visitor));
 	}
+	/// @brief Apply a visitor to the value held by the Variant.
+	/// @tparam Visitor The type of the visitor.
+	/// @param visitor The visitor to apply.
+	/// @return The result of applying the visitor.
 	template<typename Visitor>
 	auto visit(Visitor &&visitor) const -> decltype(auto)
 	{
 		return visit_impl(*this, forward<Visitor>(visitor));
 	}
 
+	/// @brief Apply a function to the value held by the Variant if it is of the
+	/// specified type.
+	/// @tparam Fn The type of the function.
+	/// @param fn The function to apply.
+	/// @return The result of applying the function.
 	template<typename Fn> auto map(Fn &&fn)
 	{
 		return visit([&](auto &value) { return fn(value); });
 	}
 
+	/// @brief Apply a function to the value held by the Variant if it is of the
+	/// specified type.
+	/// @tparam Fn The type of the function.
+	/// @param fn The function to apply.
+	/// @return The result of applying the function.
 	template<typename Fn> auto and_then(Fn &&fn)
 	{
 		return visit([&](auto &value) { return fn(value); });
 	}
 
+	/// @brief Apply a function to the value held by the Variant if it is of the
+	/// specified type.
+	/// @tparam Fn The type of the function.
+	/// @param fn The function to apply.
+	/// @return A reference to the Variant after applying the function.
 	template<typename Fn> auto inspect(Fn &&fn) -> Variant &
 	{
 		visit([&](auto &value) { fn(value); });
 		return *this;
 	}
 
+	/// @brief Get the index of the type currently held by the Variant.
+	/// @return The index of the type currently held by the Variant.
 	auto tag() const -> int { return m_tag; }
 
 private:

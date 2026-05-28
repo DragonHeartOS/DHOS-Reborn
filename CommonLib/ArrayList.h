@@ -8,6 +8,8 @@
 
 namespace CL {
 
+/// @brief A dynamic array of elements of type T.
+/// @tparam T The type of the elements in the array list.
 template<typename T> struct ArrayList {
 	struct Iter : Iterator<Iter> {
 		T *current;
@@ -85,22 +87,6 @@ template<typename T> struct ArrayList {
 		deallocate(m_data);
 	}
 
-	auto iter() -> Iter
-	{
-		return Iter {
-			.current = m_data,
-			.end = m_data + m_size,
-		};
-	}
-
-	auto iter() const -> ConstIter
-	{
-		return ConstIter {
-			.current = m_data,
-			.end = m_data + m_size,
-		};
-	}
-
 	auto operator=(ArrayList const &other) -> ArrayList &
 	{
 		if (this == &other)
@@ -134,9 +120,36 @@ template<typename T> struct ArrayList {
 		return *this;
 	}
 
+	/// @brief Get an iterator over the elements in the array list.
+	/// @return An iterator over the elements in the array list.
+	auto iter() -> Iter
+	{
+		return Iter {
+			.current = m_data,
+			.end = m_data + m_size,
+		};
+	}
+
+	/// @brief Get an iterator over the elements in the array list.
+	/// @return An iterator over the elements in the array list.
+	auto iter() const -> ConstIter
+	{
+		return ConstIter {
+			.current = m_data,
+			.end = m_data + m_size,
+		};
+	}
+
+	/// @brief Add a value to the end of the array list.
+	/// @param value The value to add.
 	auto push(T const &value) -> void { emplace(value); }
+	/// @brief Add a value to the end of the array list.
+	/// @param value The value to add.
 	auto push(T &&value) -> void { emplace(static_cast<T &&>(value)); }
 
+	/// @brief Construct a value in place at the end of the array list.
+	/// @tparam Args The types of the arguments to construct the value.
+	/// @param args The arguments to construct the value.
 	template<typename... Args> auto emplace(Args &&...args) -> T &
 	{
 		ensure_capacity(m_size + 1);
@@ -145,6 +158,7 @@ template<typename T> struct ArrayList {
 		return m_data[m_size++];
 	}
 
+	/// @brief Remove the last element from the array list.
 	auto pop() -> void
 	{
 		if (m_size == 0)
@@ -154,6 +168,7 @@ template<typename T> struct ArrayList {
 		m_data[m_size].~T();
 	}
 
+	/// @brief Remove all elements from the array list.
 	auto clear() -> void
 	{
 		for (usize i = 0; i < m_size; ++i)
@@ -162,6 +177,7 @@ template<typename T> struct ArrayList {
 		m_size = 0;
 	}
 
+	/// @brief Ensure that the array list has at least the specified capacity.
 	auto reserve(usize capacity) -> void
 	{
 		if (capacity <= m_capacity)
@@ -181,6 +197,8 @@ template<typename T> struct ArrayList {
 		m_capacity = capacity;
 	}
 
+	/// @brief Remove the element at the specified index from the array list.
+	/// @param index The index of the element to remove.
 	auto remove_at(usize index) -> void
 	{
 		if (index >= m_size)
@@ -196,6 +214,11 @@ template<typename T> struct ArrayList {
 		--m_size;
 	}
 
+	/// @brief Remove the first occurrence of the specified value from the array
+	/// list.
+	/// @param value The value to remove.
+	/// @return An Option containing the index of the removed element if it was
+	/// found, or an empty Option if it was not found.
 	constexpr auto get(usize index) -> Option<T &>
 	{
 		if (index >= m_size)
@@ -204,6 +227,11 @@ template<typename T> struct ArrayList {
 		return m_data[index];
 	}
 
+	/// @brief Get a reference to the element at the specified index in the
+	/// array list.
+	/// @param index The index of the element to get.
+	/// @return An Option containing the index of the removed element if it was
+	/// found, or an empty Option if it was not found.
 	constexpr auto get(usize index) const -> Option<T const &>
 	{
 		if (index >= m_size)
@@ -212,14 +240,30 @@ template<typename T> struct ArrayList {
 		return m_data[index];
 	}
 
+	/// @brief Get a reference to the last element in the array list.
+	/// @return A reference to the last element in the array list.
 	constexpr auto last() -> T & { return m_data[m_size - 1]; }
+	/// @brief Get a reference to the last element in the array list.
+	/// @return A reference to the last element in the array list.
 	constexpr auto last() const -> T const & { return m_data[m_size - 1]; }
 
+	/// @brief Get the number of elements in the array list.
+	/// @return The number of elements in the array list.
 	constexpr auto size() const -> usize { return m_size; }
+	/// @brief Get the capacity of the array list.
+	/// @return The capacity of the array list.
 	constexpr auto capacity() const -> usize { return m_capacity; }
+	/// @brief Check if the array list is empty.
+	/// @return True if the array list is empty, false otherwise.
 	constexpr auto is_empty() const -> bool { return m_size == 0; }
 
+	/// @brief Get a pointer to the underlying array of elements in the array
+	/// list.
+	/// @return A pointer to the underlying array of elements in the array list.
 	constexpr auto data() -> T * { return m_data; }
+	/// @brief Get a pointer to the underlying array of elements in the array
+	/// list.
+	/// @return A pointer to the underlying array of elements in the array list.
 	constexpr auto data() const -> T const * { return m_data; }
 
 	constexpr auto operator[](usize index) -> T & { return m_data[index]; }

@@ -5,6 +5,9 @@
 
 namespace CL {
 
+/// @brief A reference-counted smart pointer for managing shared ownership of a
+/// value of type T.
+/// @tparam T The type of the value being managed by the Rc.
 template<typename T> struct Rc {
 	template<typename... Args>
 	explicit Rc(Args &&...args)
@@ -67,9 +70,13 @@ template<typename T> struct Rc {
 	T *operator->() { return m_ptr; }
 	T const *operator->() const { return m_ptr; }
 
+	// @brief Get a pointer to the managed value.
+	// @return A pointer to the managed value.
 	T *get() { return m_ptr; }
 	T const *get() const { return m_ptr; }
 
+	/// @brief Get the number of references to the managed value.
+	/// @return The number of references to the managed value.
 	auto ref_count() const -> usize { return m_refs ? *m_refs : 0; }
 
 private:

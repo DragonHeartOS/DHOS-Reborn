@@ -9,22 +9,22 @@ namespace CL {
 }
 
 namespace std {
-	struct nothrow_t {
-		explicit nothrow_t() = default;
-	};
+struct nothrow_t {
+	explicit nothrow_t() = default;
+};
 
-	struct align_val_t {
-		explicit align_val_t(usize a)
-		    : value(a)
-		{
-		}
+struct align_val_t {
+	explicit align_val_t(usize a)
+	    : value(a)
+	{
+	}
 
-		usize value;
-	};
+	usize value;
+};
 
-	inline constexpr nothrow_t nothrow {};
+inline constexpr nothrow_t nothrow {};
 
-	class bad_alloc { };
+class bad_alloc { };
 
 }
 
@@ -36,10 +36,9 @@ void *operator new(usize size, std::align_val_t alignment) noexcept;
 void *operator new[](usize size, std::align_val_t alignment) noexcept;
 void *operator new(
     usize size, std::align_val_t alignment, std::nothrow_t const &) noexcept;
-void *operator new(
-    usize size, std::nothrow_t const &) noexcept;
-void *operator new[](usize size, std::align_val_t alignment,
-    std::nothrow_t const &) noexcept;
+void *operator new(usize size, std::nothrow_t const &) noexcept;
+void *operator new[](
+    usize size, std::align_val_t alignment, std::nothrow_t const &) noexcept;
 void *operator new[](usize size, std::nothrow_t const &) noexcept;
 void operator delete(void *ptr) noexcept;
 void operator delete[](void *ptr) noexcept;

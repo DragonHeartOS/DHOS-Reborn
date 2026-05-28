@@ -6,6 +6,9 @@
 
 namespace CL {
 
+/// @brief An atomically reference-counted smart pointer that owns a
+/// heap-allocated object of type T.
+/// @tparam T The type of the object owned by the Arc.
 template<typename T> struct Arc {
 	template<typename... Args>
 	explicit Arc(Args &&...args)
@@ -68,7 +71,11 @@ template<typename T> struct Arc {
 	T *operator->() { return m_ptr; }
 	T const *operator->() const { return m_ptr; }
 
+	/// @brief Get a pointer to the owned object.
+	/// @return A pointer to the owned object.
 	T *get() { return m_ptr; }
+	/// @brief Get a pointer to the owned object.
+	/// @return A pointer to the owned object.
 	T const *get() const { return m_ptr; }
 
 	auto ref_count() const -> usize

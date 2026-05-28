@@ -40,7 +40,7 @@ auto katline_main(Controller::Framebuffer *framebuffer, Memory::MemoryMap *mmap)
 	CL::ignore_unused(numbers);
 
 	auto transformed {
-		CL::Range(0, 10)
+		CL::range(10)
 		    // numbers.iter()
 		    .map([](int value) { return value * 2; })
 		    .filter([](int value) { return value >= 6; })

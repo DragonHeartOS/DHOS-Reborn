@@ -8,6 +8,8 @@
 
 namespace CL {
 
+/// @brief A doubly linked list of elements of type T.
+/// @tparam T The type of the elements in the linked list.
 template<typename T> struct LinkedList {
 private:
 	struct Node {
@@ -150,6 +152,10 @@ public:
 		return *this;
 	}
 
+	/// @brief Construct a value in place at the end of the linked list.
+	/// @tparam Args The types of the arguments to construct the value.
+	/// @param args The arguments to construct the value.
+	/// @return A reference to the constructed value.
 	template<typename... Args> auto emplace(Args &&...args) -> T &
 	{
 		Node *node = new Node(static_cast<Args &&>(args)...);
@@ -167,9 +173,14 @@ public:
 		return node->value;
 	}
 
+	/// @brief Push a value at the end of the linked list.
+	/// @param value The value to push.
 	auto push(T const &value) -> void { emplace(value); }
+	/// @brief Push a value at the end of the linked list.
+	/// @param value The value to push.
 	auto push(T &&value) -> void { emplace(static_cast<T &&>(value)); }
 
+	/// @brief Pop a value from the end of the linked list.
 	auto pop() -> void
 	{
 		if (!m_tail)
@@ -188,6 +199,7 @@ public:
 		--m_size;
 	}
 
+	/// @brief Clear the linked list, removing all elements.
 	auto clear() -> void
 	{
 		Node *node = m_head;
@@ -203,9 +215,17 @@ public:
 		m_size = 0;
 	}
 
+	/// @brief Get the number of elements in the linked list.
+	/// @return The number of elements in the linked list.
 	constexpr auto size() const -> usize { return m_size; }
+	/// @brief Check if the linked list is empty.
+	/// @return True if the linked list is empty, false otherwise.
 	constexpr auto is_empty() const -> bool { return m_size == 0; }
 
+	/// @brief Get a reference to the first element in the linked list.
+	/// @return An Option containing a reference to the first element in the
+	/// linked list if it is not empty, or an empty Option if the linked list is
+	/// empty.
 	auto first() -> Option<T &>
 	{
 		if (!m_head)
@@ -213,6 +233,10 @@ public:
 
 		return m_head->value;
 	}
+	/// @brief Get a reference to the first element in the linked list.
+	/// @return An Option containing a reference to the first element in the
+	/// linked list if it is not empty, or an empty Option if the linked list is
+	/// empty.
 	auto first() const -> Option<T const &>
 	{
 		if (!m_head)
@@ -221,6 +245,10 @@ public:
 		return m_head->value;
 	}
 
+	/// @brief Get a reference to the last element in the linked list.
+	/// @return An Option containing a reference to the last element in the
+	/// linked list if it is not empty, or an empty Option if the linked list is
+	/// empty.
 	auto last() -> Option<T &>
 	{
 		if (!m_tail)
@@ -228,6 +256,10 @@ public:
 
 		return m_tail->value;
 	}
+	/// @brief Get a reference to the last element in the linked list.
+	/// @return An Option containing a reference to the last element in the
+	/// linked list if it is not empty, or an empty Option if the linked list is
+	/// empty.
 	auto last() const -> Option<T const &>
 	{
 		if (!m_tail)
@@ -236,9 +268,14 @@ public:
 		return m_tail->value;
 	}
 
+	/// @brief Get an iterator over the elements in the linked list.
+	/// @return An iterator over the elements in the linked list.
 	auto iter() -> Iter { return Iter { .current = m_head }; }
+	/// @brief Get an iterator over the elements in the linked list.
+	/// @return An iterator over the elements in the linked list.
 	auto iter() const -> ConstIter { return ConstIter { .current = m_head }; }
 
+private:
 	Node *m_head { nullptr };
 	Node *m_tail { nullptr };
 	usize m_size { 0 };

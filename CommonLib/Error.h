@@ -34,8 +34,8 @@ template<typename... Es> struct IsVariantError<Variant<Es...>> {
 
 template<typename T> struct IsErrorCompatible {
 	using Type = RemoveConstRef<T>;
-	static constexpr bool Value = IsErasedError<Type>::Value
-	    || IsVariantError<Type>::Value;
+	static constexpr bool Value
+	    = IsErasedError<Type>::Value || IsVariantError<Type>::Value;
 };
 
 template<typename T, typename = void> struct HasDisplayString {
@@ -48,7 +48,8 @@ struct HasDisplayString<T,
 	static constexpr bool Value = true;
 };
 
-template<typename T> inline constexpr bool HasDisplayStringV = HasDisplayString<T>::Value;
+template<typename T>
+inline constexpr bool HasDisplayStringV = HasDisplayString<T>::Value;
 
 template<typename T> auto erase_error_value(T &&value) -> ErasedError;
 template<typename VariantType, int I = 0>
@@ -78,12 +79,12 @@ struct ErasedError {
 		return ErasedError(message);
 	}
 
-	template<typename E>
-	static auto from(E &&error) -> ErasedError
+	template<typename E> static auto from(E &&error) -> ErasedError
 	{
 		using ErrorType = RemoveConstRef<E>;
 		static_assert(detail::IsErrorCompatible<ErrorType>::Value,
-		    "ErasedError::from(E): E must be CL::ErasedError or CL::Error<...>");
+		    "ErasedError::from(E): E must be CL::ErasedError or "
+		    "CL::Error<...>");
 
 		if constexpr (detail::IsErasedError<ErrorType>::Value) {
 			return forward<E>(error);
@@ -98,18 +99,21 @@ private:
 	String m_message;
 };
 
+namespace ErrorsV {
 struct HashMapDuplicateKeyError { };
+}
 
 namespace detail::adl {
 
-inline auto to_display_string(HashMapDuplicateKeyError const &) -> String
+inline auto to_display_string(ErrorsV::HashMapDuplicateKeyError const &)
+    -> String
 {
 	return String("HashMap duplicate key");
 }
 
 }
 
-using Errors = Error<HashMapDuplicateKeyError>;
+using Errors = Error<ErrorsV::HashMapDuplicateKeyError>;
 
 namespace detail {
 
@@ -121,12 +125,14 @@ template<typename T> auto erase_error_value(T &&value) -> ErasedError
 {
 	using ValueType = RemoveConstRef<T>;
 	static_assert(HasDisplayStringV<ValueType const &>,
-	    "ErasedError::from(E): E must support to_display_string(E) returning CL::String-compatible type");
+	    "ErasedError::from(E): E must support to_display_string(E) returning "
+	    "CL::String-compatible type");
 
 	return ErasedError(String(to_display_string(forward<T>(value))));
 }
 
-template<typename... Es, int I> auto erase_error_variant(Variant<Es...> const &error) -> ErasedError
+template<typename... Es, int I>
+auto erase_error_variant(Variant<Es...> const &error) -> ErasedError
 {
 	if constexpr (I >= sizeof...(Es)) {
 		UNREACHABLE();
