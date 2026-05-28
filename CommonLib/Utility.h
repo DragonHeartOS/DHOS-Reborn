@@ -31,7 +31,8 @@ template<typename T> constexpr void swap(T &a, T &b)
 template<typename T> struct InPlace { };
 
 inline constexpr struct ToDisplayStringFn {
-	template<typename T> constexpr auto operator()(T &&value) const -> decltype(auto)
+	template<typename T>
+	constexpr auto operator()(T &&value) const -> decltype(auto)
 	{
 		using detail::adl::to_display_string;
 		return to_display_string(forward<T>(value));
@@ -39,12 +40,22 @@ inline constexpr struct ToDisplayStringFn {
 } to_display_string {};
 
 inline constexpr struct ToDebugStringFn {
-	template<typename T> constexpr auto operator()(T &&value) const -> decltype(auto)
+	template<typename T>
+	constexpr auto operator()(T &&value) const -> decltype(auto)
 	{
 		using detail::adl::to_debug_string;
 		return to_debug_string(forward<T>(value));
 	}
 } to_debug_string {};
+
+template<typename... Ts> [[gnu::always_inline]] void ignore_unused(Ts &&...) { }
+
+template<typename... Ts>
+[[gnu::always_inline]] void ignore_unused(Ts const &...)
+{
+}
+
+template<typename... Ts> [[gnu::always_inline]] void ignore_unused() { }
 
 }
 

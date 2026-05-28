@@ -3,6 +3,7 @@
 #include <CommonLib/ArrayList.h>
 #include <CommonLib/Platform.h>
 #include <CommonLib/Range.h>
+#include <CommonLib/Utility.h>
 #include <Katline/Arch/IDT.h>
 #include <Katline/Controllers/SerialController.h>
 #include <Katline/Debug.h>
@@ -34,10 +35,12 @@ auto katline_main(Controller::Framebuffer *framebuffer, Memory::MemoryMap *mmap)
 
 	IDT::init();
 
-	CL::ArrayList<int> numbers { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
+	CL::ArrayList<int> numbers { 1, 2, 3, 4, 5, 6, 7, 8, 9 };
+	CL::ignore_unused(numbers);
 
 	auto transformed {
 		CL::Range(0, 10)
+		    // numbers.iter()
 		    .map([](int value) { return value * 2; })
 		    .filter([](int value) { return value >= 6; })
 		    .rev()
