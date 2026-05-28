@@ -20,7 +20,6 @@ template<class Self> struct Iterator {
 	Self &self() { return static_cast<Self &>(*this); }
 
 	template<class F> auto map(F f) & = delete ("Iterator must be an rvalue");
-	;
 	template<class F> auto map(F f) &&
 	{
 		return MapIter<Self, F>(move(self()), move(f));
@@ -49,6 +48,13 @@ template<class Self> struct Iterator {
 		return result;
 	}
 
+	auto rev() & = delete ("Iterator must be an rvalue");
+	auto rev() &&
+	requires DoubleEndedIterator<Self>
+	{
+		return ReverseIter<Self>(move(self()));
+	}
+
 	template<class Other>
 	auto eq(Other other) & -> bool = delete ("Iterator must be an rvalue");
 	template<class Other> auto eq(Other other) && -> bool
@@ -68,11 +74,40 @@ template<class Self> struct Iterator {
 		}
 	}
 
-	auto rev() & = delete ("Iterator must be an rvalue");
-	auto rev() &&
-	requires DoubleEndedIterator<Self>
+	template<class P>
+	auto any(P pred) & -> bool = delete ("Iterator must be an rvalue");
+	template<class P> auto any(P pred) && -> bool
 	{
-		return ReverseIter<Self>(move(self()));
+		return move(self()).find_if(move(pred)).has_value();
+	}
+
+	template<class P>
+	auto every(P pred) & -> bool = delete ("Iterator must be an rvalue");
+	template<class P> auto every(P pred) && -> bool
+	{
+		while (auto x { self().next() }) {
+			if (!pred(*x))
+				return false;
+		}
+		return true;
+	}
+
+	template<class P>
+	auto find_if(P pred) & = delete ("Iterator must be an rvalue");
+	template<class P> auto find_if(P pred) &&
+	{
+		while (auto x { self().next() }) {
+			if (pred(*x))
+				return x;
+		}
+		return decltype(self().next()) {};
+	}
+
+	template<class Value>
+	auto find(Value const &value) & = delete ("Iterator must be an rvalue");
+	template<class Value> auto find(Value const &value) &&
+	{
+		return move(self()).find_if([&](auto const &x) { return x == value; });
 	}
 };
 
