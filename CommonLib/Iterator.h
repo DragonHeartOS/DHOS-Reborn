@@ -7,53 +7,87 @@
 namespace CL {
 
 template<class Iter, class F> struct MapIter;
-
 template<class Iter, class P> struct FilterIter;
+template<class Iter> struct ReverseIter;
 
 template<class Self> struct Iterator {
 	Self &self() { return static_cast<Self &>(*this); }
 
-	template<class F> auto map(F f) &
+	template<class F> auto map(F f) & { return map_impl(move(f)); }
+	template<class F> auto map(F f) && { return map_impl(move(f)); }
+
+	template<class P> auto filter(P pred) & { return filter_impl(move(pred)); }
+	template<class P> auto filter(P pred) && { return filter_impl(move(pred)); }
+
+	template<class F> void for_each(F f) & { for_each_impl(move(f)); }
+	template<class F> void for_each(F f) && { for_each_impl(move(f)); }
+
+	template<class Container> auto collect() & -> Container
+	{
+		return collect_impl<Container>();
+	}
+	template<class Container> auto collect() && -> Container
+	{
+		return collect_impl<Container>();
+	}
+
+	template<class Other> auto eq(Other other) & -> bool
+	{
+		return eq_impl(move(other));
+	}
+	template<class Other> auto eq(Other other) && -> bool
+	{
+		return eq_impl(move(other));
+	}
+
+	auto rev() & { return rev_impl(); }
+	auto rev() && { return rev_impl(); }
+
+private:
+	template<class F> auto map_impl(F f)
 	{
 		return MapIter<Self, F>(move(self()), move(f));
 	}
-	template<class F> auto map(F f) &&
-	{
-		return MapIter<Self, F>(move(self()), move(f));
-	}
 
-	template<class P> auto filter(P pred) &
-	{
-		return FilterIter<Self, P>(move(self()), move(pred));
-	}
-	template<class P> auto filter(P pred) &&
+	template<class P> auto filter_impl(P pred)
 	{
 		return FilterIter<Self, P>(move(self()), move(pred));
 	}
 
-	template<class F> void for_each(F f) &
+	template<class F> void for_each_impl(F f)
 	{
-		while (auto x { self().next() }) {
+		while (auto x { self().next() })
 			f(*x);
-		}
-	}
-	template<class F> void for_each(F f) &&
-	{
-		while (auto x { self().next() }) {
-			f(*x);
-		}
 	}
 
-	template<class Container> auto collect() -> Container
+	template<class Container> auto collect_impl() -> Container
 	{
 		Container result;
 
-		while (auto x { self().next() }) {
+		while (auto x { self().next() })
 			result.push(*x);
-		}
 
 		return result;
 	}
+
+	template<class Other> auto eq_impl(Other other) -> bool
+	{
+		while (true) {
+			auto a { self().next() };
+			auto b { other.next() };
+
+			if (!a && !b)
+				return true;
+
+			if (!a || !b)
+				return false;
+
+			if (*a != *b)
+				return false;
+		}
+	}
+
+	auto rev_impl() { return ReverseIter<Self>(move(self())); }
 };
 
 template<class Iter, class F> struct MapIter : Iterator<MapIter<Iter, F>> {
@@ -68,7 +102,18 @@ template<class Iter, class F> struct MapIter : Iterator<MapIter<Iter, F>> {
 
 	auto next()
 	{
-		auto x { iter.next() };
+		return next_impl([](Iter &iter) { return iter.next(); });
+	}
+
+	auto next_back()
+	{
+		return next_impl([](Iter &iter) { return iter.next_back(); });
+	}
+
+private:
+	template<class Next> auto next_impl(Next next)
+	{
+		auto x { next(iter) };
 
 		using Out = InvokeResultT<F, decltype(*x)>;
 
@@ -92,13 +137,37 @@ struct FilterIter : Iterator<FilterIter<Iter, P>> {
 
 	auto next()
 	{
-		while (auto x = iter.next()) {
+		return next_impl([](Iter &iter) { return iter.next(); });
+	}
+
+	auto next_back()
+	{
+		return next_impl([](Iter &iter) { return iter.next_back(); });
+	}
+
+private:
+	template<class Next> auto next_impl(Next next)
+	{
+		while (auto x { next(iter) }) {
 			if (pred(*x))
 				return x;
 		}
 
-		return decltype(iter.next()) {};
+		return decltype(next(iter)) {};
 	}
+};
+
+template<class Iter> struct ReverseIter : Iterator<ReverseIter<Iter>> {
+	Iter iter;
+
+	ReverseIter(Iter iter)
+	    : iter(move(iter))
+	{
+	}
+
+	auto next() { return iter.next_back(); }
+
+	auto next_back() { return iter.next(); }
 };
 
 template<class T>

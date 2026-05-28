@@ -18,6 +18,15 @@ template<typename T> struct ArrayList {
 
 			return *current++;
 		}
+
+		auto next_back() -> Option<T &>
+		{
+			if (current == end)
+				return {};
+
+			end--;
+			return *end;
+		}
 	};
 
 	struct ConstIter : Iterator<ConstIter> {
@@ -30,6 +39,15 @@ template<typename T> struct ArrayList {
 				return {};
 
 			return *current++;
+		}
+
+		auto next_back() -> Option<T const &>
+		{
+			if (current == end)
+				return {};
+
+			end--;
+			return *end;
 		}
 	};
 
