@@ -26,8 +26,7 @@ $ cmake --build Build -- run    # Run virtual machine
 ## Goals
 
  - 64-bit
- - Multitasking kernel
- - Everything is easly accessible to the user, including the hardware (ring-0)
+ - Multitasking microkernel kernel
  - Filesystem: FAT-32
 
 ## Components
@@ -42,8 +41,7 @@ $ cmake --build Build -- run    # Run virtual machine
 
 ### Libraries 
 
- - CommonLib -> C++ utility library
- - Marine -> The C/C++ library
+ - CommonLib -> C++ library
  - Elf -> ELF Parser
  - Graphix -> Graphics library
  - Beyond -> The main GUI library

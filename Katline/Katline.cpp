@@ -11,15 +11,15 @@ namespace Katline {
 Controller::FramebufferController k_framebuffer_controller = NULL;
 Controller::SerialController k_serial_controller;
 
-void KatlineMain(Controller::Framebuffer* framebuffer, Memory::MemoryMap* mmap)
+void KatlineMain(Controller::Framebuffer *framebuffer, Memory::MemoryMap *mmap)
 {
-    k_serial_controller.init();
-    k_framebuffer_controller = Controller::FramebufferController(framebuffer);
-    Debug::set_framebuffer_logging_enabled(true);
+	k_serial_controller.init();
+	k_framebuffer_controller = Controller::FramebufferController(framebuffer);
+	Debug::set_framebuffer_logging_enabled(true);
 
-    Memory::MM::init(mmap);
+	Memory::MM::init(mmap);
 
-    IDT::init();
+	IDT::init();
 }
 
 }

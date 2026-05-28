@@ -4,20 +4,17 @@
 
 #include <CommonLib/Types.h>
 
-namespace Katline {
-
-namespace Memory {
+namespace Katline::Memory {
 
 class MemoryManager {
 public:
-    static void init(MemoryMap const* mmap);
+	static void init(MemoryMap const *mmap);
 
-    static void* allocate(size_t const size);
-    static void free(void* ptr);
+	static void *allocate(size_t const size);
+	static void *allocate_aligned(size_t const size, size_t alignment);
+	static void free(void *ptr);
 };
 
 using MM = MemoryManager;
-
-}
 
 }
