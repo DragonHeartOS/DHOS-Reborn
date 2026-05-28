@@ -98,6 +98,19 @@ private:
 	String m_message;
 };
 
+struct HashMapDuplicateKeyError { };
+
+namespace detail::adl {
+
+inline auto to_display_string(HashMapDuplicateKeyError const &) -> String
+{
+	return String("HashMap duplicate key");
+}
+
+}
+
+using Errors = Error<HashMapDuplicateKeyError>;
+
 namespace detail {
 
 template<> struct IsErasedError<ErasedError> {

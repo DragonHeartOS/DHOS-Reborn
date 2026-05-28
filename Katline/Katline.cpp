@@ -1,6 +1,7 @@
 #include <Katline/Katline.h>
 
 #include <CommonLib/ArrayList.h>
+#include <CommonLib/HashMap.h>
 #include <CommonLib/Platform.h>
 #include <CommonLib/Range.h>
 #include <CommonLib/Utility.h>
@@ -50,6 +51,16 @@ auto katline_main(Controller::Framebuffer *framebuffer, Memory::MemoryMap *mmap)
 	Debug::print_formatted("[demo] arraylist: ");
 	transformed.iter().for_each(
 	    [](int value) { Debug::print_formatted("%d ", value); });
+	Debug::print_formatted("\n");
+
+	CL::HashMap<int, int> squares;
+	(void)squares.insert_or_replace(2, 4);
+	(void)squares.insert_or_replace(3, 9);
+
+	Debug::print_formatted("[demo] hashmap: ");
+	squares.iter().for_each([](auto const &entry) {
+		Debug::print_formatted("(%d->%d) ", entry.key, entry.value);
+	});
 	Debug::print_formatted("\n");
 }
 
