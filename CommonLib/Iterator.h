@@ -6,71 +6,42 @@
 
 namespace CL {
 
+template<class T>
+concept DoubleEndedIterator = requires(T t) {
+	t.next();
+	t.next_back();
+};
+
 template<class Iter, class F> struct MapIter;
 template<class Iter, class P> struct FilterIter;
-template<class Iter> struct ReverseIter;
+template<DoubleEndedIterator Iter> struct ReverseIter;
 
 template<class Self> struct Iterator {
 	Self &self() { return static_cast<Self &>(*this); }
 
-	template<class F> auto map(F f) & { return map_impl(move(f)); }
-	template<class F> auto map(F f) && { return map_impl(move(f)); }
-
-	template<class P> auto filter(P pred) & { return filter_impl(move(pred)); }
-	template<class P> auto filter(P pred) && { return filter_impl(move(pred)); }
-
-	template<class F> void for_each(F f) & { for_each_impl(move(f)); }
-	template<class F> void for_each(F f) && { for_each_impl(move(f)); }
-
-	template<class Container> auto collect() & -> Container
-	{
-		return collect_impl<Container>();
-	}
-	template<class Container> auto collect() && -> Container
-	{
-		return collect_impl<Container>();
-	}
-
-	template<class Other> auto eq(Other other) & -> bool
-	{
-		return eq_impl(move(other));
-	}
-	template<class Other> auto eq(Other other) && -> bool
-	{
-		return eq_impl(move(other));
-	}
-
-	auto rev() & { return rev_impl(); }
-	auto rev() && { return rev_impl(); }
-
-private:
-	template<class F> auto map_impl(F f)
+	template<class F> auto map(F f) &&
 	{
 		return MapIter<Self, F>(move(self()), move(f));
 	}
-
-	template<class P> auto filter_impl(P pred)
+	template<class P> auto filter(P pred) &&
 	{
 		return FilterIter<Self, P>(move(self()), move(pred));
 	}
-
-	template<class F> void for_each_impl(F f)
+	template<class F> void for_each(F f) &&
 	{
 		while (auto x { self().next() })
 			f(*x);
 	}
 
-	template<class Container> auto collect_impl() -> Container
+	template<class Container> auto collect() && -> Container
 	{
 		Container result;
-
 		while (auto x { self().next() })
 			result.push(*x);
-
 		return result;
 	}
 
-	template<class Other> auto eq_impl(Other other) -> bool
+	template<class Other> auto eq(Other other) && -> bool
 	{
 		while (true) {
 			auto a { self().next() };
@@ -87,7 +58,11 @@ private:
 		}
 	}
 
-	auto rev_impl() { return ReverseIter<Self>(move(self())); }
+	auto rev() &&
+	requires DoubleEndedIterator<Self>
+	{
+		return ReverseIter<Self>(move(self()));
+	}
 };
 
 template<class Iter, class F> struct MapIter : Iterator<MapIter<Iter, F>> {
@@ -106,6 +81,7 @@ template<class Iter, class F> struct MapIter : Iterator<MapIter<Iter, F>> {
 	}
 
 	auto next_back()
+	requires DoubleEndedIterator<Iter>
 	{
 		return next_impl([](Iter &iter) { return iter.next_back(); });
 	}
@@ -141,6 +117,7 @@ struct FilterIter : Iterator<FilterIter<Iter, P>> {
 	}
 
 	auto next_back()
+	requires DoubleEndedIterator<Iter>
 	{
 		return next_impl([](Iter &iter) { return iter.next_back(); });
 	}
@@ -157,7 +134,8 @@ private:
 	}
 };
 
-template<class Iter> struct ReverseIter : Iterator<ReverseIter<Iter>> {
+template<DoubleEndedIterator Iter>
+struct ReverseIter : Iterator<ReverseIter<Iter>> {
 	Iter iter;
 
 	ReverseIter(Iter iter)
@@ -171,6 +149,6 @@ template<class Iter> struct ReverseIter : Iterator<ReverseIter<Iter>> {
 };
 
 template<class T>
-concept Iterable = requires(T t) { t.iter(); };
+concept Iterable = requires(T t) { t.iter().next(); };
 
 }
