@@ -276,4 +276,22 @@ auto operator+(BaseString<CharTypeT> const &lhs,
 
 using String = BaseString<char>;
 
+namespace detail::adl {
+
+inline auto to_display_string(String const &value) -> String { return value; }
+inline auto to_display_string(StringView const value) -> String
+{
+	return String(value);
+}
+inline auto to_display_string(char const *value) -> String { return String(value); }
+
+inline auto to_debug_string(String const &value) -> String { return value; }
+inline auto to_debug_string(StringView const value) -> String
+{
+	return String(value);
+}
+inline auto to_debug_string(char const *value) -> String { return String(value); }
+
+}
+
 }

@@ -1,7 +1,8 @@
 #include <Katline/Katline.h>
 
-#include <CommonLib/Platform.h>
 #include <CommonLib/ArrayList.h>
+#include <CommonLib/Platform.h>
+#include <CommonLib/Range.h>
 #include <Katline/Arch/IDT.h>
 #include <Katline/Controllers/SerialController.h>
 #include <Katline/Debug.h>
@@ -33,24 +34,17 @@ auto katline_main(Controller::Framebuffer *framebuffer, Memory::MemoryMap *mmap)
 
 	IDT::init();
 
-	CL::ArrayList<int> demo;
-	demo.push(1);
-	demo.push(2);
-	demo.push(3);
-	demo.push(4);
-	demo.push(5);
-
 	auto transformed {
-	    demo.iter()
-	        .map([](int value) { return value * 2; })
-	        .filter([](int value) { return value >= 6; })
-	        .rev()
-	        .collect<CL::ArrayList<int>>() };
+		CL::Range(0, 10)
+		    .map([](int value) { return value * 2; })
+		    .filter([](int value) { return value >= 6; })
+		    .rev()
+		    .collect<CL::ArrayList<int>>(),
+	};
 
 	Debug::print_formatted("[demo] arraylist: ");
-	transformed.iter().for_each([](int value) {
-		Debug::print_formatted("%d ", value);
-	});
+	transformed.iter().for_each(
+	    [](int value) { Debug::print_formatted("%d ", value); });
 	Debug::print_formatted("\n");
 }
 
