@@ -48,4 +48,12 @@ template<typename T> struct IsReference<T &&> {
 
 template<typename T> inline constexpr bool IsReferenceV = IsReference<T>::Value;
 
+template<typename T> T &&declval();
+
+template<typename Fn, typename... Args>
+using InvokeResult = decltype(declval<Fn>()(declval<Args>()...));
+
+template<typename Fn, typename... Args>
+using InvokeResultT = InvokeResult<Fn, Args...>;
+
 }

@@ -6,7 +6,33 @@
 namespace CL {
 
 template<typename CharTypeT> struct BaseString {
-	ArrayList<CharTypeT> m_data;
+	struct Iter : Iterator<Iter> {
+		ArrayList<CharTypeT>::Iter iter;
+		usize remaining;
+
+		auto next() -> Option<CharTypeT &>
+		{
+			if (remaining == 0)
+				return {};
+
+			remaining--;
+			return iter.next();
+		}
+	};
+
+	struct ConstIter : Iterator<ConstIter> {
+		ArrayList<CharTypeT>::ConstIter iter;
+		usize remaining;
+
+		auto next() -> Option<CharTypeT const &>
+		{
+			if (remaining == 0)
+				return {};
+
+			remaining--;
+			return iter.next();
+		}
+	};
 
 	BaseString() { m_data.push('\0'); }
 
@@ -14,7 +40,7 @@ template<typename CharTypeT> struct BaseString {
 	{
 		usize len {};
 		while (cstring[len] != '\0')
-			++len;
+			len++;
 
 		m_data.reserve(len + 1);
 
@@ -32,6 +58,22 @@ template<typename CharTypeT> struct BaseString {
 			m_data.push(string.data()[i]);
 
 		m_data.push('\0');
+	}
+
+	auto iter() -> Iter
+	{
+		return Iter {
+			.iter = m_data.iter(),
+			.remaining = size(),
+		};
+	}
+
+	auto iter() const -> ConstIter
+	{
+		return ConstIter {
+			.iter = m_data.iter(),
+			.remaining = size(),
+		};
 	}
 
 	constexpr auto size() const -> usize
@@ -199,6 +241,9 @@ template<typename CharTypeT> struct BaseString {
 	}
 
 	static constexpr usize npos = static_cast<usize>(-1);
+
+private:
+	ArrayList<CharTypeT> m_data;
 };
 
 template<typename CharTypeT>

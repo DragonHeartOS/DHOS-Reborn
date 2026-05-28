@@ -1,11 +1,38 @@
 #pragma once
 
+#include <CommonLib/Iterator.h>
 #include <CommonLib/Option.h>
 #include <CommonLib/Types.h>
 
 namespace CL {
 
 template<typename T> struct ArrayList {
+	struct Iter : Iterator<Iter> {
+		T *current;
+		T *end;
+
+		auto next() -> Option<T &>
+		{
+			if (current == end)
+				return {};
+
+			return *current++;
+		}
+	};
+
+	struct ConstIter : Iterator<ConstIter> {
+		T const *current;
+		T const *end;
+
+		auto next() -> Option<T const &>
+		{
+			if (current == end)
+				return {};
+
+			return *current++;
+		}
+	};
+
 	constexpr ArrayList() = default;
 
 	ArrayList(ArrayList const &other)
@@ -29,6 +56,22 @@ template<typename T> struct ArrayList {
 	{
 		clear();
 		deallocate(m_data);
+	}
+
+	auto iter() -> Iter
+	{
+		return Iter {
+			.current = m_data,
+			.end = m_data + m_size,
+		};
+	}
+
+	auto iter() const -> ConstIter
+	{
+		return ConstIter {
+			.current = m_data,
+			.end = m_data + m_size,
+		};
 	}
 
 	auto operator=(ArrayList const &other) -> ArrayList &
