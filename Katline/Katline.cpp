@@ -34,6 +34,8 @@ auto katline_main(Controller::Framebuffer *framebuffer, Memory::MemoryMap *mmap)
 
 	IDT::init();
 
+	CL::ArrayList<int> numbers { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
+
 	auto transformed {
 		CL::Range(0, 10)
 		    .map([](int value) { return value * 2; })

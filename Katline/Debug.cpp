@@ -1,5 +1,6 @@
-#include <CommonLib/String.h>
 #include <Katline/Debug.h>
+
+#include <CommonLib/cstring>
 #include <Katline/Katline.h>
 
 #include <stdarg.h>

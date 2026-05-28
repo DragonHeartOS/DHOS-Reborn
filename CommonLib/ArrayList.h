@@ -1,5 +1,6 @@
 #pragma once
 
+#include <CommonLib/InitializerList.h>
 #include <CommonLib/Iterator.h>
 #include <CommonLib/Option.h>
 #include <CommonLib/Platform.h>
@@ -69,6 +70,13 @@ template<typename T> struct ArrayList {
 		other.m_data = nullptr;
 		other.m_size = 0;
 		other.m_capacity = 0;
+	}
+
+	ArrayList(std::initializer_list<T> init)
+	{
+		reserve(init.size());
+		for (usize i = 0; i < init.size(); ++i)
+			emplace(init[i]);
 	}
 
 	~ArrayList()
