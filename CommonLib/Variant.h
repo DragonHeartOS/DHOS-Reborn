@@ -184,9 +184,6 @@ private:
 	template<int I, typename Self>
 	static auto get_impl(Self &&self) -> decltype(auto)
 	{
-		using T =
-		    typename detail::VariantGet<I, detail::VariantStorage<Ts...>>::Type;
-
 		if (self.m_tag != I)
 			return Option<decltype(detail::VariantGet<I,
 			    detail::VariantStorage<Ts...>>::get(self.m_data))> {};

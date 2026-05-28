@@ -32,6 +32,24 @@ template<typename CharTypeT> struct BaseStringView {
 	constexpr auto size() -> usize { return m_size; }
 	constexpr auto size() const -> usize { return m_size; }
 
+	constexpr auto operator==(BaseStringView const &other) const -> bool
+	{
+		if (size() != other.size())
+			return false;
+
+		for (usize i {}; i < size(); ++i) {
+			if (data()[i] != other.data()[i])
+				return false;
+		}
+
+		return true;
+	}
+
+	constexpr auto operator!=(BaseStringView const &other) const -> bool
+	{
+		return !(*this == other);
+	}
+
 private:
 	CharTypeT const *m_data { nullptr };
 	usize m_size {};

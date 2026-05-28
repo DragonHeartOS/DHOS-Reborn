@@ -242,19 +242,21 @@ template<typename CharTypeT> struct BaseString {
 	constexpr auto operator==(BaseStringView<CharTypeT> const &other) const
 	    -> bool
 	{
-		if (size() != other.size())
-			return false;
+		return view() == other;
+	}
 
-		for (usize i {}; i < size(); ++i) {
-			if (data()[i] != other.data()[i])
-				return false;
-		}
-
-		return true;
+	constexpr auto operator==(BaseString const &other) const -> bool
+	{
+		return view() == other.view();
 	}
 
 	constexpr auto operator!=(BaseStringView<CharTypeT> const &other) const
 	    -> bool
+	{
+		return !(*this == other);
+	}
+
+	constexpr auto operator!=(BaseString const &other) const -> bool
 	{
 		return !(*this == other);
 	}

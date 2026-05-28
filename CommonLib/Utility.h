@@ -5,11 +5,22 @@
 
 namespace CL {
 
+template<typename CharTypeT> struct BaseString;
+template<typename CharTypeT> struct BaseStringView;
+
 namespace detail::adl {
 
-void to_display_string();
-void to_debug_string();
-void to_hash();
+auto to_display_string(BaseString<char> const &) -> BaseString<char>;
+auto to_display_string(BaseStringView<char> const) -> BaseString<char>;
+auto to_display_string(char const *) -> BaseString<char>;
+
+auto to_debug_string(BaseString<char> const &) -> BaseString<char>;
+auto to_debug_string(BaseStringView<char> const) -> BaseString<char>;
+auto to_debug_string(char const *) -> BaseString<char>;
+
+auto to_hash(BaseString<char> const &) -> usize;
+auto to_hash(BaseStringView<char> const) -> usize;
+auto to_hash(char const *) -> usize;
 
 template<typename T>
 requires(IsIntegralV<RemoveConstRef<T>>)
