@@ -30,6 +30,10 @@ template<class Self> struct Iterator {
 	/// @param f The function to apply to each element of the original iterator.
 	/// @return A new iterator that applies the function to each element of the
 	/// original iterator.
+	///
+	/// @code
+	/// auto doubled { range(3).map([](auto x) { return x * 2; }) };
+	/// @endcode
 	template<class F> auto map(F f) &&
 	{
 		return MapIter<Self, F>(move(self()), move(f));
@@ -44,6 +48,10 @@ template<class Self> struct Iterator {
 	/// the original iterator.
 	/// @return A new iterator that filters the elements of the original
 	/// iterator using the specified predicate function.
+	///
+	/// @code
+	/// auto evens { range(6).filter([](auto x) { return x % 2 == 0; }) };
+	/// @endcode
 	template<class P> auto filter(P pred) &&
 	{
 		return FilterIter<Self, P>(move(self()), move(pred));
@@ -54,6 +62,12 @@ template<class Self> struct Iterator {
 	/// @tparam F The type of the function to apply to each element of the
 	/// iterator.
 	/// @param f The function to apply to each element of the iterator.
+	///
+	/// @code
+	/// range(3).for_each([](auto x) {
+	///     // use x
+	/// });
+	/// @endcode
 	template<class F> void for_each(F f) &&
 	{
 		while (auto x { self().next() })
@@ -68,6 +82,10 @@ template<class Self> struct Iterator {
 	/// elements to the container.
 	/// @param container The container to collect the elements into.
 	/// @return The container with the collected elements.
+	///
+	/// @code
+	/// auto values { range(3).collect<ArrayList<int>>() };
+	/// @endcode
 	template<class Container> auto collect() && -> Container
 	{
 		Container result;
@@ -81,6 +99,10 @@ template<class Self> struct Iterator {
 	/// original iterator in reverse order.
 	/// @return A new iterator that iterates over the elements of the original
 	/// iterator in reverse order.
+	///
+	/// @code
+	/// auto reversed { range(3).rev() };
+	/// @endcode
 	auto rev() &&
 	requires DoubleEndedIterator<Self>
 	{
@@ -97,6 +119,10 @@ template<class Self> struct Iterator {
 	/// @param other The other iterator to compare with.
 	/// @return True if the elements of the original iterator are equal to the
 	/// elements of the other iterator, false otherwise.
+	///
+	/// @code
+	/// bool same { range(3).eq(range(3)) };
+	/// @endcode
 	template<class Other> auto eq(Other other) && -> bool
 	{
 		while (true) {
@@ -124,6 +150,10 @@ template<class Self> struct Iterator {
 	/// the iterator.
 	/// @return True if any element of the iterator satisfies the predicate
 	/// function, false otherwise.
+	///
+	/// @code
+	/// bool has_even { range(3).any([](auto x) { return x % 2 == 0; }) };
+	/// @endcode
 	template<class P> auto any(P pred) && -> bool
 	{
 		return move(self()).find_if(move(pred)).has_value();
@@ -139,6 +169,10 @@ template<class Self> struct Iterator {
 	/// the iterator.
 	/// @return True if every element of the iterator satisfies the predicate
 	/// function, false otherwise.
+	///
+	/// @code
+	/// bool all_even { range(3).every([](auto x) { return x % 2 == 0; }) };
+	/// @endcode
 	template<class P> auto every(P pred) && -> bool
 	{
 		while (auto x { self().next() }) {
@@ -159,6 +193,10 @@ template<class Self> struct Iterator {
 	/// @return An Option containing the first element of the iterator that
 	/// satisfies the predicate function if such an element exists, or an empty
 	/// Option if no such element exists.
+	///
+	/// @code
+	/// auto first_even { range(5).find_if([](auto x) { return x % 2 == 0; }) };
+	/// @endcode
 	template<class P> auto find_if(P pred) &&
 	{
 		while (auto x { self().next() }) {
@@ -179,6 +217,10 @@ template<class Self> struct Iterator {
 	/// @return An Option containing the first element of the iterator that is
 	/// equal to the specified value if such an element exists, or an empty
 	/// Option if no such element exists.
+	///
+	/// @code
+	/// auto found { range(5).find(3) };
+	/// @endcode
 	template<class Value> auto find(Value const &value) &&
 	{
 		return move(self()).find_if([&](auto const &x) { return x == value; });
