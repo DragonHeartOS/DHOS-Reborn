@@ -68,11 +68,10 @@ auto SerialController::write(char ch) -> void
 	}
 }
 
-auto SerialController::write_string_safe(char const *string, size_t size)
-    -> void
+auto SerialController::write_string_safe(char const *string, usize size) -> void
 {
 	if (m_enabled)
-		for (size_t i {}; i < size; i++)
+		for (usize i {}; i < size; i++)
 			write(string[i]);
 }
 

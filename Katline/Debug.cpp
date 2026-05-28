@@ -18,11 +18,11 @@ auto set_framebuffer_logging_enabled(bool enabled) -> void
 auto write_formatted(char const *str, ...) -> void
 {
 	va_list vl;
-	int i = 0;
-	int j = 0;
+	usize i = 0;
+	usize j = 0;
 
 	char buffer[100] = { 0 };
-	unsigned char temp[20];
+	char temp[20];
 
 	va_start(vl, str);
 
@@ -58,10 +58,10 @@ auto write_formatted(char const *str, ...) -> void
 			}
 
 			case 'd': {
-				CL::itoa(va_arg(vl, int), (char *)temp);
+				itoa(va_arg(vl, int), temp);
 
-				CL::strcpy(&buffer[j], (char const *)temp);
-				j += CL::strlen((char const *)temp);
+				strcpy(&buffer[j], temp);
+				j += strlen(temp);
 
 				break;
 			}
@@ -72,12 +72,12 @@ auto write_formatted(char const *str, ...) -> void
 				if (!s)
 					s = "(null)";
 
-				size_t len = CL::strlen(s);
+				usize len = strlen(s);
 
-				if (precision >= 0 && (size_t)precision < len)
-					len = static_cast<size_t>(precision);
+				if (precision >= 0 && static_cast<usize>(precision) < len)
+					len = static_cast<usize>(precision);
 
-				for (size_t k = 0; k < len; k++)
+				for (usize k = 0; k < len; k++)
 					buffer[j++] = s[k];
 
 				break;

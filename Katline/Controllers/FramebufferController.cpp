@@ -16,7 +16,8 @@ FramebufferController::FramebufferController(Framebuffer *framebuffer)
 {
 	this->m_framebuffer = framebuffer;
 
-	put_logo(Logo::Data, Logo::Width, Logo::Height, 10, 10);
+	if (this->m_framebuffer)
+		put_logo(Logo::Data, Logo::Width, Logo::Height, 10, 10);
 }
 
 void FramebufferController::plot_pixel(uint y, uint x)
@@ -78,10 +79,10 @@ void FramebufferController::draw_character(char const ch, bool const inverted)
 }
 
 // TODO: Put this in Marine
-auto memset(void *destination, int const value, size_t const size) -> void
+auto memset(void *destination, int const value, usize const size) -> void
 {
 	auto destination_ptr { (u8 *)destination };
-	for (size_t i {}; i < size; i++)
+	for (usize i {}; i < size; i++)
 		destination_ptr[i] = (unsigned char)value;
 }
 
@@ -109,9 +110,9 @@ void FramebufferController::put_character(char const ch, bool const inverted)
 }
 
 void FramebufferController::put_string_safe(
-    char const *string, size_t const size, bool const inverted)
+    char const *string, usize const size, bool const inverted)
 {
-	for (size_t i {}; i < size; i++)
+	for (usize i {}; i < size; i++)
 		put_character(string[i], inverted);
 }
 
@@ -124,11 +125,11 @@ void FramebufferController::put_string(char const *string, bool const inverted)
 }
 
 // TODO: Put this in Marine
-auto memcpy(void *dest, void *source, size_t const size) -> void
+auto memcpy(void *dest, void *source, usize const size) -> void
 {
 	char *d = (char *)dest;
 	char *s = (char *)source;
-	for (size_t i = 0; i < size; i++)
+	for (usize i = 0; i < size; i++)
 		d[i] = s[i];
 }
 

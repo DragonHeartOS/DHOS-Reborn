@@ -2,19 +2,19 @@
 
 #include <CommonLib/Types.h>
 
-auto strlen(char const *str) -> size_t
+auto strlen(char const *str) -> usize
 {
 	char const *s;
 	for (s = str; *s; ++s)
 		;
-	return (size_t)(s - str);
+	return static_cast<usize>(s - str);
 }
 
 auto strcpy(char *destination, char const *source) -> char *
 {
 	// return if no memory is allocated to the destination
-	if (destination == NULL) {
-		return NULL;
+	if (destination == nullptr) {
+		return nullptr;
 	}
 
 	// take a pointer pointing to the beginning of the destination string
@@ -62,10 +62,10 @@ auto itoa(int n, char s[]) -> void
 	revstr(s);
 }
 
-auto memcpy(void *dst, void *src, size_t size) -> void
+auto memcpy(void *dst, void *src, usize size) -> void
 {
 	auto *dst_ { reinterpret_cast<u8 *>(dst) };
 	auto *src_ { reinterpret_cast<u8 *>(src) };
-	for (size_t i {}; i < size; i++)
+	for (usize i {}; i < size; i++)
 		dst_[i] = src_[i];
 }

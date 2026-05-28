@@ -20,7 +20,7 @@ public:
 	char read();
 	int is_transmit_empty();
 	void write(char ch);
-	void write_string_safe(char const *string, size_t size);
+	void write_string_safe(char const *string, usize size);
 	void write_string(char const *string);
 
 private:

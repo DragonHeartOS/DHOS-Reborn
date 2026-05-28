@@ -10,8 +10,8 @@ class MemoryManager {
 public:
 	static void init(MemoryMap const *mmap);
 
-	static void *allocate(size_t const size);
-	static void *allocate_aligned(size_t const size, size_t alignment);
+	static void *allocate(usize const size);
+	static void *allocate_aligned(usize const size, usize alignment);
 	static void free(void *ptr);
 };
 

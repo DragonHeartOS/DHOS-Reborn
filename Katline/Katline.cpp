@@ -18,7 +18,7 @@ auto CL::panic(CL::StringView const message) -> void
 
 namespace Katline {
 
-Controller::FramebufferController k_framebuffer_controller = NULL;
+Controller::FramebufferController k_framebuffer_controller { nullptr };
 Controller::SerialController k_serial_controller;
 
 auto katline_main(Controller::Framebuffer *framebuffer, Memory::MemoryMap *mmap)

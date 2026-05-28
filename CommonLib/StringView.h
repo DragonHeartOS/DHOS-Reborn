@@ -13,7 +13,7 @@ template<typename CharTypeT> struct BaseStringView {
 	}
 
 	auto data() -> CharTypeT const * { return m_data; }
-	auto data() const -> CharTypeT * { return m_data; }
+	auto data() const -> CharTypeT const * { return m_data; }
 
 	auto size() -> usize { return m_size; }
 	auto size() const -> usize { return m_size; }

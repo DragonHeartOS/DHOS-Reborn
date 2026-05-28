@@ -30,7 +30,7 @@ public:
 	void put_character(char const ch, bool const inverted = false);
 
 	void put_string_safe(
-	    char const *string, size_t const size, bool const inverted = false);
+		char const *string, usize const size, bool const inverted = false);
 	void put_string(char const *string, bool const inverted = false);
 
 	void scroll_down(uint const lines = 1);

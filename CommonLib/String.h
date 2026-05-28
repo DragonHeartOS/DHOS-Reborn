@@ -1,6 +1,7 @@
 #pragma once
 
 #include <CommonLib/ArrayList.h>
+#include <CommonLib/StringView.h>
 #include <CommonLib/Types.h>
 
 namespace CL {

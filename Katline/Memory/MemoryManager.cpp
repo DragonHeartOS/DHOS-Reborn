@@ -38,7 +38,7 @@ auto MemoryManager::init(MemoryMap const *mmap) -> void
 	Debug::write_formatted("[MemoryManager] Initialized.\n");
 }
 
-auto MemoryManager::allocate(size_t const size) -> void *
+auto MemoryManager::allocate(usize const size) -> void *
 {
 	return mrvn_malloc(size);
 }
@@ -50,7 +50,7 @@ struct AllocationHeader {
 
 constexpr u64 ALIGNED_MAGIC = 0xA7B04F1EULL;
 
-auto MemoryManager::allocate_aligned(size_t const size, size_t alignment)
+auto MemoryManager::allocate_aligned(usize const size, usize alignment)
     -> void *
 {
 	if (alignment < sizeof(void *))
@@ -59,7 +59,7 @@ auto MemoryManager::allocate_aligned(size_t const size, size_t alignment)
 	if ((alignment & (alignment - 1)) != 0)
 		return nullptr;
 
-	size_t const total { size + alignment - 1 + sizeof(AllocationHeader) };
+	usize const total { size + alignment - 1 + sizeof(AllocationHeader) };
 
 	void *raw = mrvn_malloc(total);
 	if (!raw)
@@ -101,7 +101,7 @@ auto MemoryManager::free(void *ptr) -> void
 
 namespace std {
 
-using size_t = size_t;
+using size_t = ::usize;
 
 struct nothrow_t {
 	explicit nothrow_t() = default;

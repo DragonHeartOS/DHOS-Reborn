@@ -60,7 +60,7 @@ static inline auto dlist_remove(DList *d) -> void
 static inline auto dlist_push(DList **d1p, DList *d2) -> void
 {
 	// printf("%s(%p, %p)\n", __FUNCTION__, d1p, d2);
-	if (*d1p != NULL) {
+	if (*d1p != nullptr) {
 		dlist_insert_before(*d1p, d2);
 	}
 	*d1p = d2;
@@ -74,7 +74,7 @@ static inline auto dlist_pop(DList **dp) -> DList *
 	DList *d2 = d1->next;
 	dlist_remove(d1);
 	if (d1 == d2) {
-		*dp = NULL;
+		*dp = nullptr;
 	} else {
 		*dp = d2;
 	}
@@ -102,8 +102,8 @@ static inline auto dlist_remove_from(DList **d1p, DList *d2) -> void
 		typeof(**h) **h_ = h, *d_ = d; \
 		DList *head = &(*h_)->l; \
 		dlist_remove_from(&head, &d_->l); \
-		if (head == NULL) { \
-			*h_ = NULL; \
+		if (head == nullptr) { \
+			*h_ = nullptr; \
 		} else { \
 			*h_ = CONTAINER(typeof(**h), l, head); \
 		} \
@@ -113,8 +113,8 @@ static inline auto dlist_remove_from(DList **d1p, DList *d2) -> void
 	{ \
 		typeof(*v) **h_ = h, *v_ = v; \
 		DList *head = &(*h_)->l; \
-		if (*h_ == NULL) \
-			head = NULL; \
+		if (*h_ == nullptr) \
+			head = nullptr; \
 		dlist_push(&head, &v_->l); \
 		*h_ = CONTAINER(typeof(*v), l, head); \
 	}
@@ -124,8 +124,8 @@ static inline auto dlist_remove_from(DList **d1p, DList *d2) -> void
 		typeof(**h) **h_ = h; \
 		DList *head = &(*h_)->l; \
 		DList *res = dlist_pop(&head); \
-		if (head == NULL) { \
-			*h_ = NULL; \
+		if (head == nullptr) { \
+			*h_ = nullptr; \
 		} else { \
 			*h_ = CONTAINER(typeof(**h), l, head); \
 		} \
@@ -138,7 +138,7 @@ static inline auto dlist_remove_from(DList **d1p, DList *d2) -> void
 		DList *last_##it = h_->l.prev, *iter_##it = &h_->l, *next_##it; \
 		do { \
 			if (iter_##it == last_##it) { \
-				next_##it = NULL; \
+				next_##it = nullptr; \
 			} else { \
 				next_##it = iter_##it->next; \
 			} \
@@ -169,18 +169,18 @@ enum {
 	HEADER_SIZE = OFFSETOF(Chunk, data),
 };
 
-Chunk *free_chunk[NUM_SIZES] = { NULL };
-size_t mem_free = 0;
-size_t mem_used = 0;
-size_t mem_meta = 0;
-Chunk *first = NULL;
-Chunk *last = NULL;
+Chunk *free_chunk[NUM_SIZES] = { nullptr };
+usize mem_free = 0;
+usize mem_used = 0;
+usize mem_meta = 0;
+Chunk *first = nullptr;
+Chunk *last = nullptr;
 
 static auto memory_chunk_init(Chunk *chunk) -> void;
-static auto memory_chunk_size(Chunk const *chunk) -> size_t;
-static auto memory_chunk_slot(size_t size) -> int;
+static auto memory_chunk_size(Chunk const *chunk) -> usize;
+static auto memory_chunk_slot(usize size) -> int;
 
-static auto memory_chunk_bucket(size_t size) -> int
+static auto memory_chunk_bucket(usize size) -> int
 {
 	int n = memory_chunk_slot(size);
 	if (n < 0)
@@ -190,7 +190,7 @@ static auto memory_chunk_bucket(size_t size) -> int
 	return n;
 }
 
-static auto memory_add_region(void *mem, size_t size) -> bool
+static auto memory_add_region(void *mem, usize size) -> bool
 {
 	char *mem_start = (char *)(((intptr_t)mem + ALIGN - 1) & (~(ALIGN - 1)));
 	char *mem_end
@@ -199,7 +199,7 @@ static auto memory_add_region(void *mem, size_t size) -> bool
 	if (mem_end <= mem_start)
 		return false;
 
-	if ((size_t)(mem_end - mem_start) < (sizeof(Chunk) * 3))
+	if (static_cast<usize>(mem_end - mem_start) < (sizeof(Chunk) * 3))
 		return false;
 
 	Chunk *region_first = (Chunk *)mem_start;
@@ -218,13 +218,13 @@ static auto memory_add_region(void *mem, size_t size) -> bool
 	region_first->used = 1;
 	region_last->used = 1;
 
-	size_t len = memory_chunk_size(second);
+	usize len = memory_chunk_size(second);
 	int n = memory_chunk_bucket(len);
 	DLIST_PUSH(&free_chunk[n], second, free);
 	mem_free += len - HEADER_SIZE;
 	mem_meta += sizeof(Chunk) * 2 + HEADER_SIZE;
 
-	if (first == NULL)
+	if (first == nullptr)
 		first = region_first;
 	last = region_last;
 
@@ -239,15 +239,15 @@ static auto memory_chunk_init(Chunk *chunk) -> void
 	DLIST_INIT(chunk, free);
 }
 
-static auto memory_chunk_size(Chunk const *chunk) -> size_t
+static auto memory_chunk_size(Chunk const *chunk) -> usize
 {
 	// printf("%s(%p)\n", __FUNCTION__, chunk);
 	char *end = (char *)(chunk->all.next);
 	char *start = (char *)(&chunk->all);
-	return (size_t)((end - start) - HEADER_SIZE);
+	return static_cast<usize>((end - start) - HEADER_SIZE);
 }
 
-static auto memory_chunk_slot(size_t size) -> int
+static auto memory_chunk_slot(usize size) -> int
 {
 	int n = -1;
 	while (size > 0) {
@@ -257,26 +257,26 @@ static auto memory_chunk_slot(size_t size) -> int
 	return n;
 }
 
-auto mrvn_memory_init(void *mem, size_t size) -> void
+auto mrvn_memory_init(void *mem, usize size) -> void
 {
 	for (int i = 0; i < NUM_SIZES; i++)
-		free_chunk[i] = NULL;
+		free_chunk[i] = nullptr;
 
 	mem_free = 0;
 	mem_used = 0;
 	mem_meta = 0;
-	first = NULL;
-	last = NULL;
+	first = nullptr;
+	last = nullptr;
 
 	(void)memory_add_region(mem, size);
 }
 
-auto mrvn_memory_add(void *mem, size_t size) -> bool
+auto mrvn_memory_add(void *mem, usize size) -> bool
 {
 	return memory_add_region(mem, size);
 }
 
-auto mrvn_malloc(size_t size) -> void *
+auto mrvn_malloc(usize size) -> void *
 {
 	// printf("%s(%#lx)\n", __FUNCTION__, size);
 	size = (size + ALIGN - 1) & (unsigned long)(~(ALIGN - 1));
@@ -287,18 +287,18 @@ auto mrvn_malloc(size_t size) -> void *
 	int n = memory_chunk_slot(size - 1) + 1;
 
 	if (n >= NUM_SIZES)
-		return NULL;
+		return nullptr;
 
 	while (!free_chunk[n]) {
 		++n;
 		if (n >= NUM_SIZES)
-			return NULL;
+			return nullptr;
 	}
 
 	Chunk *chunk = DLIST_POP(&free_chunk[n], free);
-	size_t size2 = memory_chunk_size(chunk);
+	usize size2 = memory_chunk_size(chunk);
 	// printf("@ %p [%#lx]\n", chunk, size2);
-	size_t len = 0;
+	usize len = 0;
 
 	if (size + sizeof(Chunk) <= size2) {
 		Chunk *chunk2 = (Chunk *)(((char *)chunk) + HEADER_SIZE + size);
@@ -323,7 +323,7 @@ auto mrvn_malloc(size_t size) -> void *
 
 static auto remove_free(Chunk *chunk) -> void
 {
-	size_t len = memory_chunk_size(chunk);
+	usize len = memory_chunk_size(chunk);
 	int n = memory_chunk_bucket(len);
 	// printf("%s(%p) : removing chunk %#lx [%d]\n", __FUNCTION__, chunk, len,
 	// n);
@@ -333,7 +333,7 @@ static auto remove_free(Chunk *chunk) -> void
 
 static auto push_free(Chunk *chunk) -> void
 {
-	size_t len = memory_chunk_size(chunk);
+	usize len = memory_chunk_size(chunk);
 	int n = memory_chunk_bucket(len);
 	// printf("%s(%p) : adding chunk %#lx [%d]\n", __FUNCTION__, chunk, len, n);
 	DLIST_PUSH(&free_chunk[n], chunk, free);
