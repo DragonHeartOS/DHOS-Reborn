@@ -18,6 +18,15 @@ template<typename CharTypeT> struct BaseString {
 			remaining--;
 			return iter.next();
 		}
+
+		auto next_back() -> Option<CharTypeT &>
+		{
+			if (remaining == 0)
+				return {};
+
+			remaining--;
+			return iter.next_back();
+		}
 	};
 
 	struct ConstIter : Iterator<ConstIter> {
@@ -31,6 +40,15 @@ template<typename CharTypeT> struct BaseString {
 
 			remaining--;
 			return iter.next();
+		}
+
+		auto next_back() -> Option<CharTypeT const &>
+		{
+			if (remaining == 0)
+				return {};
+
+			remaining--;
+			return iter.next_back();
 		}
 	};
 
