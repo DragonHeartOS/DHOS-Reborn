@@ -278,19 +278,50 @@ using String = BaseString<char>;
 
 namespace detail::adl {
 
+constexpr auto hash_string(StringView const value) -> usize
+{
+	usize hash { 14695981039346656037ull };
+
+	for (usize i {}; i < value.size(); ++i) {
+		hash ^= static_cast<unsigned char>(value.data()[i]);
+		hash *= 1099511628211ull;
+	}
+
+	return hash;
+}
+
 inline auto to_display_string(String const &value) -> String { return value; }
 inline auto to_display_string(StringView const value) -> String
 {
 	return String(value);
 }
-inline auto to_display_string(char const *value) -> String { return String(value); }
+inline auto to_display_string(char const *value) -> String
+{
+	return String(value);
+}
 
 inline auto to_debug_string(String const &value) -> String { return value; }
 inline auto to_debug_string(StringView const value) -> String
 {
 	return String(value);
 }
-inline auto to_debug_string(char const *value) -> String { return String(value); }
+inline auto to_debug_string(char const *value) -> String
+{
+	return String(value);
+}
+
+inline auto to_hash(String const &value) -> usize
+{
+	return hash_string(value.view());
+}
+inline auto to_hash(StringView const value) -> usize
+{
+	return hash_string(value);
+}
+inline auto to_hash(char const *value) -> usize
+{
+	return hash_string(StringView(value));
+}
 
 }
 

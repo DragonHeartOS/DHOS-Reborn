@@ -48,6 +48,36 @@ template<typename T> struct IsReference<T &&> {
 
 template<typename T> inline constexpr bool IsReferenceV = IsReference<T>::Value;
 
+template<typename T> struct IsIntegral {
+	static constexpr bool Value = false;
+};
+
+#define CL_DEFINE_INTEGRAL_TRAIT(T) \
+	template<> struct IsIntegral<T> { \
+		static constexpr bool Value = true; \
+	};
+
+CL_DEFINE_INTEGRAL_TRAIT(bool)
+CL_DEFINE_INTEGRAL_TRAIT(char)
+CL_DEFINE_INTEGRAL_TRAIT(signed char)
+CL_DEFINE_INTEGRAL_TRAIT(unsigned char)
+CL_DEFINE_INTEGRAL_TRAIT(short)
+CL_DEFINE_INTEGRAL_TRAIT(unsigned short)
+CL_DEFINE_INTEGRAL_TRAIT(int)
+CL_DEFINE_INTEGRAL_TRAIT(unsigned int)
+CL_DEFINE_INTEGRAL_TRAIT(long)
+CL_DEFINE_INTEGRAL_TRAIT(unsigned long)
+CL_DEFINE_INTEGRAL_TRAIT(long long)
+CL_DEFINE_INTEGRAL_TRAIT(unsigned long long)
+CL_DEFINE_INTEGRAL_TRAIT(wchar_t)
+CL_DEFINE_INTEGRAL_TRAIT(char8_t)
+CL_DEFINE_INTEGRAL_TRAIT(char16_t)
+CL_DEFINE_INTEGRAL_TRAIT(char32_t)
+
+#undef CL_DEFINE_INTEGRAL_TRAIT
+
+template<typename T> inline constexpr bool IsIntegralV = IsIntegral<T>::Value;
+
 template<typename T> T &&declval();
 
 template<typename Fn, typename... Args>

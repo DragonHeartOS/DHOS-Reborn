@@ -1,11 +1,22 @@
 #pragma once
 
+#include <CommonLib/TypeTraits.h>
+#include <CommonLib/Types.h>
+
 namespace CL {
 
 namespace detail::adl {
 
 void to_display_string();
 void to_debug_string();
+void to_hash();
+
+template<typename T>
+requires(IsIntegralV<RemoveConstRef<T>>)
+constexpr auto to_hash(T value) -> usize
+{
+	return static_cast<usize>(value);
+}
 
 }
 
@@ -47,6 +58,15 @@ inline constexpr struct ToDebugStringFn {
 		return to_debug_string(forward<T>(value));
 	}
 } to_debug_string {};
+
+inline constexpr struct ToHashFn {
+	template<typename T>
+	constexpr auto operator()(T &&value) const -> decltype(auto)
+	{
+		using detail::adl::to_hash;
+		return to_hash(forward<T>(value));
+	}
+} to_hash {};
 
 template<typename... Ts> [[gnu::always_inline]] void ignore_unused(Ts &&...) { }
 
