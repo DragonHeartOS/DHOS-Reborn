@@ -18,7 +18,7 @@ has_kvm() {
 
 if [ "$SYSTEM" = 'QEMU' ] ; then
     QEMU_BIN='qemu-system-x86_64'
-    QEMU_ARGS="-m 1G -serial stdio"
+    QEMU_ARGS="-m 1G -serial stdio -smp 4"
 
     if has_kvm ; then
         echo 'Using KVM acceleration'

@@ -7,10 +7,12 @@ export module Katline:DebugImpl;
 import CommonLib;
 import :Debug;
 import :DebugSink;
+import :Sync;
 
 namespace Katline::Debug {
 
-static bool s_framebuffer_logging_enabled = false;
+static CL::Atomic<bool> s_framebuffer_logging_enabled { false };
+static Sync::SpinLock s_output_lock;
 
 static auto u64_to_hex(u64 value, char *out, usize width) -> void
 {
@@ -126,15 +128,16 @@ static auto write_formatted_impl(char const *str, va_list vl) -> void
 	}
 
 	buffer[j] = '\0';
+	Sync::ScopedIrqSpinLock guard { s_output_lock };
 	debug_write_serial(buffer);
 
-	if (s_framebuffer_logging_enabled)
+	if (s_framebuffer_logging_enabled.load())
 		debug_write_framebuffer(buffer);
 }
 
 auto set_framebuffer_logging_enabled(bool enabled) -> void
 {
-	s_framebuffer_logging_enabled = enabled;
+	s_framebuffer_logging_enabled.store(enabled);
 }
 
 auto write_formatted(char const *str, ...) -> void

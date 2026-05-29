@@ -174,14 +174,18 @@ extern "C" auto kernel_start() -> void
 		.data = memory_map_entries,
 	};
 
+	for (uint i {}; i < mp_request.response->cpu_count; i++) {
+		auto *cpu = mp_request.response->cpus[i];
+		cpu->goto_address = [](limine_mp_info *info) {
+			Katline::boot_cpu(
+			    info->lapic_id, info->processor_id, info->extra_argument);
+		};
+	}
+
 	Katline::StartupInfo info {
 		.framebuffer = &fb,
 		.mmap = &mmap,
 		.bsp_lapic_id = mp_request.response->bsp_lapic_id,
-		.mp_info = CL::Span<Katline::StartupInfo::MPInfo *> {
-			reinterpret_cast<Katline::StartupInfo::MPInfo **>(mp_request.response->cpus),
-			mp_request.response->cpu_count,
-		},
 		.rsdp_address = reinterpret_cast<uptr>(rsdp_request.response->address),
 		.hhdm_offset = hhdm_offset,
 		.tsc_frequency_hz = tsc_frequency_request.response->frequency,

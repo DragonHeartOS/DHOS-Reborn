@@ -13,22 +13,9 @@ export {
 	namespace Katline {
 
 	struct StartupInfo {
-		struct MPInfo {
-			u32 processor_id;
-			u32 lapic_id;
-
-		private:
-			[[maybe_unused]] u64 _;
-
-		public:
-			uptr goto_address;
-			u64 extra;
-		};
-
 		Controller::Framebuffer *framebuffer;
 		Memory::MemoryMap *mmap;
 		u32 bsp_lapic_id;
-		CL::Span<MPInfo *> mp_info;
 		uptr rsdp_address;
 		uptr hhdm_offset;
 		u64 tsc_frequency_hz;
@@ -38,6 +25,7 @@ export {
 	extern Controller::SerialController k_serial_controller;
 
 	void katline_main(StartupInfo &info);
+	void boot_cpu(u32 lapic_id, u32 processor_id, u64 extra);
 
 	}
 }
@@ -51,6 +39,7 @@ namespace Katline {
 
 Controller::FramebufferController k_framebuffer_controller { nullptr };
 Controller::SerialController k_serial_controller;
+CL::Atomic<bool> k_bsp_initialized { false };
 
 auto katline_main(StartupInfo &info) -> void
 {
@@ -115,8 +104,10 @@ auto katline_main(StartupInfo &info) -> void
 	});
 	Debug::print_formatted("\n");
 
-	Debug::print_formatted("[demo] triggering deliberate fault\n");
-	asm volatile("ud2");
+	// Debug::print_formatted("[demo] triggering deliberate fault\n");
+	// asm volatile("ud2");
+
+	k_bsp_initialized.store(true, CL::MemoryOrder::Release);
 
 	u64 last_logged {};
 	for (;;) {
@@ -129,6 +120,22 @@ auto katline_main(StartupInfo &info) -> void
 		}
 		asm("hlt");
 	}
+}
+
+void boot_cpu(u32 lapic_id, u32 processor_id, u64 extra)
+{
+	// wait for bsp init
+	while (!k_bsp_initialized.load(CL::MemoryOrder::Acquire))
+		asm volatile("pause");
+
+	CL::ignore_unused(lapic_id, processor_id, extra);
+
+	Debug::print_formatted(
+	    "Booted cpu %d, lapic id %d\n", processor_id, lapic_id);
+
+	asm volatile("cli");
+	for (;;)
+		asm volatile("hlt");
 }
 
 }

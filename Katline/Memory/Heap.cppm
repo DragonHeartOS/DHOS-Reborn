@@ -5,6 +5,7 @@ module;
 export module Katline:Heap;
 
 import CommonLib;
+import :Sync;
 
 export {
 	namespace Katline {
@@ -22,6 +23,8 @@ export {
 }
 
 namespace Katline::Memory {
+
+static Sync::SpinLock g_heap_lock;
 
 typedef struct DList DList;
 struct DList {
@@ -249,6 +252,8 @@ static auto memory_chunk_slot(usize size) -> int
 
 auto mrvn_memory_init(void *mem, usize size) -> void
 {
+	Sync::ScopedIrqSpinLock guard { g_heap_lock };
+
 	for (int i = 0; i < NUM_SIZES; i++)
 		free_chunk[i] = nullptr;
 
@@ -263,11 +268,14 @@ auto mrvn_memory_init(void *mem, usize size) -> void
 
 auto mrvn_memory_add(void *mem, usize size) -> bool
 {
+	Sync::ScopedIrqSpinLock guard { g_heap_lock };
 	return memory_add_region(mem, size);
 }
 
 auto mrvn_malloc(usize size) -> void *
 {
+	Sync::ScopedIrqSpinLock guard { g_heap_lock };
+
 	size = (size + ALIGN - 1) & (unsigned long)(~(ALIGN - 1));
 	if (size < MIN_SIZE)
 		size = MIN_SIZE;
@@ -321,6 +329,8 @@ static auto push_free(Chunk *chunk) -> void
 
 auto mrvn_free(void *mem) -> void
 {
+	Sync::ScopedIrqSpinLock guard { g_heap_lock };
+
 	Chunk *chunk = (Chunk *)((char *)mem - HEADER_SIZE);
 	Chunk *next = CONTAINER(Chunk, all, chunk->all.next);
 	Chunk *prev = CONTAINER(Chunk, all, chunk->all.prev);
