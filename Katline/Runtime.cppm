@@ -8,6 +8,8 @@ import :MemoryData;
 import :CPU;
 import :Interrupts;
 import :X2APIC;
+import :FrameAllocator;
+import :Paging;
 import :MemoryManager;
 
 export {
@@ -20,6 +22,9 @@ export {
 		uptr rsdp_address;
 		uptr hhdm_offset;
 		u64 tsc_frequency_hz;
+		u64 stack_size;
+		u64 kernel_physical_base;
+		u64 kernel_size;
 	};
 
 	extern Controller::FramebufferController k_framebuffer_controller;
@@ -39,9 +44,38 @@ void print_formatted(char const *str, ...);
 
 namespace Katline {
 
+static auto reserve_mmap_phys_range(Memory::MemoryMap *mmap, uptr hhdm_offset,
+    uptr phys_base, usize size) -> void
+{
+	for (u64 i {}; i < mmap->size; ++i) {
+		auto *const md { &mmap->data[i] };
+		if (md->type != Memory::MemoryType::USABLE || md->size == 0)
+			continue;
+
+		auto const entry_phys_base { md->base - hhdm_offset };
+		if (CL::Memory::ranges_overlap(entry_phys_base,
+		        static_cast<uptr>(md->size), phys_base,
+		        static_cast<uptr>(size)))
+			md->type = Memory::MemoryType::RESERVED;
+	}
+}
+
 Controller::FramebufferController k_framebuffer_controller { nullptr };
 Controller::SerialController k_serial_controller;
 CL::Atomic<bool> k_bsp_initialized { false };
+
+auto print_cpu_info(u32 lapic_id)
+{
+	auto const cpuid_info { Arch::CPUID::query_cpuid() };
+	Debug::print_formatted(
+	    "[CPU%d] vendor=%s family=%d model=%d stepping=%d apic=%d x2apic=%d\n",
+	    lapic_id, cpuid_info.vendor_id,
+	    static_cast<int>(cpuid_info.family + cpuid_info.ext_family),
+	    static_cast<int>((cpuid_info.ext_model << 4) | cpuid_info.model),
+	    static_cast<int>(cpuid_info.stepping_id),
+	    static_cast<int>(cpuid_info.has_apic),
+	    static_cast<int>(cpuid_info.has_x2apic));
+}
 
 auto katline_main(StartupInfo &info) -> void
 {
@@ -54,15 +88,8 @@ auto katline_main(StartupInfo &info) -> void
 	    Logo::Data, Logo::Width, Logo::Height, 10, 10);
 	Debug::set_framebuffer_logging_enabled(true);
 
-	auto cpuid_info { Arch::CPUID::query_cpuid() };
-	Debug::print_formatted(
-	    "[CPU] vendor=%s family=%d model=%d stepping=%d apic=%d x2apic=%d\n",
-	    cpuid_info.vendor_id,
-	    static_cast<int>(cpuid_info.family + cpuid_info.ext_family),
-	    static_cast<int>((cpuid_info.ext_model << 4) | cpuid_info.model),
-	    static_cast<int>(cpuid_info.stepping_id),
-	    static_cast<int>(cpuid_info.has_apic),
-	    static_cast<int>(cpuid_info.has_x2apic));
+	auto const cpuid_info { Arch::CPUID::query_cpuid() };
+	print_cpu_info(info.bsp_lapic_id);
 	Debug::drain_logs();
 
 	if (!cpuid_info.has_apic || !cpuid_info.has_x2apic) {
@@ -73,7 +100,9 @@ auto katline_main(StartupInfo &info) -> void
 	}
 
 	Interrupts::init_defaults();
-	auto timer_init_result { Arch::X2APIC::init_timer(info.tsc_frequency_hz) };
+	auto const timer_init_result {
+		Arch::X2APIC::init_timer(info.tsc_frequency_hz),
+	};
 	if (timer_init_result.is_err()) {
 		auto const &error { timer_init_result.unwrap_err() };
 		Debug::print_formatted("[x2APIC] timer init failed: %s\n",
@@ -84,13 +113,43 @@ auto katline_main(StartupInfo &info) -> void
 	Debug::drain_logs();
 	asm volatile("sti");
 
+	Memory::FA::init(info.mmap, info.hhdm_offset);
+	Arch::Paging::init(info.hhdm_offset);
+	reserve_mmap_phys_range(info.mmap, info.hhdm_offset, 0, 0x100000);
+	Memory::FA::reserve_phys_range(
+	    info.kernel_physical_base, static_cast<usize>(info.kernel_size));
+	reserve_mmap_phys_range(info.mmap, info.hhdm_offset,
+	    static_cast<uptr>(info.kernel_physical_base),
+	    static_cast<usize>(info.kernel_size));
+
+	auto *const current_root { Arch::Paging::current_root() };
+	auto const rsp { Arch::current_rsp() };
+	auto const stack_top { (rsp + 4095ull) & ~4095ull };
+	auto const stack_start {
+		stack_top > info.stack_size ? stack_top - info.stack_size : 0
+	};
+	for (uptr virt { stack_start }; virt < stack_top; virt += 4096ull) {
+		auto const phys { Arch::Paging::translate(current_root, virt) };
+		if (phys) {
+			reserve_mmap_phys_range(info.mmap, info.hhdm_offset, *phys, 4096);
+			Memory::FA::reserve_phys_range(*phys, 4096);
+		}
+	}
 	Memory::MM::init(info.mmap);
+	auto *const shadow_root { Arch::Paging::clone_current_address_space() };
+	if (!shadow_root) {
+		Debug::print_formatted(
+		    "[Paging] failed to clone current address space\n");
+		for (;;)
+			asm("hlt");
+	}
+	Arch::load_cr3(Arch::Paging::phys_address(shadow_root));
 	Debug::drain_logs();
 
 	CL::ArrayList<int> numbers { 1, 2, 3, 4, 5, 6, 7, 8, 9 };
 	CL::ignore_unused(numbers);
 
-	auto transformed {
+	auto const transformed {
 		CL::range(10)
 		    .map([](int value) { return value * 2; })
 		    .filter([](int value) { return value >= 6; })
@@ -130,8 +189,8 @@ auto katline_main(StartupInfo &info) -> void
 		}
 
 		if (ticks >= 500) {
-			Debug::print_formatted("[demo] triggering deliberate fault\n");
-			asm volatile("ud2");
+			Debug::print_formatted("[demo] triggering deliberate page fault\n");
+			*reinterpret_cast<u64 volatile *>(0) = 0xdeadbeefull;
 		}
 	}
 }
@@ -144,8 +203,7 @@ void boot_cpu(u32 lapic_id, u32 processor_id, u64 extra)
 
 	CL::ignore_unused(lapic_id, processor_id, extra);
 
-	Debug::print_formatted(
-	    "Booted cpu %d, lapic id %d\n", processor_id, lapic_id);
+	print_cpu_info(lapic_id);
 
 	asm volatile("cli");
 	for (;;)

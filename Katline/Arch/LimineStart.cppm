@@ -105,6 +105,25 @@ __attribute__((used,
 	      .response = nullptr,
       };
 
+__attribute__((used,
+    section(
+        ".limine_requests"))) static volatile limine_executable_address_request
+    executable_address_request
+    = {
+	      .id = LIMINE_EXECUTABLE_ADDRESS_REQUEST_ID,
+	      .revision = 0,
+	      .response = nullptr,
+      };
+
+__attribute__((used,
+    section(".limine_requests"))) static volatile limine_executable_file_request
+    executable_file_request
+    = {
+	      .id = LIMINE_EXECUTABLE_FILE_REQUEST_ID,
+	      .revision = 0,
+	      .response = nullptr,
+      };
+
 __attribute__((
     used, section(".limine_requests_start"))) static volatile uint64_t
     limine_requests_start_marker[]
@@ -125,14 +144,17 @@ extern "C" auto kernel_start() -> void
 	    || memmap_request.response == nullptr
 	    || hhdm_request.response == nullptr || rsdp_request.response == nullptr
 	    || mp_request.response == nullptr
-	    || tsc_frequency_request.response == nullptr) {
+	    || tsc_frequency_request.response == nullptr
+	    || executable_address_request.response == nullptr
+	    || executable_file_request.response == nullptr
+	    || executable_file_request.response->executable_file == nullptr) {
 		for (;;)
 			asm("hlt");
 	}
 
-	auto *fb_tag { framebuffer_request.response->framebuffers[0] };
-	auto *mmap_tag { memmap_request.response };
-	u64 hhdm_offset { hhdm_request.response->offset };
+	auto *const fb_tag { framebuffer_request.response->framebuffers[0] };
+	auto *const mmap_tag { memmap_request.response };
+	auto const hhdm_offset { hhdm_request.response->offset };
 
 	if (fb_tag->bpp != 32) {
 		for (;;)
@@ -153,8 +175,8 @@ extern "C" auto kernel_start() -> void
 	if (memory_map_entry_count > 256)
 		memory_map_entry_count = 256;
 
-	for (u64 i {}; i < memory_map_entry_count; i++) {
-		auto *entry { mmap_tag->entries[i] };
+	for (u64 i {}; i < memory_map_entry_count; ++i) {
+		auto *const entry { mmap_tag->entries[i] };
 		auto base { entry->base };
 
 		if (limine_type_to_katline_type(entry->type)
@@ -189,6 +211,10 @@ extern "C" auto kernel_start() -> void
 		.rsdp_address = reinterpret_cast<uptr>(rsdp_request.response->address),
 		.hhdm_offset = hhdm_offset,
 		.tsc_frequency_hz = tsc_frequency_request.response->frequency,
+		.stack_size = kernel_stack_size,
+		.kernel_physical_base
+		= executable_address_request.response->physical_base,
+		.kernel_size = executable_file_request.response->executable_file->size,
 	};
 
 	Katline::katline_main(info);
