@@ -8,6 +8,7 @@ export import :MemoryData;
 export import :Heap;
 export import :MemoryManager;
 export import :Debug;
+export import :Panic;
 export import :Interrupts;
 export import :IDT;
 export import :RSDP;

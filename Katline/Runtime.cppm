@@ -115,6 +115,9 @@ auto katline_main(StartupInfo &info) -> void
 	});
 	Debug::print_formatted("\n");
 
+	Debug::print_formatted("[demo] triggering deliberate fault\n");
+	asm volatile("ud2");
+
 	u64 last_logged {};
 	for (;;) {
 		u64 ticks { Arch::X2APIC::timer_ticks() };

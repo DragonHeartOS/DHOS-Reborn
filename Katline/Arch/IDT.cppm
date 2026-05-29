@@ -1,6 +1,7 @@
 export module Katline:IDT;
 
 import CommonLib;
+import :Panic;
 
 export {
 	namespace Katline {
@@ -38,49 +39,10 @@ void write_formatted(char const *str, ...);
 
 namespace Katline {
 
-struct interrupt_frame {
-	u64 rip;
-	u64 cs;
-	u64 rflags;
-	u64 rsp;
-	u64 ss;
-};
-
 [[noreturn]] static auto halt_forever() -> void
 {
 	for (;;)
 		asm("hlt");
-}
-
-extern "C" [[gnu::interrupt]] auto idt_default_handler(interrupt_frame *)
-    -> void
-{
-	halt_forever();
-}
-
-extern "C" [[gnu::interrupt]] auto idt_default_handler_ec(
-    interrupt_frame *, u64) -> void
-{
-	halt_forever();
-}
-
-static auto vector_has_error_code(u8 vector) -> bool
-{
-	switch (vector) {
-	case 8:
-	case 10:
-	case 11:
-	case 12:
-	case 13:
-	case 14:
-	case 17:
-	case 21:
-	case 29:
-	case 30:
-		return true;
-	default:
-		return false;
-	}
 }
 
 IDT::IDTR idtr;
@@ -117,10 +79,12 @@ auto IDT::init() -> void
 		entries[i].type_attr = 0x8e;
 		entries[i].ignore = 0;
 
-		if (vector_has_error_code((u8)i))
-			set_offset(entries[i], (u64)&idt_default_handler_ec);
+		if (i < 32)
+			set_offset(entries[i],
+			    reinterpret_cast<u64>(
+			        Katline::exception_handler_for_vector(static_cast<u8>(i))));
 		else
-			set_offset(entries[i], (u64)&idt_default_handler);
+			set_offset(entries[i], (u64)&halt_forever);
 	}
 
 	idtr.limit = (u16)(sizeof(entries) - 1);
