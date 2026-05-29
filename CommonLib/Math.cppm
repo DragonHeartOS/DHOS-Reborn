@@ -5,6 +5,26 @@ import :Types;
 export {
 	namespace CL::Math {
 
+	template<typename T> auto median3(T a, T b, T c) -> T
+	{
+		if (a > b) {
+			auto t { a };
+			a = b;
+			b = t;
+		}
+		if (b > c) {
+			auto t { b };
+			b = c;
+			c = t;
+		}
+		if (a > b) {
+			auto t { a };
+			a = b;
+			b = t;
+		}
+		return b;
+	}
+
 	class Point {
 	public:
 		Point(int y = 0, int x = 0)
