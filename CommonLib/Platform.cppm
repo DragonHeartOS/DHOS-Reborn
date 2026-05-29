@@ -16,7 +16,7 @@ export {
 
 	struct align_val_t {
 		explicit align_val_t(usize a)
-		    : value(a)
+		    : value { a }
 		{
 		}
 

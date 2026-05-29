@@ -28,8 +28,8 @@ export {
 	class Point {
 	public:
 		Point(int y = 0, int x = 0)
-		    : m_y(y)
-		    , m_x(x)
+		    : m_y { y }
+		    , m_x { x }
 		{
 		}
 

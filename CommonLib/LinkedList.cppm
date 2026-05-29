@@ -20,7 +20,7 @@ export {
 
 			template<typename... Args>
 			Node(Args &&...args)
-			    : value(static_cast<Args &&>(args)...)
+			    : value { static_cast<Args &&>(args)... }
 			{
 			}
 		};
@@ -106,9 +106,9 @@ export {
 				push(node->value);
 		}
 		LinkedList(LinkedList &&other)
-		    : m_head(other.m_head)
-		    , m_tail(other.m_tail)
-		    , m_size(other.m_size)
+		    : m_head { other.m_head }
+		    , m_tail { other.m_tail }
+		    , m_size { other.m_size }
 		{
 			other.m_head = nullptr;
 			other.m_tail = nullptr;

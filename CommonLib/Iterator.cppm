@@ -237,8 +237,8 @@ export {
 		F f;
 
 		MapIter(Iter iter, F f)
-		    : iter(move(iter))
-		    , f(move(f))
+		    : iter { move(iter) }
+		    , f { move(f) }
 		{
 		}
 
@@ -273,8 +273,8 @@ export {
 		P pred;
 
 		FilterIter(Iter iter, P pred)
-		    : iter(move(iter))
-		    , pred(move(pred))
+		    : iter { move(iter) }
+		    , pred { move(pred) }
 		{
 		}
 
@@ -306,7 +306,7 @@ export {
 		Iter iter;
 
 		ReverseIter(Iter iter)
-		    : iter(move(iter))
+		    : iter { move(iter) }
 		{
 		}
 

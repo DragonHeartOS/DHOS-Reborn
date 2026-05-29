@@ -13,16 +13,16 @@ export {
 	template<typename T> struct Arc {
 		template<typename... Args>
 		explicit Arc(Args &&...args)
-		    : m_ptr(new T(forward<Args>(args)...))
-		    , m_refs(new Atomic<usize>(1))
+		    : m_ptr { new T(forward<Args>(args)...) }
+		    , m_refs { new Atomic<usize>(1) }
 		{
 		}
 
 		~Arc() { release(); }
 
 		Arc(Arc const &other)
-		    : m_ptr(other.m_ptr)
-		    , m_refs(other.m_refs)
+		    : m_ptr { other.m_ptr }
+		    , m_refs { other.m_refs }
 		{
 			if (m_refs)
 				m_refs->fetch_add(1, MemoryOrder::Relaxed);
@@ -44,8 +44,8 @@ export {
 		}
 
 		Arc(Arc &&other) noexcept
-		    : m_ptr(other.m_ptr)
-		    , m_refs(other.m_refs)
+		    : m_ptr { other.m_ptr }
+		    , m_refs { other.m_refs }
 		{
 			other.m_ptr = nullptr;
 			other.m_refs = nullptr;

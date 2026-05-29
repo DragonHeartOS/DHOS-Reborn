@@ -12,16 +12,16 @@ export {
 	template<typename T> struct Rc {
 		template<typename... Args>
 		explicit Rc(Args &&...args)
-		    : m_ptr(new T(forward<Args>(args)...))
-		    , m_refs(new usize(1))
+		    : m_ptr { new T(forward<Args>(args)...) }
+		    , m_refs { new usize(1) }
 		{
 		}
 
 		~Rc() { release(); }
 
 		Rc(Rc const &other)
-		    : m_ptr(other.m_ptr)
-		    , m_refs(other.m_refs)
+		    : m_ptr { other.m_ptr }
+		    , m_refs { other.m_refs }
 		{
 			if (m_refs)
 				++(*m_refs);
@@ -43,8 +43,8 @@ export {
 		}
 
 		Rc(Rc &&other) noexcept
-		    : m_ptr(other.m_ptr)
-		    , m_refs(other.m_refs)
+		    : m_ptr { other.m_ptr }
+		    , m_refs { other.m_refs }
 		{
 			other.m_ptr = nullptr;
 			other.m_refs = nullptr;

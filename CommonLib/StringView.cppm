@@ -18,14 +18,14 @@ export {
 		}
 
 		constexpr BaseStringView(CharTypeT const *c_str)
-		    : m_data(c_str)
-		    , m_size(length(c_str))
+		    : m_data { c_str }
+		    , m_size { length(c_str) }
 		{
 		}
 
 		constexpr BaseStringView(CharTypeT const *data, usize size)
-		    : m_data(data)
-		    , m_size(size)
+		    : m_data { data }
+		    , m_size { size }
 		{
 		}
 

@@ -22,7 +22,7 @@ export {
 		Atomic() = default;
 
 		constexpr Atomic(T value)
-		    : m_value(value)
+		    : m_value { value }
 		{
 		}
 

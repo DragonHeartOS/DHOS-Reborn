@@ -19,8 +19,8 @@ export {
 		T end_;
 
 		Range(T start, T end)
-		    : current(start)
-		    , end_(end)
+		    : current { start }
+		    , end_ { end }
 		{
 		}
 

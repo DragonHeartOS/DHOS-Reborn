@@ -16,8 +16,8 @@ export {
 		using const_iterator = T const *;
 
 		constexpr initializer_list() noexcept
-		    : m_begin(nullptr)
-		    , m_size(0)
+		    : m_begin { nullptr }
+		    , m_size { 0 }
 		{
 		}
 
@@ -39,8 +39,8 @@ export {
 
 	private:
 		constexpr initializer_list(T const *begin, size_type size) noexcept
-		    : m_begin(begin)
-		    , m_size(size)
+		    : m_begin { begin }
+		    , m_size { size }
 		{
 		}
 

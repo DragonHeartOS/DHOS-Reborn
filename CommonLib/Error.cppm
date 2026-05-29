@@ -61,17 +61,17 @@ export {
 	struct ErasedError {
 		ErasedError() = default;
 		ErasedError(String message)
-		    : m_message(move(message))
+		    : m_message { move(message) }
 		{
 		}
 
 		ErasedError(StringView const message)
-		    : m_message(message)
+		    : m_message { message }
 		{
 		}
 
 		ErasedError(char const *message)
-		    : m_message(message)
+		    : m_message { message }
 		{
 		}
 

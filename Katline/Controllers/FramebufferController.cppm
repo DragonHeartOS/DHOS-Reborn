@@ -58,7 +58,7 @@ namespace Katline::Controller {
 uint const FRAMEBUFFER_TEXT_Y_OFFSET = 72;
 
 FramebufferController::FramebufferController(Framebuffer *framebuffer)
-    : m_framebuffer(framebuffer)
+    : m_framebuffer { framebuffer }
 {
 	this->m_framebuffer = framebuffer;
 

@@ -67,9 +67,9 @@ export {
 		}
 
 		ArrayList(ArrayList &&other)
-		    : m_data(other.m_data)
-		    , m_size(other.m_size)
-		    , m_capacity(other.m_capacity)
+		    : m_data { other.m_data }
+		    , m_size { other.m_size }
+		    , m_capacity { other.m_capacity }
 		{
 			other.m_data = nullptr;
 			other.m_size = 0;

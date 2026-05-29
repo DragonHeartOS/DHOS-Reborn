@@ -10,7 +10,7 @@ export {
 	template<typename T> struct Box {
 		template<typename... Args>
 		explicit Box(Args &&...args)
-		    : m_data(new T(forward<Args>(args)...))
+		    : m_data { new T(forward<Args>(args)...) }
 		{
 		}
 
@@ -20,7 +20,7 @@ export {
 		Box &operator=(Box const &) = delete;
 
 		Box(Box &&other) noexcept
-		    : m_data(other.m_data)
+		    : m_data { other.m_data }
 		{
 			other.m_data = nullptr;
 		}
