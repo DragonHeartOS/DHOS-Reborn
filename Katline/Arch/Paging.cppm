@@ -25,6 +25,8 @@ export {
 	using PageFlags = CL::Flags<PageFlag>;
 
 	struct PageTableEntry {
+		static constexpr u64 address_mask { 0x000ffffffffff000ull };
+
 		u64 value {};
 
 		constexpr auto present() const -> bool
@@ -34,19 +36,19 @@ export {
 
 		constexpr auto address() const -> uptr
 		{
-			return static_cast<uptr>(value & 0x000ffffffffff000ull);
+			return static_cast<uptr>(value & address_mask);
 		}
 
-		constexpr auto flags() const -> u64
+		constexpr auto flags() const -> PageFlags
 		{
-			return value & ~0x000ffffffffff000ull;
+			return PageFlags { value & ~address_mask };
 		}
 
 		constexpr auto clear() -> void { value = 0; }
 
-		constexpr auto set(uptr phys, u64 flags) -> void
+		constexpr auto set(uptr phys, PageFlags flags) -> void
 		{
-			value = (phys & 0x000ffffffffff000ull) | flags;
+			value = (phys & address_mask) | flags.raw();
 		}
 	};
 
@@ -58,11 +60,15 @@ export {
 	auto current_root() -> PageTable *;
 	auto phys_address(PageTable const *table) -> uptr;
 	auto create_table() -> PageTable *;
-	auto map(PageTable *root, uptr virt, uptr phys, u64 flags) -> bool;
-	auto map_range(
-	    PageTable *root, uptr virt, uptr phys, usize pages, u64 flags) -> bool;
+
+	auto map(PageTable *root, uptr virt, uptr phys, PageFlags flags) -> bool;
+
+	auto map_range(PageTable *root, uptr virt, uptr phys, usize pages,
+	    PageFlags flags) -> bool;
+
 	auto unmap(PageTable *root, uptr virt) -> bool;
 	auto translate(PageTable *root, uptr virt) -> CL::Option<uptr>;
+
 	auto clone_address_space(PageTable const *root) -> PageTable *;
 	auto clone_current_address_space() -> PageTable *;
 
@@ -75,31 +81,36 @@ static uptr g_hhdm_offset {};
 
 static constexpr uptr page_size { 4096 };
 static constexpr uptr page_mask { page_size - 1 };
-static constexpr uptr entry_addr_mask { 0x000ffffffffff000ull };
-static constexpr u64 table_flags_mask {
-	PageFlags { PageFlag::Writable, PageFlag::User }.raw(),
-};
 
-static constexpr auto pml4_index(uptr addr) -> usize
-{
-	return (addr >> 39) & 0x1ffu;
-}
-static constexpr auto pdpt_index(uptr addr) -> usize
-{
-	return (addr >> 30) & 0x1ffu;
-}
-static constexpr auto pd_index(uptr addr) -> usize
-{
-	return (addr >> 21) & 0x1ffu;
-}
-static constexpr auto pt_index(uptr addr) -> usize
-{
-	return (addr >> 12) & 0x1ffu;
-}
+static constexpr PageFlags table_flags_mask {
+	PageFlag::Writable,
+	PageFlag::User,
+};
 
 static constexpr auto page_align_down(uptr addr) -> uptr
 {
 	return addr & ~page_mask;
+}
+
+static constexpr auto table_index(uptr addr, usize level) -> usize
+{
+	return (addr >> (12 + 9 * (level - 1))) & 0x1ffu;
+}
+
+static constexpr auto level_page_size(usize level) -> uptr
+{
+	if (level == 3)
+		return 1ull << 30;
+
+	if (level == 2)
+		return 1ull << 21;
+
+	return 1ull << 12;
+}
+
+static constexpr auto level_page_mask(usize level) -> uptr
+{
+	return level_page_size(level) - 1;
 }
 
 static auto phys_to_virt(uptr phys) -> void *
@@ -117,12 +128,18 @@ static auto table_from_entry(PageTableEntry const &entry) -> PageTable *
 	return reinterpret_cast<PageTable *>(phys_to_virt(entry.address()));
 }
 
-static auto entry_flags_for_mapping(u64 flags) -> u64
+static auto mapping_flags(PageFlags flags) -> PageFlags
 {
-	return (PageFlags { flags } | PageFlag::Present).raw();
+	return flags | PageFlag::Present;
 }
 
-static auto ensure_next_table(PageTableEntry &entry, u64 flags) -> PageTable *
+static auto table_flags(PageFlags flags) -> PageFlags
+{
+	return (flags & table_flags_mask) | PageFlag::Present;
+}
+
+static auto ensure_next_table(PageTableEntry &entry, PageFlags flags)
+    -> PageTable *
 {
 	if (entry.present())
 		return table_from_entry(entry);
@@ -131,67 +148,44 @@ static auto ensure_next_table(PageTableEntry &entry, u64 flags) -> PageTable *
 	if (!table)
 		return nullptr;
 
-	entry.set(virt_to_phys(table),
-	    (PageFlags { flags & table_flags_mask } | PageFlag::Present).raw());
-
+	entry.set(virt_to_phys(table), table_flags(flags));
 	return table;
 }
 
 struct WalkResult {
 	PageTableEntry *entry {};
-	usize level {}; // 1 = PT, 2 = PD, 3 = PDPT, 4 = PML4
+	usize level {};
 };
 
-static auto walk(PageTable *root, uptr virt, bool create, u64 flags)
+static auto walk(PageTable *root, uptr virt, bool create, PageFlags flags)
     -> WalkResult
 {
 	if (!root)
 		return {};
 
-	PageTable *table { root };
+	auto *table { root };
 
-	usize const indices[3] {
-		pml4_index(virt),
-		pdpt_index(virt),
-		pd_index(virt),
-	};
+	for (usize level { 4 }; level > 1; --level) {
+		auto &entry { table->entries[table_index(virt, level)] };
 
-	usize level { 4 };
-	for (usize index : indices) {
-		auto &entry { table->entries[index] };
+		if (!entry.present()) {
+			if (!create)
+				return {};
 
-		if (create) {
 			table = ensure_next_table(entry, flags);
 			if (!table)
 				return {};
-		} else {
-			if (!entry.present())
-				return {};
 
-			if (PageFlags { entry.value }.contains(PageFlag::PageSize))
-				return { &entry, level - 1 };
-
-			table = table_from_entry(entry);
+			continue;
 		}
 
-		--level;
+		if (entry.flags().contains(PageFlag::PageSize))
+			return { &entry, level - 1 };
+
+		table = table_from_entry(entry);
 	}
 
-	return { &table->entries[pt_index(virt)], 1 };
-}
-
-static constexpr auto level_page_size(usize level) -> uptr
-{
-	if (level == 3)
-		return 1ull << 30;
-	if (level == 2)
-		return 1ull << 21;
-	return 1ull << 12;
-}
-
-static constexpr auto level_page_mask(usize level) -> uptr
-{
-	return level_page_size(level) - 1;
+	return { &table->entries[table_index(virt, 1)], 1 };
 }
 
 auto init(uptr hhdm_offset) -> void { g_hhdm_offset = hhdm_offset; }
@@ -212,25 +206,29 @@ auto create_table() -> PageTable *
 	return static_cast<PageTable *>(Memory::FA::allocate_zeroed_page());
 }
 
-auto map(PageTable *root, uptr virt, uptr phys, u64 flags) -> bool
+auto map(PageTable *root, uptr virt, uptr phys, PageFlags flags) -> bool
 {
-	auto result { walk(root, page_align_down(virt), true, flags) };
+	auto const aligned_virt { page_align_down(virt) };
+
+	auto result { walk(root, aligned_virt, true, flags) };
 	if (!result.entry)
 		return false;
 
-	result.entry->set(page_align_down(phys), entry_flags_for_mapping(flags));
-	Arch::invlpg(reinterpret_cast<void *>(page_align_down(virt)));
+	result.entry->set(page_align_down(phys), mapping_flags(flags));
+	Arch::invlpg(reinterpret_cast<void *>(aligned_virt));
+
 	return true;
 }
 
-auto map_range(PageTable *root, uptr virt, uptr phys, usize pages, u64 flags)
-    -> bool
+auto map_range(
+    PageTable *root, uptr virt, uptr phys, usize pages, PageFlags flags) -> bool
 {
 	if (!root)
 		return false;
 
 	for (usize i {}; i < pages; ++i) {
 		auto const offset { i * page_size };
+
 		if (!map(root, virt + offset, phys + offset, flags))
 			return false;
 	}
@@ -240,22 +238,26 @@ auto map_range(PageTable *root, uptr virt, uptr phys, usize pages, u64 flags)
 
 auto unmap(PageTable *root, uptr virt) -> bool
 {
-	auto result { walk(root, page_align_down(virt), false, 0) };
+	auto const aligned_virt { page_align_down(virt) };
+
+	auto result { walk(root, aligned_virt, false, {}) };
 	if (!result.entry || !result.entry->present() || result.level != 1)
 		return false;
 
 	result.entry->clear();
-	Arch::invlpg(reinterpret_cast<void *>(page_align_down(virt)));
+	Arch::invlpg(reinterpret_cast<void *>(aligned_virt));
+
 	return true;
 }
 
 auto translate(PageTable *root, uptr virt) -> CL::Option<uptr>
 {
-	auto result { walk(root, virt, false, 0) };
+	auto result { walk(root, virt, false, {}) };
 	if (!result.entry || !result.entry->present())
 		return {};
 
 	auto const mask { level_page_mask(result.level) };
+
 	return (result.entry->address() & ~mask) | (virt & mask);
 }
 
@@ -271,19 +273,18 @@ static auto clone_table_recursive(PageTable const *src, usize level)
 		if (!entry.present())
 			continue;
 
-		if (level == 1
-		    || PageFlags { entry.value }.contains(PageFlag::PageSize)) {
+		if (level == 1 || entry.flags().contains(PageFlag::PageSize)) {
 			dst->entries[i] = entry;
 			continue;
 		}
 
 		auto *const child { clone_table_recursive(
 			table_from_entry(entry), level - 1) };
+
 		if (!child)
 			return nullptr;
 
-		dst->entries[i].value = (virt_to_phys(child) & entry_addr_mask)
-		    | (entry.value & ~entry_addr_mask);
+		dst->entries[i].set(virt_to_phys(child), entry.flags());
 	}
 
 	return dst;
