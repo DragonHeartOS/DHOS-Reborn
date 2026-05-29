@@ -4,27 +4,13 @@ set(SOURCES
 )
 
 add_executable(${KERNEL_TARGET} ${SOURCES})
+file(GLOB_RECURSE KATLINE_MODULE_SOURCES CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/*.cppm"
+)
 target_sources(${KERNEL_TARGET}
     PUBLIC
         FILE_SET cxx_modules TYPE CXX_MODULES FILES
-            Katline.cppm
-            Controllers/FramebufferController.cppm
-            Controllers/SerialController.cppm
-            Controllers/IO.cppm
-            Memory/MemoryData.cppm
-            Memory/Heap.cppm
-            Memory/MemoryManager.cppm
-            Debug.cppm
-            DebugImpl.cppm
-            DebugSink.cppm
-            Arch/Interrupts.cppm
-            Arch/IDT.cppm
-            Arch/RSDP.cppm
-            Arch/ACPI.cppm
-            Arch/LimineStart.cppm
-            Runtime.cppm
-            Font.cppm
-            Logo.cppm
+            ${KATLINE_MODULE_SOURCES}
 )
 target_sources(${KERNEL_TARGET} PRIVATE $<TARGET_OBJECTS:CommonLib>)
 target_link_libraries(${KERNEL_TARGET} PRIVATE CommonLib)
