@@ -1,5 +1,6 @@
 set(SOURCES
     CommonLibRuntime.cpp
+    CxxAbiStubs.cpp
     Memory/NewDelete.cpp
 )
 
