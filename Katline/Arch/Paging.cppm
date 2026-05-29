@@ -9,7 +9,7 @@ export {
 
 	struct PageTable;
 
-	enum class PageFlags : u64 {
+	enum class PageFlag : u64 {
 		Present = 1ull << 0,
 		Writable = 1ull << 1,
 		User = 1ull << 2,
@@ -22,34 +22,14 @@ export {
 		NoExecute = 1ull << 63,
 	};
 
-	constexpr auto operator|(PageFlags lhs, PageFlags rhs) -> PageFlags
-	{
-		return static_cast<PageFlags>(
-		    static_cast<u64>(lhs) | static_cast<u64>(rhs));
-	}
-
-	constexpr auto operator&(PageFlags lhs, PageFlags rhs) -> PageFlags
-	{
-		return static_cast<PageFlags>(
-		    static_cast<u64>(lhs) & static_cast<u64>(rhs));
-	}
-
-	constexpr auto operator~(PageFlags value) -> PageFlags
-	{
-		return static_cast<PageFlags>(~static_cast<u64>(value));
-	}
-
-	constexpr auto has_flag(u64 value, PageFlags flag) -> bool
-	{
-		return (value & static_cast<u64>(flag)) != 0;
-	}
+	using PageFlags = CL::Flags<PageFlag>;
 
 	struct PageTableEntry {
 		u64 value {};
 
 		constexpr auto present() const -> bool
 		{
-			return has_flag(value, PageFlags::Present);
+			return PageFlags { value }.contains(PageFlag::Present);
 		}
 
 		constexpr auto address() const -> uptr
@@ -97,7 +77,7 @@ static constexpr uptr page_size { 4096 };
 static constexpr uptr page_mask { page_size - 1 };
 static constexpr uptr entry_addr_mask { 0x000ffffffffff000ull };
 static constexpr u64 table_flags_mask {
-	static_cast<u64>(PageFlags::Writable) | static_cast<u64>(PageFlags::User),
+	PageFlags { PageFlag::Writable, PageFlag::User }.raw(),
 };
 
 static constexpr auto pml4_index(uptr addr) -> usize
@@ -139,7 +119,7 @@ static auto table_from_entry(PageTableEntry const &entry) -> PageTable *
 
 static auto entry_flags_for_mapping(u64 flags) -> u64
 {
-	return flags | static_cast<u64>(PageFlags::Present);
+	return (PageFlags { flags } | PageFlag::Present).raw();
 }
 
 static auto ensure_next_table(PageTableEntry &entry, u64 flags) -> PageTable *
@@ -152,7 +132,7 @@ static auto ensure_next_table(PageTableEntry &entry, u64 flags) -> PageTable *
 		return nullptr;
 
 	entry.set(virt_to_phys(table),
-	    static_cast<u64>(PageFlags::Present) | (flags & table_flags_mask));
+	    (PageFlags { flags & table_flags_mask } | PageFlag::Present).raw());
 
 	return table;
 }
@@ -188,7 +168,7 @@ static auto walk(PageTable *root, uptr virt, bool create, u64 flags)
 			if (!entry.present())
 				return {};
 
-			if (has_flag(entry.value, PageFlags::PageSize))
+			if (PageFlags { entry.value }.contains(PageFlag::PageSize))
 				return { &entry, level - 1 };
 
 			table = table_from_entry(entry);
@@ -291,7 +271,8 @@ static auto clone_table_recursive(PageTable const *src, usize level)
 		if (!entry.present())
 			continue;
 
-		if (level == 1 || has_flag(entry.value, PageFlags::PageSize)) {
+		if (level == 1
+		    || PageFlags { entry.value }.contains(PageFlag::PageSize)) {
 			dst->entries[i] = entry;
 			continue;
 		}
