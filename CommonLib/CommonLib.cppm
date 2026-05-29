@@ -3,6 +3,7 @@ export module CommonLib;
 export import :Types;
 export import :TypeTraits;
 export import :InitializerList;
+export import :Flags;
 export import :StringView;
 export import :Platform;
 export import :Utility;
