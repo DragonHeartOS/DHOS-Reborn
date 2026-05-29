@@ -55,6 +55,9 @@ Controller::SerialController k_serial_controller;
 auto katline_main(StartupInfo &info) -> void
 {
 	k_serial_controller.init();
+	k_framebuffer_controller
+	    = Controller::FramebufferController(info.framebuffer);
+	Debug::set_framebuffer_logging_enabled(true);
 
 	auto cpuid_info { Arch::CPUID::query_cpuid() };
 	Debug::print_formatted(
@@ -83,11 +86,6 @@ auto katline_main(StartupInfo &info) -> void
 			asm("hlt");
 	}
 	asm volatile("sti");
-
-	k_framebuffer_controller
-	    = Controller::FramebufferController(info.framebuffer);
-
-	Debug::set_framebuffer_logging_enabled(true);
 
 	Memory::MM::init(info.mmap);
 
