@@ -2,7 +2,7 @@ export module Katline:X2APIC;
 
 import CommonLib;
 import :CPU;
-import :IDT;
+import :Interrupts;
 import :IO;
 
 export {
@@ -92,13 +92,15 @@ static auto calibrate_apic_ticks_per_second(u64 tsc_frequency_hz) -> u64
 	x2apic_write(reg_lvt_timer, lvt_masked | timer_vector);
 	x2apic_write(reg_timer_initial_count, 0xffffffffu);
 
-	u64 tsc_start { rdtsc() };
+	CPUIDRegs::serialize();
+	u64 tsc_start { rdtscp() };
 	for (;;) {
-		u64 now { rdtsc() };
+		u64 now { rdtscp() };
 		if (now - tsc_start >= wait_cycles)
 			break;
 		asm volatile("pause");
 	}
+	CPUIDRegs::serialize();
 
 	u32 cur_count { x2apic_read(reg_timer_current_count) };
 	u64 elapsed_apic_ticks = 0xffffffffull - static_cast<u64>(cur_count);

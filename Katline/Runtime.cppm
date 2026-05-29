@@ -5,7 +5,7 @@ import :FramebufferController;
 import :SerialController;
 import :MemoryData;
 import :CPU;
-import :IDT;
+import :Interrupts;
 import :X2APIC;
 import :MemoryManager;
 
@@ -73,7 +73,7 @@ auto katline_main(StartupInfo &info) -> void
 			asm("hlt");
 	}
 
-	IDT::init();
+	Interrupts::init_defaults();
 	if (!Arch::X2APIC::init_timer(info.tsc_frequency_hz)) {
 		Debug::print_formatted("[x2APIC] timer init failed; halting.\n");
 		for (;;)
