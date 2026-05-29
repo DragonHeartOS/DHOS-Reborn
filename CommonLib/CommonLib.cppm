@@ -18,6 +18,8 @@ export import :String;
 export import :Math;
 export import :Color;
 export import :Atomic;
+export import :Sync;
+export import :Queue;
 export import :Box;
 export import :Rc;
 export import :Arc;
