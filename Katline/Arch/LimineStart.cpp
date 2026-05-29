@@ -1,5 +1,6 @@
 #include <Katline/limine.h>
 
+#include <CommonLib/Span.h>
 #include <CommonLib/Types.h>
 #include <Katline/Controllers/FramebufferController.h>
 #include <Katline/Katline.h>
@@ -30,14 +31,14 @@ static auto limine_type_to_katline_type(uint64_t type)
 	}
 }
 
-static constexpr uint64_t kernel_stack_size = 8192;
+static constexpr uint64_t kernel_stack_size = 65536;
 
 extern "C" void kernel_start();
 
 __attribute__((used,
     section(
         ".limine_requests"))) static volatile uint64_t limine_base_revision[]
-    = LIMINE_BASE_REVISION(3);
+    = LIMINE_BASE_REVISION(6);
 
 __attribute__((used,
     section(
@@ -79,6 +80,25 @@ __attribute__((used,
       };
 
 __attribute__((
+    used, section(".limine_requests"))) static volatile struct limine_mp_request
+    mp_request
+    = {
+	      .id = LIMINE_MP_REQUEST_ID,
+	      .revision = 0,
+	      .response = nullptr,
+	      .flags = LIMINE_MP_REQUEST_X86_64_X2APIC,
+      };
+
+__attribute__((used,
+    section(".limine_requests"))) static volatile struct limine_rsdp_request
+    rsdp_request
+    = {
+	      .id = LIMINE_RSDP_REQUEST_ID,
+	      .revision = 0,
+	      .response = nullptr,
+      };
+
+__attribute__((
     used, section(".limine_requests_start"))) static volatile uint64_t
     limine_requests_start_marker[]
     = LIMINE_REQUESTS_START_MARKER;
@@ -96,7 +116,8 @@ extern "C" auto kernel_start() -> void
 	if (framebuffer_request.response == nullptr
 	    || framebuffer_request.response->framebuffer_count == 0
 	    || memmap_request.response == nullptr
-	    || hhdm_request.response == nullptr) {
+	    || hhdm_request.response == nullptr || rsdp_request.response == nullptr
+	    || mp_request.response == nullptr) {
 		for (;;)
 			asm("hlt");
 	}
@@ -128,9 +149,9 @@ extern "C" auto kernel_start() -> void
 		auto *entry { mmap_tag->entries[i] };
 		auto base { entry->base };
 
-		if (limine_type_to_katline_type(entry->type)
-		    == Katline::Memory::MemoryType::USABLE)
-			base += hhdm_offset;
+		// if (limine_type_to_katline_type(entry->type)
+		//     == Katline::Memory::MemoryType::USABLE)
+		// 	base += hhdm_offset;
 
 		memory_map_entries[i] = {
 			.base = base,
@@ -145,7 +166,20 @@ extern "C" auto kernel_start() -> void
 		.data = memory_map_entries,
 	};
 
-	Katline::katline_main(&fb, &mmap);
+	Katline::StartupInfo info {
+		.framebuffer = &fb,
+		.mmap = &mmap,
+		.bsp_lapic_id = mp_request.response->bsp_lapic_id,
+		// FIXME: This is ugly, should automatically allocate a array for this instead with CL::Array and get a Span from that.
+		.mp_info = CL::Span<Katline::StartupInfo::MPInfo *> {
+			reinterpret_cast<Katline::StartupInfo::MPInfo **>(mp_request.response->cpus),
+			mp_request.response->cpu_count,
+		},
+		.rsdp_address = reinterpret_cast<uintptr_t>(rsdp_request.response->address),
+		.hhdm_offset = hhdm_offset,
+	};
+
+	Katline::katline_main(info);
 
 	for (;;)
 		asm("hlt");

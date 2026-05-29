@@ -25,14 +25,14 @@ namespace Katline {
 Controller::FramebufferController k_framebuffer_controller { nullptr };
 Controller::SerialController k_serial_controller;
 
-auto katline_main(Controller::Framebuffer *framebuffer, Memory::MemoryMap *mmap)
-    -> void
+auto katline_main(StartupInfo &info) -> void
 {
 	k_serial_controller.init();
-	k_framebuffer_controller = Controller::FramebufferController(framebuffer);
+	k_framebuffer_controller
+	    = Controller::FramebufferController(info.framebuffer);
 	Debug::set_framebuffer_logging_enabled(true);
 
-	Memory::MM::init(mmap);
+	Memory::MM::init(info.mmap);
 
 	IDT::init();
 
@@ -54,8 +54,8 @@ auto katline_main(Controller::Framebuffer *framebuffer, Memory::MemoryMap *mmap)
 	Debug::print_formatted("\n");
 
 	CL::HashMap<int, int> squares;
-	(void)squares.insert_or_replace(2, 4);
-	(void)squares.insert_or_replace(3, 9);
+	squares.insert_or_replace(2, 4);
+	squares.insert_or_replace(3, 9);
 
 	Debug::print_formatted("[demo] hashmap: ");
 	squares.iter().for_each([](auto const &entry) {

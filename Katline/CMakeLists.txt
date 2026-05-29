@@ -7,6 +7,8 @@ set(SOURCES
     Arch/Interrupts.cpp
     Arch/IDT.cpp
     Arch/LimineStart.cpp
+    Arch/RSDP.cpp
+    Arch/ACPI.cpp
     Katline.cpp)
 
 add_executable(${KERNEL_TARGET} ${SOURCES})

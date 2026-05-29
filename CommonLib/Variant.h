@@ -216,6 +216,22 @@ template<typename... Ts> struct Variant {
 		return *this;
 	}
 
+	/// @brief Check if the Variant currently holds a value of the specified
+	/// type.
+	/// @tparam T The type to check for.
+	/// @return true if the Variant holds T, false otherwise.
+	template<typename T> auto is() const -> bool
+	{
+		constexpr int I = detail::VariantIndex<T, Ts...>::value;
+		return m_tag == I;
+	}
+
+	/// @brief Check if the Variant currently holds the type at the specified
+	/// index.
+	/// @tparam I The index to check for.
+	/// @return true if the Variant holds the type at index I, false otherwise.
+	template<int I> auto is() const -> bool { return m_tag == I; }
+
 	/// @brief Get the index of the type currently held by the Variant.
 	/// @return The index of the type currently held by the Variant.
 	auto tag() const -> int { return m_tag; }
