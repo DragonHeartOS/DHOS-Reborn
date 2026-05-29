@@ -16,6 +16,7 @@ export import :ArrayList;
 export import :LinkedList;
 export import :String;
 export import :Math;
+export import :Memory;
 export import :Color;
 export import :Atomic;
 export import :BitArray;
