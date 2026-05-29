@@ -4,6 +4,7 @@ import CommonLib;
 import :CPU;
 import :Interrupts;
 import :IO;
+import :Scheduler;
 
 export {
 	namespace Katline::Arch::X2APIC {
@@ -102,6 +103,7 @@ extern "C" [[gnu::interrupt]] auto x2apic_timer_interrupt_handler(
 {
 	g_timer_ticks = g_timer_ticks + 1;
 	x2apic_write(reg_eoi, 0);
+	Scheduler::the().schedule();
 }
 
 static auto enable_x2apic() -> void

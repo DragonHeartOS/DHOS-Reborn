@@ -2,10 +2,12 @@ export module Katline:Runtime;
 
 import CommonLib;
 import :FramebufferController;
+import :Thread;
 import :Logo;
 import :SerialController;
 import :MemoryData;
 import :CPU;
+import :Scheduler;
 import :Interrupts;
 import :X2APIC;
 import :FrameAllocator;
@@ -111,7 +113,6 @@ auto katline_main(StartupInfo &info) -> void
 			asm("hlt");
 	}
 	Debug::drain_logs();
-	asm volatile("sti");
 
 	Memory::FA::init(info.mmap, info.hhdm_offset);
 	Arch::Paging::init(info.hhdm_offset);
@@ -145,6 +146,12 @@ auto katline_main(StartupInfo &info) -> void
 	}
 	Arch::load_cr3(Arch::Paging::phys_address(shadow_root));
 	Debug::drain_logs();
+
+	Arch::Scheduler::the().init();
+	Arch::Scheduler::the().adopt_current_thread(
+	    Arch::k_process, stack_start, info.stack_size);
+
+	asm volatile("sti");
 
 	CL::ArrayList<int> numbers { 1, 2, 3, 4, 5, 6, 7, 8, 9 };
 	CL::ignore_unused(numbers);
