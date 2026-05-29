@@ -74,8 +74,11 @@ auto katline_main(StartupInfo &info) -> void
 	}
 
 	Interrupts::init_defaults();
-	if (!Arch::X2APIC::init_timer(info.tsc_frequency_hz)) {
-		Debug::print_formatted("[x2APIC] timer init failed; halting.\n");
+	auto timer_init_result { Arch::X2APIC::init_timer(info.tsc_frequency_hz) };
+	if (timer_init_result.is_err()) {
+		auto const &error { timer_init_result.unwrap_err() };
+		Debug::print_formatted("[x2APIC] timer init failed: %s\n",
+		    Arch::X2APIC::error_to_string(error).data());
 		for (;;)
 			asm("hlt");
 	}
