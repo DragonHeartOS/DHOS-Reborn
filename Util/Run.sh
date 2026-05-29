@@ -22,9 +22,10 @@ if [ "$SYSTEM" = 'QEMU' ] ; then
 
     if has_kvm ; then
         echo 'Using KVM acceleration'
-        QEMU_ARGS="$QEMU_ARGS -enable-kvm"
+        QEMU_ARGS="$QEMU_ARGS -enable-kvm -cpu host,+x2apic"
     else
         echo 'KVM not available'
+        QEMU_ARGS="$QEMU_ARGS -cpu max,+x2apic"
     fi
 
     if [ "$BOOT_MODE" = 'DISK' ] ; then

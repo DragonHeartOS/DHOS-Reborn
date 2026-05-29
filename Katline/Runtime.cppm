@@ -4,6 +4,7 @@ import CommonLib;
 import :FramebufferController;
 import :SerialController;
 import :MemoryData;
+import :CPU;
 import :IDT;
 import :MemoryManager;
 
@@ -52,6 +53,23 @@ Controller::SerialController k_serial_controller;
 auto katline_main(StartupInfo &info) -> void
 {
 	k_serial_controller.init();
+
+	auto cpuid_info { Arch::CPUID::query_cpuid() };
+	Debug::print_formatted(
+	    "[CPU] vendor=%s family=%d model=%d stepping=%d apic=%d x2apic=%d\n",
+	    cpuid_info.vendor_id,
+	    static_cast<int>(cpuid_info.family + cpuid_info.ext_family),
+	    static_cast<int>((cpuid_info.ext_model << 4) | cpuid_info.model),
+	    static_cast<int>(cpuid_info.stepping_id),
+	    static_cast<int>(cpuid_info.has_apic),
+	    static_cast<int>(cpuid_info.has_x2apic));
+
+	if (!cpuid_info.has_apic || !cpuid_info.has_x2apic) {
+		Debug::print_formatted(
+		    "[CPU] missing APIC/x2APIC support; halting for bring-up.\n");
+		for (;;)
+			asm("hlt");
+	}
 
 	IDT::init();
 	k_framebuffer_controller
