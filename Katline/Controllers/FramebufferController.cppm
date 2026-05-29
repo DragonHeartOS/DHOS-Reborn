@@ -2,7 +2,6 @@ export module Katline:FramebufferController;
 
 import CommonLib;
 import :Font;
-import :Logo;
 
 export {
 	namespace Katline {
@@ -61,9 +60,6 @@ FramebufferController::FramebufferController(Framebuffer *framebuffer)
     : m_framebuffer { framebuffer }
 {
 	this->m_framebuffer = framebuffer;
-
-	if (this->m_framebuffer)
-		put_logo(Logo::Data, Logo::Width, Logo::Height, 10, 10);
 }
 
 void FramebufferController::plot_pixel(uint y, uint x)

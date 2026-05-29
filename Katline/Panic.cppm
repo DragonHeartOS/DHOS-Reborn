@@ -274,12 +274,14 @@ auto kpanic(CL::StringView message, CL::Option<ExceptionRegisters const &> regs)
     -> void
 {
 	asm volatile("cli");
-	Debug::write_formatted("-=- KERNEL PANIC -=-\n");
+	Debug::write_formatted("-=- KERNEL PANIC START -=-\n");
 	Debug::write_formatted("%.*s\n\n", message.size(), message.data());
 	if (regs)
 		print_exception_registers(*regs);
 	Debug::write_formatted(
 	    "\nAll wings are grounded. The heart is silent.\nSystem halted.\n");
+	Debug::write_formatted("-=-  KERNEL PANIC END  -=-\n");
+	Debug::drain_logs();
 	panic_loop();
 }
 

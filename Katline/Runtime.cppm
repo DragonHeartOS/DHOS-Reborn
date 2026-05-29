@@ -2,6 +2,7 @@ export module Katline:Runtime;
 
 import CommonLib;
 import :FramebufferController;
+import :Logo;
 import :SerialController;
 import :MemoryData;
 import :CPU;
@@ -32,6 +33,7 @@ export {
 
 namespace Katline::Debug {
 void set_framebuffer_logging_enabled(bool enabled);
+auto drain_logs() -> void;
 void print_formatted(char const *str, ...);
 }
 
@@ -43,9 +45,13 @@ CL::Atomic<bool> k_bsp_initialized { false };
 
 auto katline_main(StartupInfo &info) -> void
 {
+	Debug::init_log_queue();
 	k_serial_controller.init();
+	Debug::drain_logs();
 	k_framebuffer_controller
 	    = Controller::FramebufferController(info.framebuffer);
+	k_framebuffer_controller.put_logo(
+	    Logo::Data, Logo::Width, Logo::Height, 10, 10);
 	Debug::set_framebuffer_logging_enabled(true);
 
 	auto cpuid_info { Arch::CPUID::query_cpuid() };
@@ -57,6 +63,7 @@ auto katline_main(StartupInfo &info) -> void
 	    static_cast<int>(cpuid_info.stepping_id),
 	    static_cast<int>(cpuid_info.has_apic),
 	    static_cast<int>(cpuid_info.has_x2apic));
+	Debug::drain_logs();
 
 	if (!cpuid_info.has_apic || !cpuid_info.has_x2apic) {
 		Debug::print_formatted(
@@ -74,9 +81,11 @@ auto katline_main(StartupInfo &info) -> void
 		for (;;)
 			asm("hlt");
 	}
+	Debug::drain_logs();
 	asm volatile("sti");
 
 	Memory::MM::init(info.mmap);
+	Debug::drain_logs();
 
 	CL::ArrayList<int> numbers { 1, 2, 3, 4, 5, 6, 7, 8, 9 };
 	CL::ignore_unused(numbers);
@@ -104,21 +113,26 @@ auto katline_main(StartupInfo &info) -> void
 	});
 	Debug::print_formatted("\n");
 
-	// Debug::print_formatted("[demo] triggering deliberate fault\n");
-	// asm volatile("ud2");
-
 	k_bsp_initialized.store(true, CL::MemoryOrder::Release);
+	Debug::drain_logs();
 
 	u64 last_logged {};
 	for (;;) {
+		Debug::drain_logs();
+
 		u64 ticks { Arch::X2APIC::timer_ticks() };
 		u64 cur { ticks / 250ull };
 		if (cur != 0 && cur != last_logged) {
 			last_logged = cur;
 			Debug::print_formatted("[x2APIC] tick=%d (~%ds)\n",
 			    static_cast<int>(ticks), static_cast<int>(cur));
+			Debug::drain_logs();
 		}
-		asm("hlt");
+
+		if (ticks >= 500) {
+			Debug::print_formatted("[demo] triggering deliberate fault\n");
+			asm volatile("ud2");
+		}
 	}
 }
 
