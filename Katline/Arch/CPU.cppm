@@ -40,6 +40,7 @@ export {
 	auto rdmsr(u32 msr) -> u64;
 	auto wrmsr(u32 msr, u64 value) -> void;
 	auto current_rsp() -> uptr;
+	auto current_cr3() -> uptr;
 	auto load_cr3(uptr phys) -> void;
 	auto invlpg(void *addr) -> void;
 	auto rdtsc() -> u64;
@@ -52,7 +53,7 @@ namespace Katline::Arch {
 
 auto CPUIDRegs::cpuid(u32 leaf, u32 subleaf) -> CPUIDRegs
 {
-	CPUIDRegs result {};
+	auto result { CPUIDRegs {} };
 	asm volatile("cpuid"
 	    : "=a"(result.eax), "=b"(result.ebx), "=c"(result.ecx), "=d"(result.edx)
 	    : "a"(leaf), "c"(subleaf));
@@ -66,12 +67,12 @@ auto CPUIDRegs::serialize() -> void
 
 auto CPUID::query_cpuid() -> CPUID
 {
-	CPUID info {};
+	auto info { CPUID {} };
 
-	auto leaf0 { CPUIDRegs::cpuid(0, 0) };
+	auto const leaf0 { CPUIDRegs::cpuid(0, 0) };
 	info.max_basic_leaf = leaf0.eax;
 
-	for (u8 i {}; i < 4; i++) {
+	for (u8 i {}; i < 4; ++i) {
 		info.vendor_id[i] = static_cast<char>((leaf0.ebx >> (i * 8)) & 0xff);
 		info.vendor_id[4 + i]
 		    = static_cast<char>((leaf0.edx >> (i * 8)) & 0xff);
@@ -80,7 +81,7 @@ auto CPUID::query_cpuid() -> CPUID
 	}
 	info.vendor_id[12] = '\0';
 
-	auto leaf1 { CPUIDRegs::cpuid(1, 0) };
+	auto const leaf1 { CPUIDRegs::cpuid(1, 0) };
 	info.leaf1 = leaf1;
 	info.stepping_id = static_cast<u8>(leaf1.eax & 0x0f);
 	info.model = static_cast<u8>((leaf1.eax >> 4) & 0x0f);
@@ -113,15 +114,22 @@ auto rdmsr(u32 msr) -> u64
 
 auto wrmsr(u32 msr, u64 value) -> void
 {
-	u32 low = static_cast<u32>(value & 0xffffffffull);
-	u32 high = static_cast<u32>((value >> 32) & 0xffffffffull);
+	u32 const low { static_cast<u32>(value & 0xffffffffull) };
+	u32 const high { static_cast<u32>((value >> 32) & 0xffffffffull) };
 	asm volatile("wrmsr" : : "c"(msr), "a"(low), "d"(high));
 }
 
 auto current_rsp() -> uptr
 {
-	uptr value {};
+	auto value { uptr {} };
 	asm volatile("mov %%rsp, %0" : "=r"(value));
+	return value;
+}
+
+auto current_cr3() -> uptr
+{
+	uptr value {};
+	asm volatile("mov %%cr3, %0" : "=r"(value));
 	return value;
 }
 
