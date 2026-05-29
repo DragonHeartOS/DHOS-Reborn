@@ -6,6 +6,7 @@ import :SerialController;
 import :MemoryData;
 import :CPU;
 import :IDT;
+import :X2APIC;
 import :MemoryManager;
 
 export {
@@ -73,6 +74,13 @@ auto katline_main(StartupInfo &info) -> void
 	}
 
 	IDT::init();
+	if (!Arch::X2APIC::init_timer(info.tsc_frequency_hz)) {
+		Debug::print_formatted("[x2APIC] timer init failed; halting.\n");
+		for (;;)
+			asm("hlt");
+	}
+	asm volatile("sti");
+
 	k_framebuffer_controller
 	    = Controller::FramebufferController(info.framebuffer);
 
@@ -105,6 +113,18 @@ auto katline_main(StartupInfo &info) -> void
 		Debug::print_formatted("(%d->%d) ", entry.key, entry.value);
 	});
 	Debug::print_formatted("\n");
+
+	u64 last_logged {};
+	for (;;) {
+		u64 ticks { Arch::X2APIC::timer_ticks() };
+		u64 cur { ticks / 250ull };
+		if (cur != 0 && cur != last_logged) {
+			last_logged = cur;
+			Debug::print_formatted("[x2APIC] tick=%d (~%ds)\n",
+			    static_cast<int>(ticks), static_cast<int>(cur));
+		}
+		asm("hlt");
+	}
 }
 
 }

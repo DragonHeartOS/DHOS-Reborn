@@ -13,4 +13,5 @@ export import :IDT;
 export import :RSDP;
 export import :ACPI;
 export import :CPU;
+export import :X2APIC;
 export import :Runtime;
