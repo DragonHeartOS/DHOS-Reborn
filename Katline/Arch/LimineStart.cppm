@@ -96,6 +96,15 @@ __attribute__((used,
 	      .response = nullptr,
       };
 
+__attribute__((used,
+    section(".limine_requests"))) static volatile limine_tsc_frequency_request
+    tsc_frequency_request
+    = {
+	      .id = LIMINE_TSC_FREQUENCY_REQUEST_ID,
+	      .revision = 0,
+	      .response = nullptr,
+      };
+
 __attribute__((
     used, section(".limine_requests_start"))) static volatile uint64_t
     limine_requests_start_marker[]
@@ -115,7 +124,8 @@ extern "C" auto kernel_start() -> void
 	    || framebuffer_request.response->framebuffer_count == 0
 	    || memmap_request.response == nullptr
 	    || hhdm_request.response == nullptr || rsdp_request.response == nullptr
-	    || mp_request.response == nullptr) {
+	    || mp_request.response == nullptr
+	    || tsc_frequency_request.response == nullptr) {
 		for (;;)
 			asm("hlt");
 	}
@@ -174,6 +184,7 @@ extern "C" auto kernel_start() -> void
 		},
 		.rsdp_address = reinterpret_cast<uptr>(rsdp_request.response->address),
 		.hhdm_offset = hhdm_offset,
+		.tsc_frequency_hz = tsc_frequency_request.response->frequency,
 	};
 
 	Katline::katline_main(info);

@@ -38,6 +38,7 @@ export {
 
 	auto rdmsr(u32 msr) -> u64;
 	auto wrmsr(u32 msr, u64 value) -> void;
+	auto rdtsc() -> u64;
 
 	}
 }
@@ -105,6 +106,14 @@ auto wrmsr(u32 msr, u64 value) -> void
 	u32 low = static_cast<u32>(value & 0xffffffffull);
 	u32 high = static_cast<u32>((value >> 32) & 0xffffffffull);
 	asm volatile("wrmsr" : : "c"(msr), "a"(low), "d"(high));
+}
+
+auto rdtsc() -> u64
+{
+	u32 low {};
+	u32 high {};
+	asm volatile("rdtsc" : "=a"(low), "=d"(high));
+	return (static_cast<u64>(high) << 32) | static_cast<u64>(low);
 }
 
 }

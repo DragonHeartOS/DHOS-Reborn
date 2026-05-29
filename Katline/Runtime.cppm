@@ -30,6 +30,7 @@ export {
 		CL::Span<MPInfo *> mp_info;
 		uptr rsdp_address;
 		uptr hhdm_offset;
+		u64 tsc_frequency_hz;
 	};
 
 	extern Controller::FramebufferController k_framebuffer_controller;
