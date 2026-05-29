@@ -18,6 +18,7 @@ export import :String;
 export import :Math;
 export import :Color;
 export import :Atomic;
+export import :BitArray;
 export import :Sync;
 export import :Queue;
 export import :Box;
