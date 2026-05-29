@@ -85,7 +85,7 @@ export {
 				if (!back)
 					return {};
 
-				Node *node = back;
+				Node const *node = back;
 
 				if (current == back) {
 					current = nullptr;
@@ -271,12 +271,12 @@ export {
 
 		/// @brief Get an iterator over the elements in the linked list.
 		/// @return An iterator over the elements in the linked list.
-		auto iter() -> Iter { return Iter { .current = m_head }; }
+		auto iter() -> Iter { return Iter { .front = m_head, .back = m_tail }; }
 		/// @brief Get an iterator over the elements in the linked list.
 		/// @return An iterator over the elements in the linked list.
 		auto iter() const -> ConstIter
 		{
-			return ConstIter { .current = m_head };
+			return ConstIter { .current = m_head, .back = m_tail };
 		}
 
 	private:
