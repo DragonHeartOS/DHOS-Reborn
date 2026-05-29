@@ -149,9 +149,9 @@ extern "C" auto kernel_start() -> void
 		auto *entry { mmap_tag->entries[i] };
 		auto base { entry->base };
 
-		// if (limine_type_to_katline_type(entry->type)
-		//     == Katline::Memory::MemoryType::USABLE)
-		// 	base += hhdm_offset;
+		if (limine_type_to_katline_type(entry->type)
+		    == Katline::Memory::MemoryType::USABLE)
+			base += hhdm_offset;
 
 		memory_map_entries[i] = {
 			.base = base,

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <CommonLib/ArrayList.h>
+#include <CommonLib/Span.h>
 #include <CommonLib/StringView.h>
 #include <CommonLib/Types.h>
 
@@ -128,6 +129,67 @@ template<typename CharTypeT> struct BaseString {
 	constexpr auto view() const -> BaseStringView<CharTypeT>
 	{
 		return { data(), size() };
+	}
+
+	/// @brief Get a span over the string contents.
+	/// @return A span over the string contents.
+	constexpr auto span() -> Span<CharTypeT>
+	{
+		return Span<CharTypeT>(data(), size());
+	}
+
+	/// @brief Get a span over the string contents.
+	/// @return A span over the string contents.
+	constexpr auto span() const -> Span<CharTypeT const>
+	{
+		return Span<CharTypeT const>(data(), size());
+	}
+
+	/// @brief Get a span over the first characters of the string.
+	/// @param length The number of characters to include.
+	/// @return A span over the requested prefix.
+	constexpr auto span(usize length) -> Span<CharTypeT>
+	{
+		return span(0, length);
+	}
+
+	/// @brief Get a span over the first characters of the string.
+	/// @param length The number of characters to include.
+	/// @return A span over the requested prefix.
+	constexpr auto span(usize length) const -> Span<CharTypeT const>
+	{
+		return span(0, length);
+	}
+
+	/// @brief Get a span over a subrange of the string.
+	/// @param start The starting index of the span.
+	/// @param length The number of characters to include.
+	/// @return A span over the requested subrange.
+	constexpr auto span(usize start, usize length) -> Span<CharTypeT>
+	{
+		if (start >= size())
+			return Span<CharTypeT>(data(), 0);
+
+		if (start + length > size())
+			length = size() - start;
+
+		return Span<CharTypeT>(data() + start, length);
+	}
+
+	/// @brief Get a span over a subrange of the string.
+	/// @param start The starting index of the span.
+	/// @param length The number of characters to include.
+	/// @return A span over the requested subrange.
+	constexpr auto span(usize start, usize length) const
+	    -> Span<CharTypeT const>
+	{
+		if (start >= size())
+			return Span<CharTypeT const>(data(), 0);
+
+		if (start + length > size())
+			length = size() - start;
+
+		return Span<CharTypeT const>(data() + start, length);
 	}
 
 	/// @brief Clear the string, making it empty.

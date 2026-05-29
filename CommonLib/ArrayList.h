@@ -4,6 +4,7 @@
 #include <CommonLib/Iterator.h>
 #include <CommonLib/Option.h>
 #include <CommonLib/Platform.h>
+#include <CommonLib/Span.h>
 #include <CommonLib/Types.h>
 
 namespace CL {
@@ -265,6 +266,60 @@ template<typename T> struct ArrayList {
 	/// list.
 	/// @return A pointer to the underlying array of elements in the array list.
 	constexpr auto data() const -> T const * { return m_data; }
+
+	/// @brief Get a span over the array list.
+	/// @return A span over the array list.
+	constexpr auto span() -> Span<T> { return Span<T>(data(), size()); }
+
+	/// @brief Get a span over the array list.
+	/// @return A span over the array list.
+	constexpr auto span() const -> Span<T const>
+	{
+		return Span<T const>(data(), size());
+	}
+
+	/// @brief Get a span over the first elements of the array list.
+	/// @param length The number of elements to include.
+	/// @return A span over the requested prefix.
+	constexpr auto span(usize length) -> Span<T> { return span(0, length); }
+
+	/// @brief Get a span over the first elements of the array list.
+	/// @param length The number of elements to include.
+	/// @return A span over the requested prefix.
+	constexpr auto span(usize length) const -> Span<T const>
+	{
+		return span(0, length);
+	}
+
+	/// @brief Get a span over a subrange of the array list.
+	/// @param start The starting index of the span.
+	/// @param length The number of elements to include.
+	/// @return A span over the requested subrange.
+	constexpr auto span(usize start, usize length) -> Span<T>
+	{
+		if (start >= size())
+			return Span<T>(data(), 0);
+
+		if (start + length > size())
+			length = size() - start;
+
+		return Span<T>(data() + start, length);
+	}
+
+	/// @brief Get a span over a subrange of the array list.
+	/// @param start The starting index of the span.
+	/// @param length The number of elements to include.
+	/// @return A span over the requested subrange.
+	constexpr auto span(usize start, usize length) const -> Span<T const>
+	{
+		if (start >= size())
+			return Span<T const>(data(), 0);
+
+		if (start + length > size())
+			length = size() - start;
+
+		return Span<T const>(data() + start, length);
+	}
 
 	constexpr auto operator[](usize index) -> T & { return m_data[index]; }
 	constexpr auto operator[](usize index) const -> T const &

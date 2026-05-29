@@ -11,6 +11,10 @@
 #include <Katline/Memory/MemoryData.h>
 #include <Katline/Memory/MemoryManager.h>
 
+#include <CommonLib/ArrayList.h>
+#include <CommonLib/String.h>
+#include <CommonLib/StringView.h>
+
 auto CL::panic(CL::StringView const message) -> void
 {
 	Katline::Debug::write_formatted(
@@ -28,13 +32,14 @@ Controller::SerialController k_serial_controller;
 auto katline_main(StartupInfo &info) -> void
 {
 	k_serial_controller.init();
+
+	IDT::init();
 	k_framebuffer_controller
 	    = Controller::FramebufferController(info.framebuffer);
+
 	Debug::set_framebuffer_logging_enabled(true);
 
 	Memory::MM::init(info.mmap);
-
-	IDT::init();
 
 	CL::ArrayList<int> numbers { 1, 2, 3, 4, 5, 6, 7, 8, 9 };
 	CL::ignore_unused(numbers);
