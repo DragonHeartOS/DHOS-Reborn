@@ -39,6 +39,9 @@ export {
 
 	auto rdmsr(u32 msr) -> u64;
 	auto wrmsr(u32 msr, u64 value) -> void;
+	auto current_rsp() -> uptr;
+	auto load_cr3(uptr phys) -> void;
+	auto invlpg(void *addr) -> void;
 	auto rdtsc() -> u64;
 	auto rdtscp() -> u64;
 
@@ -113,6 +116,23 @@ auto wrmsr(u32 msr, u64 value) -> void
 	u32 low = static_cast<u32>(value & 0xffffffffull);
 	u32 high = static_cast<u32>((value >> 32) & 0xffffffffull);
 	asm volatile("wrmsr" : : "c"(msr), "a"(low), "d"(high));
+}
+
+auto current_rsp() -> uptr
+{
+	uptr value {};
+	asm volatile("mov %%rsp, %0" : "=r"(value));
+	return value;
+}
+
+auto load_cr3(uptr phys) -> void
+{
+	asm volatile("mov %0, %%cr3" : : "r"(phys) : "memory");
+}
+
+auto invlpg(void *addr) -> void
+{
+	asm volatile("invlpg (%0)" : : "r"(addr) : "memory");
 }
 
 auto rdtsc() -> u64
