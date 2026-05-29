@@ -26,6 +26,7 @@ export {
 		};
 
 		static void init();
+		static void set_handler(u8 vector, void (*handler)());
 	};
 
 	}
@@ -51,13 +52,13 @@ struct interrupt_frame {
 		asm("hlt");
 }
 
-extern "C" __attribute__((interrupt)) auto idt_default_handler(
-    interrupt_frame *) -> void
+extern "C" [[gnu::interrupt]] auto idt_default_handler(interrupt_frame *)
+    -> void
 {
 	halt_forever();
 }
 
-extern "C" __attribute__((interrupt)) auto idt_default_handler_ec(
+extern "C" [[gnu::interrupt]] auto idt_default_handler_ec(
     interrupt_frame *, u64) -> void
 {
 	halt_forever();
@@ -129,6 +130,11 @@ auto IDT::init() -> void
 	asm volatile("lidt %0" : : "m"(idtr));
 
 	Debug::write_formatted("[IDT]: Loaded.\n");
+}
+
+auto IDT::set_handler(u8 vector, void (*handler)()) -> void
+{
+	set_offset(entries[vector], reinterpret_cast<u64>(handler));
 }
 
 }
