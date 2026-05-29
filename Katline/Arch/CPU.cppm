@@ -12,6 +12,7 @@ export {
 		u32 edx;
 
 		static auto cpuid(u32 leaf, u32 subleaf) -> CPUIDRegs;
+		static auto serialize() -> void;
 	};
 
 	struct CPUID {
@@ -39,6 +40,7 @@ export {
 	auto rdmsr(u32 msr) -> u64;
 	auto wrmsr(u32 msr, u64 value) -> void;
 	auto rdtsc() -> u64;
+	auto rdtscp() -> u64;
 
 	}
 }
@@ -52,6 +54,11 @@ auto CPUIDRegs::cpuid(u32 leaf, u32 subleaf) -> CPUIDRegs
 	    : "=a"(result.eax), "=b"(result.ebx), "=c"(result.ecx), "=d"(result.edx)
 	    : "a"(leaf), "c"(subleaf));
 	return result;
+}
+
+auto CPUIDRegs::serialize() -> void
+{
+	asm volatile("cpuid" : : "a"(0), "c"(0) : "rbx", "rdx");
 }
 
 auto CPUID::query_cpuid() -> CPUID
@@ -113,6 +120,16 @@ auto rdtsc() -> u64
 	u32 low {};
 	u32 high {};
 	asm volatile("rdtsc" : "=a"(low), "=d"(high));
+	return (static_cast<u64>(high) << 32) | static_cast<u64>(low);
+}
+
+auto rdtscp() -> u64
+{
+	u32 low {};
+	u32 high {};
+	u32 aux {};
+	asm volatile("rdtscp" : "=a"(low), "=d"(high), "=c"(aux));
+	CL::ignore_unused(aux);
 	return (static_cast<u64>(high) << 32) | static_cast<u64>(low);
 }
 
