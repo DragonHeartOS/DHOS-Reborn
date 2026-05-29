@@ -55,11 +55,20 @@ export {
 		revstr(s);
 	}
 
-	auto memcpy(void *dst, void *src, usize size) -> void
+	extern "C" auto memcpy(void *dst, void *src, usize size) -> void *
 	{
 		auto *dst_ { reinterpret_cast<u8 *>(dst) };
 		auto *src_ { reinterpret_cast<u8 *>(src) };
 		for (usize i {}; i < size; i++)
 			dst_[i] = src_[i];
+		return dst;
+	}
+
+	extern "C" auto memset(void *dst, int value, usize size) -> void *
+	{
+		auto *dst_ { reinterpret_cast<u8 *>(dst) };
+		for (usize i {}; i < size; i++)
+			dst_[i] = static_cast<u8>(value);
+		return dst;
 	}
 }
