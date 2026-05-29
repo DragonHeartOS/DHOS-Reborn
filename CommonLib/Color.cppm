@@ -1,0 +1,16 @@
+export module CommonLib:Color;
+
+import :Types;
+
+export {
+	namespace CL::Color {
+
+	struct RGBColor {
+		u8 r, g, b;
+	};
+
+	RGBColor const WHITE = { 0xff, 0xff, 0xff };
+	RGBColor const BLACK = { 0x00, 0x00, 0x00 };
+
+	}
+}

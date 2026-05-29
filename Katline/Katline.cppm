@@ -1,0 +1,15 @@
+export module Katline;
+
+import CommonLib;
+
+export import :FramebufferController;
+export import :SerialController;
+export import :MemoryData;
+export import :Heap;
+export import :MemoryManager;
+export import :Debug;
+export import :Interrupts;
+export import :IDT;
+export import :RSDP;
+export import :ACPI;
+export import :Runtime;

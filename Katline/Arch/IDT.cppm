@@ -1,0 +1,134 @@
+export module Katline:IDT;
+
+import CommonLib;
+
+export {
+	namespace Katline {
+
+	class IDT {
+	public:
+		struct [[gnu::packed]] Entry {
+			u16 offset0;
+			u16 selector;
+			u8 ist;
+			u8 type_attr;
+			u16 offset1;
+			u32 offset2;
+			u32 ignore;
+		};
+
+		static void set_offset(Entry &entry, u64 offset);
+		static u64 get_offset(Entry &entry);
+
+		struct [[gnu::packed]] IDTR {
+			u16 limit;
+			u64 base;
+		};
+
+		static void init();
+	};
+
+	}
+}
+
+namespace Katline::Debug {
+void write_formatted(char const *str, ...);
+}
+
+namespace Katline {
+
+struct interrupt_frame {
+	u64 rip;
+	u64 cs;
+	u64 rflags;
+	u64 rsp;
+	u64 ss;
+};
+
+[[noreturn]] static auto halt_forever() -> void
+{
+	for (;;)
+		asm("hlt");
+}
+
+extern "C" __attribute__((interrupt)) auto idt_default_handler(
+    interrupt_frame *) -> void
+{
+	halt_forever();
+}
+
+extern "C" __attribute__((interrupt)) auto idt_default_handler_ec(
+    interrupt_frame *, u64) -> void
+{
+	halt_forever();
+}
+
+static auto vector_has_error_code(u8 vector) -> bool
+{
+	switch (vector) {
+	case 8:
+	case 10:
+	case 11:
+	case 12:
+	case 13:
+	case 14:
+	case 17:
+	case 21:
+	case 29:
+	case 30:
+		return true;
+	default:
+		return false;
+	}
+}
+
+IDT::IDTR idtr;
+IDT::Entry entries[256];
+
+static_assert(sizeof(IDT::Entry) == 16, "IDT entry must be 16 bytes");
+static_assert(sizeof(IDT::IDTR) == 10, "IDTR must be 10 bytes");
+
+auto IDT::set_offset(Entry &entry, u64 offset) -> void
+{
+	entry.offset0 = (u16)(offset & 0x000000000000ffff);
+	entry.offset1 = (u16)((offset & 0x00000000ffff0000) >> 16);
+	entry.offset2 = (u32)((offset & 0xffffffff00000000) >> 32);
+}
+
+auto IDT::get_offset(Entry &entry) -> u64
+{
+	u64 offset = 0;
+	offset |= (u64)entry.offset0;
+	offset |= (u64)entry.offset1 << 16;
+	offset |= (u64)entry.offset2 << 32;
+	return offset;
+}
+
+auto IDT::init() -> void
+{
+	u16 code_selector;
+	asm volatile("mov %%cs, %0" : "=r"(code_selector));
+
+	for (u16 i {}; i < 256; i++) {
+		entries[i] = {};
+		entries[i].selector = code_selector;
+		entries[i].ist = 0;
+		entries[i].type_attr = 0x8e;
+		entries[i].ignore = 0;
+
+		if (vector_has_error_code((u8)i))
+			set_offset(entries[i], (u64)&idt_default_handler_ec);
+		else
+			set_offset(entries[i], (u64)&idt_default_handler);
+	}
+
+	idtr.limit = (u16)(sizeof(entries) - 1);
+	idtr.base = (u64)&entries;
+
+	asm volatile("cli");
+	asm volatile("lidt %0" : : "m"(idtr));
+
+	Debug::write_formatted("[IDT]: Loaded.\n");
+}
+
+}
