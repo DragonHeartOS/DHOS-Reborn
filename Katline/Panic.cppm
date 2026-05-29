@@ -31,6 +31,7 @@ export {
 
 		u8 vector;
 		CL::Option<u64> error_code;
+		CL::Option<u64> cr2;
 	};
 
 	[[noreturn]] auto kpanic(CL::StringView message,
@@ -77,12 +78,150 @@ static auto read_ss() -> u64
 	return static_cast<u64>(ss);
 }
 
+static auto exception_name(u8 vector) -> char const *
+{
+	switch (vector) {
+	case 0:
+		return "#DE";
+	case 1:
+		return "#DB";
+	case 2:
+		return "#NMI";
+	case 3:
+		return "#BP";
+	case 4:
+		return "#OF";
+	case 5:
+		return "#BR";
+	case 6:
+		return "#UD";
+	case 7:
+		return "#NM";
+	case 8:
+		return "#DF";
+	case 10:
+		return "#TS";
+	case 11:
+		return "#NP";
+	case 12:
+		return "#SS";
+	case 13:
+		return "#GP";
+	case 14:
+		return "#PF";
+	case 16:
+		return "#MF";
+	case 17:
+		return "#AC";
+	case 18:
+		return "#MC";
+	case 19:
+		return "#XM";
+	default:
+		return "unknown";
+	}
+}
+
+static auto exception_description(u8 vector) -> char const *
+{
+	switch (vector) {
+	case 0:
+		return "divide error";
+	case 1:
+		return "debug";
+	case 2:
+		return "non-maskable interrupt";
+	case 3:
+		return "breakpoint";
+	case 4:
+		return "overflow";
+	case 5:
+		return "bound range exceeded";
+	case 6:
+		return "invalid opcode";
+	case 7:
+		return "device not available";
+	case 8:
+		return "double fault";
+	case 10:
+		return "invalid tss";
+	case 11:
+		return "segment not present";
+	case 12:
+		return "stack segment fault";
+	case 13:
+		return "general protection fault";
+	case 14:
+		return "page fault";
+	case 16:
+		return "x87 floating-point exception";
+	case 17:
+		return "alignment check";
+	case 18:
+		return "machine check";
+	case 19:
+		return "simd floating-point exception";
+	default:
+		return "unknown exception";
+	}
+}
+
+static auto selector_table_name(u64 selector_error) -> char const *
+{
+	switch (selector_error & 0x3u) {
+	case 0:
+		return "GDT";
+	case 1:
+		return "IDT";
+	case 2:
+		return "LDT";
+	default:
+		return "IDT";
+	}
+}
+
+static auto print_exception_details(ExceptionRegisters const &regs) -> void
+{
+	Debug::write_formatted("vector=0x%02x (%s) (%s)\n",
+	    static_cast<u64>(regs.vector), exception_name(regs.vector),
+	    exception_description(regs.vector));
+
+	if (regs.error_code) {
+		auto error { *regs.error_code };
+		Debug::write_formatted("error_code=0x%016x", error);
+		switch (regs.vector) {
+		case 14: {
+			Debug::write_formatted(
+			    " (present=%d write=%d user=%d rsvd=%d instr=%d)",
+			    static_cast<int>((error & 1u) != 0),
+			    static_cast<int>((error & 2u) != 0),
+			    static_cast<int>((error & 4u) != 0),
+			    static_cast<int>((error & 8u) != 0),
+			    static_cast<int>((error & 16u) != 0));
+			break;
+		}
+		case 13:
+		case 10:
+		case 11:
+		case 12: {
+			Debug::write_formatted(" (selector=0x%04x %s index=0x%04x)",
+			    static_cast<u64>(error & 0xffffu), selector_table_name(error),
+			    static_cast<u64>(error >> 3));
+			break;
+		}
+		default:
+			Debug::write_formatted(" (%s)", exception_name(regs.vector));
+			break;
+		}
+		Debug::write_formatted("\n");
+	}
+
+	if (regs.cr2)
+		Debug::write_formatted("cr2=0x%016x\n", *regs.cr2);
+}
+
 static auto print_exception_registers(ExceptionRegisters const &regs) -> void
 {
-	Debug::write_formatted("vector=0x%02x\n", static_cast<u64>(regs.vector));
-	if (regs.error_code)
-		Debug::write_formatted("error_code=0x%016x\n", *regs.error_code);
-
 	Debug::write_formatted("rax=0x%016x rbx=0x%016x rcx=0x%016x rdx=0x%016x\n",
 	    regs.rax, regs.rbx, regs.rcx, regs.rdx);
 	Debug::write_formatted("rsi=0x%016x rdi=0x%016x rbp=0x%016x rsp=0x%016x\n",
@@ -137,6 +276,12 @@ extern "C" [[noreturn]] auto katline_exception_dispatch(u8 vector,
 	if (has_error_code) {
 		auto const *error_code_ptr = reinterpret_cast<u64 const *>(frame) - 1;
 		regs.error_code = *error_code_ptr;
+	}
+
+	if (vector == 14) {
+		u64 cr2 {};
+		asm volatile("mov %%cr2, %0" : "=r"(cr2));
+		regs.cr2 = cr2;
 	}
 
 	kpanic("Unhandled CPU exception",
@@ -276,8 +421,10 @@ auto kpanic(CL::StringView message, CL::Option<ExceptionRegisters const &> regs)
 	asm volatile("cli");
 	Debug::write_formatted("-=- KERNEL PANIC START -=-\n");
 	Debug::write_formatted("%.*s\n\n", message.size(), message.data());
-	if (regs)
+	if (regs) {
+		print_exception_details(*regs);
 		print_exception_registers(*regs);
+	}
 	Debug::write_formatted(
 	    "\nAll wings are grounded. The heart is silent.\nSystem halted.\n");
 	Debug::write_formatted("-=-  KERNEL PANIC END  -=-\n");
