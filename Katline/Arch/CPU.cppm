@@ -201,44 +201,14 @@ auto rdtscp() -> u64
 
 void CPUContext::save_current()
 {
-	auto *ctx { this };
-	asm volatile("movq %%rax, %c[rax](%[ctx])\n\t"
-	             "movq %%rbx, %c[rbx](%[ctx])\n\t"
-	             "movq %%rcx, %c[rcx](%[ctx])\n\t"
-	             "movq %%rdx, %c[rdx](%[ctx])\n\t"
-	             "movq %%rsi, %c[rsi](%[ctx])\n\t"
-	             "movq %%rdi, %c[rdi](%[ctx])\n\t"
-	             "movq %%rbp, %c[rbp](%[ctx])\n\t"
-	             "movq %%rsp, %c[rsp](%[ctx])\n\t"
-	             "movq %%r8, %c[r8](%[ctx])\n\t"
-	             "movq %%r9, %c[r9](%[ctx])\n\t"
-	             "movq %%r10, %c[r10](%[ctx])\n\t"
-	             "movq %%r11, %c[r11](%[ctx])\n\t"
-	             "movq %%r12, %c[r12](%[ctx])\n\t"
-	             "movq %%r13, %c[r13](%[ctx])\n\t"
-	             "movq %%r14, %c[r14](%[ctx])\n\t"
-	             "movq %%r15, %c[r15](%[ctx])\n\t"
-	             "pushfq\n\tpopq %%rax\n\t"
-	             "movq %%rax, %c[rflags](%[ctx])\n\t"
-	    :
-	    : [ctx] "r"(ctx), [rax] "i"(__builtin_offsetof(CPUContext, rax)),
-	    [rbx] "i"(__builtin_offsetof(CPUContext, rbx)),
-	    [rcx] "i"(__builtin_offsetof(CPUContext, rcx)),
-	    [rdx] "i"(__builtin_offsetof(CPUContext, rdx)),
-	    [rsi] "i"(__builtin_offsetof(CPUContext, rsi)),
-	    [rdi] "i"(__builtin_offsetof(CPUContext, rdi)),
-	    [rbp] "i"(__builtin_offsetof(CPUContext, rbp)),
-	    [rsp] "i"(__builtin_offsetof(CPUContext, rsp)),
-	    [r8] "i"(__builtin_offsetof(CPUContext, r8)),
-	    [r9] "i"(__builtin_offsetof(CPUContext, r9)),
-	    [r10] "i"(__builtin_offsetof(CPUContext, r10)),
-	    [r11] "i"(__builtin_offsetof(CPUContext, r11)),
-	    [r12] "i"(__builtin_offsetof(CPUContext, r12)),
-	    [r13] "i"(__builtin_offsetof(CPUContext, r13)),
-	    [r14] "i"(__builtin_offsetof(CPUContext, r14)),
-	    [r15] "i"(__builtin_offsetof(CPUContext, r15)),
-	    [rflags] "i"(__builtin_offsetof(CPUContext, rflags))
-	    : "rax", "memory");
+	asm volatile("mov %%rbx, %0" : "=m"(rbx) : : "memory");
+	asm volatile("mov %%rbp, %0" : "=m"(rbp) : : "memory");
+	asm volatile("mov %%rsp, %0" : "=m"(rsp) : : "memory");
+	asm volatile("mov %%r12, %0" : "=m"(r12) : : "memory");
+	asm volatile("mov %%r13, %0" : "=m"(r13) : : "memory");
+	asm volatile("mov %%r14, %0" : "=m"(r14) : : "memory");
+	asm volatile("mov %%r15, %0" : "=m"(r15) : : "memory");
+	asm volatile("pushfq\n\tpopq %0" : "=m"(rflags) : : "memory");
 	rip = reinterpret_cast<u64>(__builtin_return_address(0));
 	cs = current_cs();
 	ss = current_ss();
@@ -250,112 +220,80 @@ void CPUContext::save_current()
 
 [[noreturn]] void CPUContext::restore_and_enter() const
 {
-	auto const *ctx { this };
-	u16 ds { static_cast<u16>(this->ds) };
-	u16 es { static_cast<u16>(this->es) };
-	u16 fs { static_cast<u16>(this->fs) };
-	u16 gs { static_cast<u16>(this->gs) };
+	u16 ds16 { static_cast<u16>(ds) };
+	u16 es16 { static_cast<u16>(es) };
+	u16 fs16 { static_cast<u16>(fs) };
+	u16 gs16 { static_cast<u16>(gs) };
 
-	asm volatile("movw %w0, %%ds\n\t"
-	             "movw %w1, %%es\n\t"
-	             "movw %w2, %%fs\n\t"
-	             "movw %w3, %%gs\n\t"
-	             "movq %c[rax](%[ctx]), %%rax\n\t"
-	             "movq %c[rbx](%[ctx]), %%rbx\n\t"
-	             "movq %c[rcx](%[ctx]), %%rcx\n\t"
-	             "movq %c[rdx](%[ctx]), %%rdx\n\t"
-	             "movq %c[rsi](%[ctx]), %%rsi\n\t"
-	             "movq %c[rdi](%[ctx]), %%rdi\n\t"
-	             "movq %c[rbp](%[ctx]), %%rbp\n\t"
-	             "movq %c[r8](%[ctx]), %%r8\n\t"
-	             "movq %c[r9](%[ctx]), %%r9\n\t"
-	             "movq %c[r10](%[ctx]), %%r10\n\t"
-	             "movq %c[r11](%[ctx]), %%r11\n\t"
-	             "movq %c[r12](%[ctx]), %%r12\n\t"
-	             "movq %c[r13](%[ctx]), %%r13\n\t"
-	             "movq %c[r14](%[ctx]), %%r14\n\t"
-	             "movq %c[r15](%[ctx]), %%r15\n\t"
-	             "movq %c[rsp](%[ctx]), %%rsp\n\t"
-	             "pushq %c[rflags](%[ctx])\n\t"
-	             "popfq\n\t"
-	             "jmp *%c[rip](%[ctx])\n\t"
-	    :
-	    : [ds] "r"(ds), [es] "r"(es), [fs] "r"(fs), [gs] "r"(gs),
-	    [ctx] "r"(ctx), [rax] "i"(__builtin_offsetof(CPUContext, rax)),
-	    [rbx] "i"(__builtin_offsetof(CPUContext, rbx)),
-	    [rcx] "i"(__builtin_offsetof(CPUContext, rcx)),
-	    [rdx] "i"(__builtin_offsetof(CPUContext, rdx)),
-	    [rsi] "i"(__builtin_offsetof(CPUContext, rsi)),
-	    [rdi] "i"(__builtin_offsetof(CPUContext, rdi)),
-	    [rbp] "i"(__builtin_offsetof(CPUContext, rbp)),
-	    [r8] "i"(__builtin_offsetof(CPUContext, r8)),
-	    [r9] "i"(__builtin_offsetof(CPUContext, r9)),
-	    [r10] "i"(__builtin_offsetof(CPUContext, r10)),
-	    [r11] "i"(__builtin_offsetof(CPUContext, r11)),
-	    [r12] "i"(__builtin_offsetof(CPUContext, r12)),
-	    [r13] "i"(__builtin_offsetof(CPUContext, r13)),
-	    [r14] "i"(__builtin_offsetof(CPUContext, r14)),
-	    [r15] "i"(__builtin_offsetof(CPUContext, r15)),
-	    [rsp] "i"(__builtin_offsetof(CPUContext, rsp)),
-	    [rflags] "i"(__builtin_offsetof(CPUContext, rflags)),
-	    [rip] "i"(__builtin_offsetof(CPUContext, rip))
-	    : "memory");
+	asm volatile("movw %0, %%ds" : : "rm"(ds16) : "memory");
+	asm volatile("movw %0, %%es" : : "rm"(es16) : "memory");
+	asm volatile("movw %0, %%fs" : : "rm"(fs16) : "memory");
+	asm volatile("movw %0, %%gs" : : "rm"(gs16) : "memory");
+
+	asm volatile("mov %0, %%rbx" : : "m"(rbx) : "rbx", "memory");
+	asm volatile("mov %0, %%rbp" : : "m"(rbp) : "rbp", "memory");
+	asm volatile("mov %0, %%r12" : : "m"(r12) : "r12", "memory");
+	asm volatile("mov %0, %%r13" : : "m"(r13) : "r13", "memory");
+	asm volatile("mov %0, %%r14" : : "m"(r14) : "r14", "memory");
+	asm volatile("mov %0, %%r15" : : "m"(r15) : "r15", "memory");
+
+	asm volatile("mov %0, %%rsp" : : "m"(rsp) : "rsp", "memory");
+	asm volatile("pushq %0\n\tpopfq" : : "m"(rflags) : "cc", "memory");
+	asm volatile("jmp *%0" : : "m"(rip) : "memory");
 	__builtin_unreachable();
 }
 
-void CPUContext::switch_to(CPUContext *prev, CPUContext *next)
+[[gnu::naked]] void CPUContext::switch_to(
+    CPUContext * /* prev */, CPUContext * /* next */)
 {
-	if (!next)
-		return;
+	asm volatile("testq %rsi, %rsi\n\t"
+	             "jz 2f\n\t"
+	             "testq %rdi, %rdi\n\t"
+	             "jz 0f\n\t"
 
-	if (prev) {
-		auto *ctx { prev };
-		asm volatile("movq %%rax, %c[rax](%[ctx])\n\t"
-		             "movq %%rbx, %c[rbx](%[ctx])\n\t"
-		             "movq %%rcx, %c[rcx](%[ctx])\n\t"
-		             "movq %%rdx, %c[rdx](%[ctx])\n\t"
-		             "movq %%rsi, %c[rsi](%[ctx])\n\t"
-		             "movq %%rdi, %c[rdi](%[ctx])\n\t"
-		             "movq %%rbp, %c[rbp](%[ctx])\n\t"
-		             "movq %%rsp, %c[rsp](%[ctx])\n\t"
-		             "movq %%r8, %c[r8](%[ctx])\n\t"
-		             "movq %%r9, %c[r9](%[ctx])\n\t"
-		             "movq %%r10, %c[r10](%[ctx])\n\t"
-		             "movq %%r11, %c[r11](%[ctx])\n\t"
-		             "movq %%r12, %c[r12](%[ctx])\n\t"
-		             "movq %%r13, %c[r13](%[ctx])\n\t"
-		             "movq %%r14, %c[r14](%[ctx])\n\t"
-		             "movq %%r15, %c[r15](%[ctx])\n\t"
-		             "pushfq\n\tpopq %%rax\n\t"
-		             "movq %%rax, %c[rflags](%[ctx])\n\t"
-		    :
-		    : [ctx] "r"(ctx), [rax] "i"(__builtin_offsetof(CPUContext, rax)),
-		    [rbx] "i"(__builtin_offsetof(CPUContext, rbx)),
-		    [rcx] "i"(__builtin_offsetof(CPUContext, rcx)),
-		    [rdx] "i"(__builtin_offsetof(CPUContext, rdx)),
-		    [rsi] "i"(__builtin_offsetof(CPUContext, rsi)),
-		    [rdi] "i"(__builtin_offsetof(CPUContext, rdi)),
-		    [rbp] "i"(__builtin_offsetof(CPUContext, rbp)),
-		    [rsp] "i"(__builtin_offsetof(CPUContext, rsp)),
-		    [r8] "i"(__builtin_offsetof(CPUContext, r8)),
-		    [r9] "i"(__builtin_offsetof(CPUContext, r9)),
-		    [r10] "i"(__builtin_offsetof(CPUContext, r10)),
-		    [r11] "i"(__builtin_offsetof(CPUContext, r11)),
-		    [r12] "i"(__builtin_offsetof(CPUContext, r12)),
-		    [r13] "i"(__builtin_offsetof(CPUContext, r13)),
-		    [r14] "i"(__builtin_offsetof(CPUContext, r14)),
-		    [r15] "i"(__builtin_offsetof(CPUContext, r15)),
-		    [rflags] "i"(__builtin_offsetof(CPUContext, rflags))
-		    : "rax", "memory");
-		prev->rip = reinterpret_cast<u64>(&&resume);
-		prev->cs = current_cs();
-		prev->ss = current_ss();
-	}
+	             "movq %rbx, 0x08(%rdi)\n\t"
+	             "movq %rbp, 0x30(%rdi)\n\t"
+	             "movq %rsp, 0x38(%rdi)\n\t"
+	             "movq %r12, 0x60(%rdi)\n\t"
+	             "movq %r13, 0x68(%rdi)\n\t"
+	             "movq %r14, 0x70(%rdi)\n\t"
+	             "movq %r15, 0x78(%rdi)\n\t"
+	             "leaq 1f(%rip), %rax\n\t"
+	             "movq %rax, 0x80(%rdi)\n\t"
+	             "pushfq\n\t"
+	             "popq 0x88(%rdi)\n\t"
+	             "mov %cs, %ax\n\t"
+	             "movzx %ax, %rax\n\t"
+	             "movq %rax, 0x90(%rdi)\n\t"
+	             "mov %ss, %ax\n\t"
+	             "movzx %ax, %rax\n\t"
+	             "movq %rax, 0x98(%rdi)\n\t"
 
-	next->restore_and_enter();
+	             "0:\n\t"
+	             "movw 0xa0(%rsi), %ax\n\t"
+	             "movw %ax, %ds\n\t"
+	             "movw 0xa8(%rsi), %ax\n\t"
+	             "movw %ax, %es\n\t"
+	             "movw 0xb0(%rsi), %ax\n\t"
+	             "movw %ax, %fs\n\t"
+	             "movw 0xb8(%rsi), %ax\n\t"
+	             "movw %ax, %gs\n\t"
 
-resume:
-	asm volatile("" ::: "memory");
+	             "movq 0x08(%rsi), %rbx\n\t"
+	             "movq 0x30(%rsi), %rbp\n\t"
+	             "movq 0x60(%rsi), %r12\n\t"
+	             "movq 0x68(%rsi), %r13\n\t"
+	             "movq 0x70(%rsi), %r14\n\t"
+	             "movq 0x78(%rsi), %r15\n\t"
+	             "movq 0x38(%rsi), %rsp\n\t"
+	             "pushq 0x88(%rsi)\n\t"
+	             "popfq\n\t"
+	             "jmp *0x80(%rsi)\n\t"
+
+	             "1:\n\t"
+	             "ret\n\t"
+	             "2:\n\t"
+	             "ret\n\t");
 }
 
 }

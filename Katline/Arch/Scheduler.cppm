@@ -18,6 +18,8 @@ export {
 		auto pick_next_thread() -> Thread *;
 		auto current_thread() -> Thread *;
 		void yield();
+		void block_current();
+		void unblock(Thread *thread);
 		[[noreturn]] void thread_exit();
 
 		static auto the() -> Scheduler &;
@@ -26,10 +28,10 @@ export {
 		Thread *m_current_thread {};
 
 		CL::LinkedList<Process *> m_processes;
-		CL::LinkedList<Thread *> m_threads;
+		CL::ArrayList<Thread *> m_ready_threads;
+		CL::ArrayList<Thread *> m_zombies;
 
 		u64 m_tid_counter {};
-		u64 m_last_scheduled_tid {};
 
 		Thread *m_idle_thread;
 	};
@@ -51,12 +53,14 @@ Process *k_process {};
 void Scheduler::init()
 {
 	Debug::print_formatted("[Scheduler] Initializing...\n");
+	Debug::drain_logs();
 	k_process = new Process {
 		.parent = nullptr,
 		.pid = { 0 },
 		.threads = {},
 		.cr3 = current_cr3(),
 	};
+	m_processes.push(k_process);
 	m_idle_thread = make_thread(k_process, reinterpret_cast<uptr>(+[]() {
 		asm volatile("cli");
 		for (;;) {
@@ -66,6 +70,7 @@ void Scheduler::init()
 	}),
 	    false);
 	Debug::print_formatted("[Scheduler] Scheduler initialized.\n");
+	Debug::drain_logs();
 }
 
 auto Scheduler::the() -> Scheduler &
@@ -85,8 +90,8 @@ auto Scheduler::adopt_current_thread(
 	th->kernel_stack_base = stack_base;
 	th->kernel_stack_size = stack_size;
 	th->context = CPUContext {};
-	th->context.save_current();
 	th->context.rsp = current_rsp();
+	th->context.rip = reinterpret_cast<uptr>(__builtin_return_address(0));
 	th->context.cs = current_cs();
 	th->context.ss = current_ss();
 	th->context.ds = current_ss();
@@ -96,12 +101,11 @@ auto Scheduler::adopt_current_thread(
 	th->context.rflags = 0x202;
 
 	process->threads.push(th);
-	m_threads.push(th);
 	m_current_thread = th;
-	m_last_scheduled_tid = th->tid.id;
 
 	Debug::print_formatted(
 	    "[Scheduler] Adopted current thread ID %d.\n", th->tid.id);
+	Debug::drain_logs();
 	return th;
 }
 
@@ -129,11 +133,12 @@ auto Scheduler::make_thread(
 
 	process->threads.push(th);
 	if (add_to_list)
-		m_threads.push(th);
+		m_ready_threads.push(th);
 
-	Debug::print_formatted(
-	    "[Scheduler] Created thread for process ID %d with thread ID %d.\n",
-	    process->pid.id, th->tid.id);
+	Debug::print_formatted("[Scheduler] Created thread for process ID %d with "
+	                       "thread ID %d rip=0x%016x entry=0x%016x\n",
+	    process->pid.id, th->tid.id, th->context.rip, th->entry_point);
+	Debug::drain_logs();
 
 	return th;
 }
@@ -141,22 +146,33 @@ auto Scheduler::make_thread(
 void Scheduler::schedule()
 {
 	auto *prev { m_current_thread };
+	if (prev && prev->tstate == ThreadState::Running && prev != m_idle_thread) {
+		if (m_ready_threads.is_empty())
+			return;
+
+		prev->tstate = ThreadState::Ready;
+		m_ready_threads.push(prev);
+	}
+
 	auto *next { pick_next_thread() };
 	if (!next)
-		return;
+		next = m_idle_thread;
 
 	if (m_current_thread == next)
 		return;
 
-	if (prev && prev->tstate == ThreadState::Running)
-		prev->tstate = ThreadState::Ready;
-
 	if (next->process && next->process->cr3 != current_cr3())
 		load_cr3(next->process->cr3);
 
+	// Debug::print_formatted("[Scheduler] switch prev=%d next=%d "
+	//                        "next_rip=0x%016x next_entry=0x%016x\n",
+	//     prev ? static_cast<int>(prev->tid.id) : -1,
+	//     static_cast<int>(next->tid.id), next->context.rip,
+	//     next->entry_point);
+	// Debug::drain_logs();
+
 	next->tstate = ThreadState::Running;
 	m_current_thread = next;
-	m_last_scheduled_tid = next->tid.id;
 
 	CPUContext::switch_to(prev ? &prev->context : nullptr, &next->context);
 }
@@ -165,6 +181,23 @@ auto Scheduler::current_thread() -> Thread * { return m_current_thread; }
 
 void Scheduler::yield() { schedule(); }
 
+void Scheduler::block_current()
+{
+	auto *current { m_current_thread };
+	if (current)
+		current->tstate = ThreadState::Blocked;
+	schedule();
+}
+
+void Scheduler::unblock(Thread *thread)
+{
+	if (!thread || thread->tstate != ThreadState::Blocked)
+		return;
+
+	thread->tstate = ThreadState::Ready;
+	m_ready_threads.push(thread);
+}
+
 [[noreturn]] void Scheduler::thread_exit()
 {
 	auto *current { m_current_thread };
@@ -172,8 +205,10 @@ void Scheduler::yield() { schedule(); }
 		for (;;)
 			asm volatile("hlt");
 	}
-	if (current)
+	if (current) {
 		current->tstate = ThreadState::Dead;
+		m_zombies.push(current);
+	}
 	m_current_thread = nullptr;
 	schedule();
 	for (;;)
@@ -182,33 +217,12 @@ void Scheduler::yield() { schedule(); }
 
 auto Scheduler::pick_next_thread() -> Thread *
 {
-	Thread *best_after_cursor {};
-	Thread *best_wrap {};
+	if (m_ready_threads.is_empty())
+		return nullptr;
 
-	m_threads.iter().for_each([&](Thread *thread) {
-		if (thread->tstate != ThreadState::Ready)
-			return;
-
-		if (!best_wrap || thread->tid.id < best_wrap->tid.id)
-			best_wrap = thread;
-
-		if (thread->tid.id > m_last_scheduled_tid) {
-			if (!best_after_cursor
-			    || thread->tid.id < best_after_cursor->tid.id)
-				best_after_cursor = thread;
-		}
-	});
-
-	if (best_after_cursor)
-		return best_after_cursor;
-
-	if (best_wrap)
-		return best_wrap;
-
-	if (m_current_thread && m_current_thread->tstate == ThreadState::Running)
-		return m_current_thread;
-
-	return m_idle_thread;
+	auto *next { m_ready_threads[0] };
+	m_ready_threads.remove_at(0);
+	return next;
 }
 
 [[noreturn]] void thread_entry_trampoline()

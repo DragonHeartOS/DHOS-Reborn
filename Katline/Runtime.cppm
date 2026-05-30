@@ -146,6 +146,13 @@ auto katline_main(StartupInfo &info) -> void
 	Arch::Scheduler::the().init();
 	Arch::Scheduler::the().adopt_current_thread(
 	    Arch::k_process, stack_start, info.stack_size);
+	Arch::Scheduler::the().make_thread(
+	    Arch::k_process, reinterpret_cast<uptr>(+[]() {
+		    Debug::print_formatted("[worker] online\n");
+		    for (;;) {
+			    asm volatile("hlt");
+		    }
+	    }));
 
 	asm volatile("sti");
 
@@ -189,11 +196,6 @@ auto katline_main(StartupInfo &info) -> void
 			Debug::print_formatted("[x2APIC] tick=%d (~%ds)\n",
 			    static_cast<int>(ticks), static_cast<int>(cur));
 			Debug::drain_logs();
-		}
-
-		if (ticks >= 500) {
-			Debug::print_formatted("[demo] triggering deliberate page fault\n");
-			*reinterpret_cast<u64 volatile *>(0) = 0xdeadbeefull;
 		}
 	}
 }
