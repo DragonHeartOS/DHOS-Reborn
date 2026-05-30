@@ -58,17 +58,52 @@ export {
 	extern "C" auto memcpy(void *dst, void const *src, usize size) -> void *
 	{
 		auto *dst_ { reinterpret_cast<u8 *>(dst) };
-		auto *src_ { reinterpret_cast<u8 const *>(src) };
-		for (usize i {}; i < size; i++)
-			dst_[i] = src_[i];
+		auto const *src_ { reinterpret_cast<u8 const *>(src) };
+		if (!size || dst_ == src_)
+			return dst;
+
+		asm volatile("cld\n\trep movsb"
+		    : "+D"(dst_), "+S"(src_), "+c"(size)
+		    :
+		    : "memory");
+		return dst;
+	}
+
+	extern "C" auto memmove(void *dst, void const *src, usize size) -> void *
+	{
+		auto *dst_ { reinterpret_cast<u8 *>(dst) };
+		auto const *src_ { reinterpret_cast<u8 const *>(src) };
+		if (!size || dst_ == src_)
+			return dst;
+
+		if (dst_ < src_ || dst_ >= src_ + size) {
+			asm volatile("cld\n\trep movsb"
+			    : "+D"(dst_), "+S"(src_), "+c"(size)
+			    :
+			    : "memory");
+			return dst;
+		}
+
+		dst_ += size - 1;
+		src_ += size - 1;
+		asm volatile("std\n\trep movsb\n\tcld"
+		    : "+D"(dst_), "+S"(src_), "+c"(size)
+		    :
+		    : "memory");
 		return dst;
 	}
 
 	extern "C" auto memset(void *dst, int value, usize size) -> void *
 	{
 		auto *dst_ { reinterpret_cast<u8 *>(dst) };
-		for (usize i {}; i < size; i++)
-			dst_[i] = static_cast<u8>(value);
+		u8 const byte_value { static_cast<u8>(value) };
+		if (!size)
+			return dst;
+
+		asm volatile("cld\n\trep stosb"
+		    : "+D"(dst_), "+c"(size)
+		    : "a"(byte_value)
+		    : "memory");
 		return dst;
 	}
 }
