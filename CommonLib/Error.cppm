@@ -105,6 +105,8 @@ export {
 
 	namespace ErrorsV {
 	struct HashMapDuplicateKeyError { };
+	struct InvalidIndex { };
+	struct PoppingEmptyList { };
 	}
 
 	namespace detail::adl {
@@ -117,7 +119,8 @@ export {
 
 	}
 
-	using Errors = Error<ErrorsV::HashMapDuplicateKeyError>;
+	using Errors = Error<ErrorsV::HashMapDuplicateKeyError,
+	    ErrorsV::InvalidIndex, ErrorsV::PoppingEmptyList>;
 
 	namespace detail {
 

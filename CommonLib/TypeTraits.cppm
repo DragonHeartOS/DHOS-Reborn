@@ -96,5 +96,35 @@ export {
 	template<typename T, typename... Ts>
 	concept OneOf = (SameAs<T, Ts> || ...);
 
+	template<typename T> struct IsFloatingPoint {
+		static constexpr bool Value = false;
+	};
+
+#define CL_DEFINE_FLOATING_POINT_TRAIT(T) \
+	template<> struct IsFloatingPoint<T> { \
+		static constexpr bool Value = true; \
+	};
+
+	CL_DEFINE_FLOATING_POINT_TRAIT(float)
+	CL_DEFINE_FLOATING_POINT_TRAIT(double)
+	CL_DEFINE_FLOATING_POINT_TRAIT(long double)
+
+#undef CL_DEFINE_FLOATING_POINT_TRAIT
+
+	template<typename T>
+	inline constexpr bool IsFloatingPointV = IsFloatingPoint<T>::Value;
+
+	template<typename T> struct IsUnsignedIntegral {
+		static constexpr bool Value = IsIntegralV<T> && (T(-1) > T(0));
+	};
+	template<typename T>
+	inline constexpr bool IsUnsignedIntegralV = IsUnsignedIntegral<T>::Value;
+
+	template<typename T> struct IsSignedIntegral {
+		static constexpr bool Value = IsIntegralV<T> && (T(-1) < T(0));
+	};
+	template<typename T>
+	inline constexpr bool IsSignedIntegralV = IsSignedIntegral<T>::Value;
+
 	}
 }
