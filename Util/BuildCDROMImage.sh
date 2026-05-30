@@ -22,6 +22,8 @@ make -C ../limine
 
 mkdir -p iso_root
 cp -v Katline/Katline ../limine.conf ../limine/limine-bios.sys ../limine/limine-bios-cd.bin ../limine/limine-uefi-cd.bin iso_root/
+mkdir -p iso_root/EFI/BOOT
+cp -v ../limine/BOOTX64.EFI iso_root/EFI/BOOT/BOOTX64.EFI
 
 xorriso -as mkisofs -b limine-bios-cd.bin \
         -no-emul-boot -boot-load-size 4 -boot-info-table \
