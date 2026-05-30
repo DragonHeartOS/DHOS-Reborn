@@ -149,8 +149,14 @@ auto katline_main(StartupInfo &info) -> void
 	Arch::Scheduler::the().make_thread(
 	    Arch::k_process, reinterpret_cast<uptr>(+[]() {
 		    Debug::print_formatted("[worker] online\n");
+		    u64 last_logged {};
 		    for (;;) {
-			    asm volatile("hlt");
+			    u64 ticks { Arch::X2APIC::timer_ticks() };
+			    u64 cur { (ticks + 50) / 125ull };
+			    if (cur != 0 && cur != last_logged) {
+				    last_logged = cur;
+				    Debug::print_formatted("[worker] cur=%d\n", cur);
+			    }
 		    }
 	    }));
 
