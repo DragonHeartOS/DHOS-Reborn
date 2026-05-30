@@ -102,15 +102,19 @@ void FramebufferController::draw_raw_character(
     char const ch, uint const y, uint const x, bool const inverted)
 {
 	auto const y_ { y + FRAMEBUFFER_TEXT_Y_OFFSET };
+	auto const old_color { color };
+	CL::Color::RGBColor const background { CL::Color::BLACK };
 	for (uint temp_y {}; temp_y < 8; temp_y++) {
 		for (uint temp_x {}; temp_x < 8; temp_x++) {
 			auto character
 			    = Katline::Font::KernelFontStd[(uint)ch * 8 + temp_y];
-			character = (character >> temp_x) & 1;
-			if (character == (!inverted))
-				plot_pixel(temp_y + y_, x + 8 - temp_x);
+			bool const pixel_set { ((character >> temp_x) & 1) != 0 };
+			bool const draw_foreground { inverted ? !pixel_set : pixel_set };
+			color = draw_foreground ? old_color : background;
+			plot_pixel(temp_y + y_, x + (7 - temp_x));
 		}
 	}
+	color = old_color;
 }
 
 void FramebufferController::draw_character(char const ch, bool const inverted)
@@ -119,20 +123,13 @@ void FramebufferController::draw_character(char const ch, bool const inverted)
 	    ch, (uint)cursor_position.Y(), (uint)cursor_position.X(), inverted);
 }
 
-auto memset(void *destination, int const value, usize const size) -> void
-{
-	auto destination_ptr { (u8 *)destination };
-	for (usize i {}; i < size; i++)
-		destination_ptr[i] = (unsigned char)value;
-}
-
 void FramebufferController::put_character(char const ch, bool const inverted)
 {
 	if (ch == '\n') {
 		cursor_position.SetX(0);
 
 		if ((uint)cursor_position.Y() + FRAMEBUFFER_TEXT_Y_OFFSET + 8
-		    > m_framebuffer->height) {
+		    >= m_framebuffer->height) {
 			scroll_down();
 		} else {
 			cursor_position.SetY(cursor_position.Y() + 8);
@@ -142,7 +139,7 @@ void FramebufferController::put_character(char const ch, bool const inverted)
 
 		cursor_position.SetX(cursor_position.X() + 8);
 
-		if (cursor_position.X() > m_framebuffer->width) {
+		if (cursor_position.X() >= m_framebuffer->width) {
 			cursor_position.SetX(0);
 			cursor_position.SetY(cursor_position.Y() + 8);
 		}
@@ -164,26 +161,28 @@ void FramebufferController::put_string(char const *string, bool const inverted)
 	}
 }
 
-auto memcpy(void *dest, void *source, usize const size) -> void
-{
-	char *d = (char *)dest;
-	char *s = (char *)source;
-	for (usize i = 0; i < size; i++)
-		d[i] = s[i];
-}
-
 void FramebufferController::scroll_down(uint const lines)
 {
-	memcpy(
-	    m_framebuffer->data + m_framebuffer->pitch * FRAMEBUFFER_TEXT_Y_OFFSET,
-	    m_framebuffer->data
-	        + m_framebuffer->pitch * (FRAMEBUFFER_TEXT_Y_OFFSET + lines * 8),
-	    m_framebuffer->pitch
-	        * (m_framebuffer->height - lines * 8 - FRAMEBUFFER_TEXT_Y_OFFSET));
+	if (!lines)
+		return;
 
-	memset(m_framebuffer->data
-	        + m_framebuffer->pitch * (m_framebuffer->height - lines * 8),
-	    0, m_framebuffer->pitch * (lines * 8));
+	uint const rows_to_scroll { lines * 8 };
+	if (rows_to_scroll >= m_framebuffer->height) {
+		::memset(m_framebuffer->data, 0,
+		    static_cast<usize>(m_framebuffer->pitch) * m_framebuffer->height);
+		return;
+	}
+
+	usize const move_bytes { static_cast<usize>(m_framebuffer->pitch)
+		* (m_framebuffer->height - rows_to_scroll) };
+	usize const clear_bytes {
+		static_cast<usize>(m_framebuffer->pitch) * rows_to_scroll,
+	};
+
+	::memmove(m_framebuffer->data,
+	    m_framebuffer->data + m_framebuffer->pitch * rows_to_scroll,
+	    move_bytes);
+	::memset(m_framebuffer->data + move_bytes, 0, clear_bytes);
 }
 
 void FramebufferController::put_logo(u8 const *data, uint const width,
