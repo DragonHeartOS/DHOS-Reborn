@@ -43,9 +43,11 @@ export {
 		ThreadState tstate { ThreadState::Ready };
 		uptr entry_point {};
 		CPUContext context {};
+		u32 slice_remaining {};
 
 		uptr kernel_stack_base {};
 		usize kernel_stack_size {};
+		bool stack_is_heap_allocated {};
 		Process *process {};
 
 		u64 fs_base {};

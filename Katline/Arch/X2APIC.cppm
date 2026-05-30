@@ -103,7 +103,7 @@ extern "C" [[gnu::interrupt]] auto x2apic_timer_interrupt_handler(
 {
 	g_timer_ticks = g_timer_ticks + 1;
 	x2apic_write(reg_eoi, 0);
-	Scheduler::the().schedule();
+	Scheduler::the().on_timer_tick();
 }
 
 static auto enable_x2apic() -> void
