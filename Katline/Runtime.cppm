@@ -95,10 +95,7 @@ auto katline_main(StartupInfo &info) -> void
 	Debug::drain_logs();
 
 	if (!cpuid_info.has_apic || !cpuid_info.has_x2apic) {
-		Debug::print_formatted(
-		    "[CPU] missing APIC/x2APIC support; halting for bring-up.\n");
-		for (;;)
-			asm("hlt");
+		kpanic("[CPU] missing APIC/x2APIC support; halting for bring-up.\n");
 	}
 
 	Interrupts::init_defaults();
@@ -109,8 +106,7 @@ auto katline_main(StartupInfo &info) -> void
 		auto const &error { timer_init_result.unwrap_err() };
 		Debug::print_formatted("[x2APIC] timer init failed: %s\n",
 		    Arch::X2APIC::error_to_string(error).data());
-		for (;;)
-			asm("hlt");
+		kpanic("[x2APIC] timer init failed.");
 	}
 	Debug::drain_logs();
 
