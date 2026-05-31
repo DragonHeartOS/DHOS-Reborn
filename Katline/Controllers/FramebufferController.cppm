@@ -20,7 +20,8 @@ export {
 		struct Cell {
 			char ch {};
 			bool inverted {};
-			CL::Color::RGBColor color {};
+			CL::Color::RGBColor fg { CL::Color::WHITE };
+			CL::Color::RGBColor bg { CL::Color::BLACK };
 		};
 
 		static constexpr uint MAX_COLS { 256 };
@@ -45,6 +46,7 @@ export {
 		void put_logo(u8 const *data, uint width, uint height, uint x, uint y);
 
 		CL::Color::RGBColor color { CL::Color::WHITE };
+		CL::Color::RGBColor background_color { CL::Color::BLACK };
 		CL::Math::Point<uint> cursor_position {};
 
 	private:
@@ -52,6 +54,10 @@ export {
 		static constexpr uint s_font_height { 8 };
 		static constexpr uint s_text_y_offset { 72 };
 
+		static auto ansi_color(uint code) -> CL::Color::RGBColor;
+
+		auto handle_ansi(char const *&string, usize *remaining = nullptr)
+		    -> bool;
 		auto text_x_offset() const -> uint;
 		auto text_y_offset() const -> uint;
 		auto columns() const -> uint;
@@ -59,8 +65,8 @@ export {
 		auto text_row_to_physical(uint row) const -> uint;
 		void clear_cell_row(uint row);
 		void draw_cell(uint row, uint col);
-		void draw_glyph_direct(
-		    char ch, uint y, uint x, CL::Color::RGBColor fg, bool inverted);
+		void draw_glyph_direct(char ch, uint y, uint x, CL::Color::RGBColor fg,
+		    CL::Color::RGBColor bg, bool inverted);
 		auto pack_color(CL::Color::RGBColor c) const -> u32;
 
 		Framebuffer *m_framebuffer {};
@@ -80,6 +86,80 @@ static FramebufferController::Cell s_cells[FramebufferController::MAX_ROWS]
 FramebufferController::FramebufferController(Framebuffer *framebuffer)
     : m_framebuffer { framebuffer }
 {
+}
+
+auto FramebufferController::ansi_color(uint code) -> CL::Color::RGBColor
+{
+	switch (code) {
+	case 30:
+		return CL::Color::BLACK;
+	case 31:
+		return { 255, 0, 0 };
+	case 32:
+		return { 0, 255, 0 };
+	case 33:
+		return { 255, 255, 0 };
+	case 34:
+		return { 0, 0, 255 };
+	case 35:
+		return { 255, 0, 255 };
+	case 36:
+		return { 0, 255, 255 };
+	case 37:
+		return CL::Color::WHITE;
+	default:
+		return CL::Color::WHITE;
+	}
+}
+
+bool FramebufferController::handle_ansi(char const *&s, usize *remaining)
+{
+	if (s[0] != '\x1b' || s[1] != '[')
+		return false;
+
+	auto *p = s + 2;
+	uint value {};
+	bool have_value {};
+
+	while (*p) {
+		if (*p >= '0' && *p <= '9') {
+			value = value * 10 + static_cast<uint>(*p - '0');
+			have_value = true;
+			++p;
+			continue;
+		}
+
+		if (*p == ';' || *p == 'm') {
+			auto code = have_value ? value : 0;
+
+			if (code == 0) {
+				color = CL::Color::WHITE;
+				background_color = CL::Color::BLACK;
+			} else if (code >= 30 && code <= 37) {
+				color = ansi_color(code);
+			} else if (code >= 40 && code <= 47) {
+				background_color = ansi_color(code - 10);
+			}
+
+			value = 0;
+			have_value = false;
+
+			if (*p == 'm') {
+				++p;
+				if (remaining)
+					*remaining -= static_cast<usize>(p - s);
+				s = p;
+				return true;
+			}
+
+			++p;
+			continue;
+		}
+
+		return false;
+	}
+
+	return false;
 }
 
 auto FramebufferController::text_x_offset() const -> uint
@@ -164,14 +244,14 @@ void FramebufferController::rect(uint y1, uint x1, uint y2, uint x2)
 			plot_pixel(y, x);
 }
 
-void FramebufferController::draw_glyph_direct(
-    char ch, uint y, uint x, CL::Color::RGBColor fg, bool inverted)
+void FramebufferController::draw_glyph_direct(char ch, uint y, uint x,
+    CL::Color::RGBColor fg, CL::Color::RGBColor bg, bool inverted)
 {
 	if (!m_framebuffer || !m_framebuffer->data)
 		return;
 
 	auto fg_color { pack_color(fg) };
-	auto bg_color { pack_color(CL::Color::BLACK) };
+	auto bg_color { pack_color(bg) };
 
 	for (uint gy {}; gy < s_font_height; ++gy) {
 		auto screen_y { y + gy };
@@ -200,8 +280,8 @@ void FramebufferController::draw_glyph_direct(
 void FramebufferController::draw_raw_character(
     char ch, uint y, uint x, bool inverted)
 {
-	draw_glyph_direct(
-	    ch, text_y_offset() + y, text_x_offset() + x, color, inverted);
+	draw_glyph_direct(ch, text_y_offset() + y, text_x_offset() + x,
+	    background_color, color, inverted);
 }
 
 void FramebufferController::draw_character(char ch, bool inverted)
@@ -232,9 +312,7 @@ void FramebufferController::draw_cell(uint row, uint col)
 
 	draw_glyph_direct(cell.ch ? cell.ch : ' ',
 	    text_y_offset() + row * s_font_height,
-	    text_x_offset() + col * s_font_width,
-	    cell.color.r || cell.color.g || cell.color.b ? cell.color : color,
-	    cell.inverted);
+	    text_x_offset() + col * s_font_width, cell.fg, cell.bg, cell.inverted);
 }
 
 void FramebufferController::redraw_text_area()
@@ -286,7 +364,8 @@ void FramebufferController::put_character(char ch, bool inverted)
 	s_cells[physical][col] = {
 		.ch = ch,
 		.inverted = inverted,
-		.color = color,
+		.fg = color,
+		.bg = background_color,
 	};
 
 	draw_cell(row, col);
@@ -309,14 +388,31 @@ void FramebufferController::put_character(char ch, bool inverted)
 void FramebufferController::put_string_safe(
     char const *string, usize size, bool inverted)
 {
-	for (usize i {}; i < size; ++i)
-		put_character(string[i], inverted);
+	while (size) {
+		if (*string == '\x1b') {
+			auto *old = string;
+			auto old_size = size;
+
+			if (handle_ansi(string, &size))
+				continue;
+
+			string = old;
+			size = old_size;
+		}
+
+		put_character(*string++, inverted);
+		--size;
+	}
 }
 
 void FramebufferController::put_string(char const *string, bool inverted)
 {
-	while (*string)
+	while (*string) {
+		if (handle_ansi(string))
+			continue;
+
 		put_character(*string++, inverted);
+	}
 }
 
 void FramebufferController::scroll_down(uint lines)
