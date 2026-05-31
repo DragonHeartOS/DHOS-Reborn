@@ -142,6 +142,7 @@ void GDT::load(u32 lapic_id, TSS &tss)
 		.base = reinterpret_cast<u64>(this),
 	};
 
+	asm volatile("cli");
 	asm volatile("lgdt %0" : : "m"(gdtr) : "memory");
 
 	// Reload segment registers
@@ -165,6 +166,7 @@ void GDT::load(u32 lapic_id, TSS &tss)
 	    :
 	    :
 	    : "rax", "memory");
+	asm volatile("sti");
 
 	Debug::print_formatted("[GDT] Loaded GDT for CPU %d.\n", lapic_id);
 }
