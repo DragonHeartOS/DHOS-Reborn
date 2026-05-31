@@ -42,6 +42,32 @@ static auto u64_to_hex(u64 value, char *out, usize width) -> void
 	out[len] = '\0';
 }
 
+static auto u64_to_dec(u64 value, char *out) -> void
+{
+	char temp[32];
+	usize len {};
+
+	do {
+		temp[len++] = static_cast<char>('0' + (value % 10u));
+		value /= 10u;
+	} while (value != 0);
+
+	for (usize i {}; i < len; ++i)
+		out[i] = temp[len - i - 1];
+	out[len] = '\0';
+}
+
+static auto i64_to_dec(i64 value, char *out) -> void
+{
+	if (value < 0) {
+		*out++ = '-';
+		u64_to_dec(0ull - static_cast<u64>(value), out);
+		return;
+	}
+
+	u64_to_dec(static_cast<u64>(value), out);
+}
+
 static auto write_formatted_impl(char const *str, va_list vl) -> void
 {
 	usize i = 0;
@@ -65,6 +91,13 @@ static auto write_formatted_impl(char const *str, va_list vl) -> void
 			int precision = -1;
 			usize hex_width = 0;
 			bool zero_pad_hex = false;
+			enum class Length {
+				Default,
+				Long,
+				LongLong,
+				Size,
+			};
+			Length length { Length::Default };
 
 			if (str[i] == '.') {
 				i++;
@@ -91,18 +124,80 @@ static auto write_formatted_impl(char const *str, va_list vl) -> void
 				}
 			}
 
+			if (str[i] == 'l') {
+				i++;
+				length = Length::Long;
+				if (str[i] == 'l') {
+					i++;
+					length = Length::LongLong;
+				}
+			} else if (str[i] == 'z') {
+				i++;
+				length = Length::Size;
+			}
+
 			switch (str[i]) {
 			case 'c': {
 				append_char((char)va_arg(vl, int));
 				break;
 			}
 			case 'd': {
-				itoa(va_arg(vl, int), temp);
+				switch (length) {
+				case Length::Long:
+					i64_to_dec(static_cast<i64>(va_arg(vl, long)), temp);
+					break;
+				case Length::LongLong:
+					i64_to_dec(va_arg(vl, long long), temp);
+					break;
+				case Length::Size:
+					i64_to_dec(static_cast<i64>(va_arg(vl, usize)), temp);
+					break;
+				case Length::Default:
+				default:
+					itoa(va_arg(vl, int), temp);
+					break;
+				}
+				append_string(temp, strlen(temp));
+				break;
+			}
+			case 'u': {
+				switch (length) {
+				case Length::Long:
+					u64_to_dec(
+					    static_cast<u64>(va_arg(vl, unsigned long)), temp);
+					break;
+				case Length::LongLong:
+					u64_to_dec(va_arg(vl, unsigned long long), temp);
+					break;
+				case Length::Size:
+					u64_to_dec(static_cast<u64>(va_arg(vl, usize)), temp);
+					break;
+				case Length::Default:
+				default:
+					u64_to_dec(
+					    static_cast<u64>(va_arg(vl, unsigned int)), temp);
+					break;
+				}
 				append_string(temp, strlen(temp));
 				break;
 			}
 			case 'x': {
-				u64 value = va_arg(vl, u64);
+				u64 value {};
+				switch (length) {
+				case Length::Long:
+					value = static_cast<u64>(va_arg(vl, unsigned long));
+					break;
+				case Length::LongLong:
+					value = va_arg(vl, unsigned long long);
+					break;
+				case Length::Size:
+					value = static_cast<u64>(va_arg(vl, usize));
+					break;
+				case Length::Default:
+				default:
+					value = static_cast<u64>(va_arg(vl, unsigned int));
+					break;
+				}
 				usize width = zero_pad_hex ? hex_width : 0;
 				u64_to_hex(value, temp, width);
 				append_string(temp, strlen(temp));

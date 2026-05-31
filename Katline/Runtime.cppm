@@ -146,19 +146,27 @@ auto katline_main(StartupInfo &info) -> void
 	Arch::Scheduler::the().init();
 	Arch::Scheduler::the().adopt_current_thread(
 	    Arch::k_process, stack_start, info.stack_size);
-	Arch::Scheduler::the().make_thread(
-	    Arch::k_process, reinterpret_cast<uptr>(+[]() {
-		    Debug::print_formatted("[worker] online\n");
-		    u64 last_logged {};
-		    for (;;) {
-			    u64 ticks { Arch::X2APIC::timer_ticks() };
-			    u64 cur { (ticks + 50) / 125ull };
-			    if (cur != 0 && cur != last_logged) {
-				    last_logged = cur;
-				    Debug::print_formatted("[worker] cur=%d\n", cur);
+	for (usize worker_index {}; worker_index < 8; ++worker_index) {
+		Arch::Scheduler::the().make_thread(
+		    Arch::k_process, reinterpret_cast<uptr>(+[]() {
+			    auto *thread { Arch::Scheduler::the().current_thread() };
+			    auto const worker_id {
+				    thread ? static_cast<unsigned long long>(thread->tid.id)
+				           : 0ull,
+			    };
+			    Debug::print_formatted("[worker %llu] online\n", worker_id);
+			    u64 last_logged {};
+			    for (;;) {
+				    u64 ticks { Arch::X2APIC::timer_ticks() };
+				    u64 cur { (ticks + 50) / 125ull };
+				    if (cur != 0 && cur != last_logged) {
+					    last_logged = cur;
+					    Debug::print_formatted("[worker %llu] cur=%llu\n",
+					        worker_id, static_cast<unsigned long long>(cur));
+				    }
 			    }
-		    }
-	    }));
+		    }));
+	}
 
 	asm volatile("sti");
 
