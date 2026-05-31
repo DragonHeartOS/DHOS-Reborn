@@ -7,6 +7,7 @@ import :Logo;
 import :SerialController;
 import :MemoryData;
 import :CPU;
+import :GDT;
 import :Scheduler;
 import :Interrupts;
 import :X2APIC;
@@ -83,6 +84,7 @@ auto katline_main(StartupInfo &info) -> void
 {
 	Debug::init_log_queue();
 	k_serial_controller.init();
+
 	Debug::drain_logs();
 	k_framebuffer_controller
 	    = Controller::FramebufferController(info.framebuffer);
@@ -98,6 +100,9 @@ auto katline_main(StartupInfo &info) -> void
 		kpanic("[CPU] missing APIC/x2APIC support; halting for bring-up.\n");
 	}
 
+	auto gdt = Arch::GDT {};
+	auto tss = Arch::TSS {};
+	gdt.load(info.bsp_lapic_id, tss);
 	Interrupts::init_defaults(info.bsp_lapic_id);
 	auto const timer_init_result {
 		Arch::X2APIC::init_local_timer(info.tsc_frequency_hz),
@@ -219,6 +224,9 @@ void boot_cpu(u32 lapic_id, u32 processor_id, u64 extra, u64 tsc_freq)
 	CL::ignore_unused(processor_id, extra);
 
 	print_cpu_info(lapic_id);
+	auto gdt = Arch::GDT {};
+	auto tss = Arch::TSS {};
+	gdt.load(lapic_id, tss);
 	Interrupts::init_defaults(lapic_id);
 	auto const timer_init_result {
 		Arch::X2APIC::init_local_timer(tsc_freq),
