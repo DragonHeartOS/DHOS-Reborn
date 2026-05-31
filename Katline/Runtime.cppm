@@ -14,6 +14,7 @@ import :X2APIC;
 import :FrameAllocator;
 import :Paging;
 import :MemoryManager;
+import :SyscallABI;
 
 export {
 	namespace Katline {
@@ -104,6 +105,7 @@ auto katline_main(StartupInfo &info) -> void
 	auto tss = Arch::TSS {};
 	gdt.load(info.bsp_lapic_id, tss);
 	Interrupts::init_defaults(info.bsp_lapic_id);
+	Syscalls::init();
 	auto const timer_init_result {
 		Arch::X2APIC::init_local_timer(info.tsc_frequency_hz),
 	};
@@ -228,6 +230,7 @@ void boot_cpu(u32 lapic_id, u32 processor_id, u64 extra, u64 tsc_freq)
 	auto tss = Arch::TSS {};
 	gdt.load(lapic_id, tss);
 	Interrupts::init_defaults(lapic_id);
+	Syscalls::init();
 	auto const timer_init_result {
 		Arch::X2APIC::init_local_timer(tsc_freq),
 	};

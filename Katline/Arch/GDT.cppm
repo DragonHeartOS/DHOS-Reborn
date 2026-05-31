@@ -1,6 +1,7 @@
 export module Katline:GDT;
 
 import CommonLib;
+import :CPU;
 import :Debug;
 
 export {
@@ -62,10 +63,14 @@ export {
 		u64 base;
 	};
 
+	extern "C" auto katline_current_kernel_stack_top() -> u64;
+
 	}
 }
 
 namespace Katline::Arch {
+
+export auto set_kernel_stack_for_current_cpu(uptr stack_top) -> void;
 
 constexpr GDT gdt_template {
 	.null = {},
@@ -113,6 +118,9 @@ constexpr GDT gdt_template {
 	.tss = {},
 };
 
+static constexpr usize max_tss_slots { 256 };
+static TSS *s_tss_by_lapic_id[max_tss_slots] {};
+
 static void init_tss_descriptor(GDT &gdt, TSS &tss)
 {
 	tss = {};
@@ -136,6 +144,8 @@ void GDT::load(u32 lapic_id, TSS &tss)
 {
 	*this = gdt_template;
 	init_tss_descriptor(*this, tss);
+	if (lapic_id < max_tss_slots)
+		s_tss_by_lapic_id[lapic_id] = &tss;
 
 	GDTR gdtr {
 		.limit = sizeof(*this) - 1,
@@ -169,6 +179,22 @@ void GDT::load(u32 lapic_id, TSS &tss)
 	asm volatile("sti");
 
 	Debug::print_formatted("[GDT] Loaded GDT for CPU %d.\n", lapic_id);
+}
+
+auto set_kernel_stack_for_current_cpu(uptr stack_top) -> void
+{
+	auto const lapic_id { current_lapic_id() };
+	if (lapic_id >= max_tss_slots || !s_tss_by_lapic_id[lapic_id])
+		return;
+	s_tss_by_lapic_id[lapic_id]->rsp0 = stack_top;
+}
+
+extern "C" auto katline_current_kernel_stack_top() -> u64
+{
+	auto const lapic_id { current_lapic_id() };
+	if (lapic_id >= max_tss_slots || !s_tss_by_lapic_id[lapic_id])
+		return 0;
+	return s_tss_by_lapic_id[lapic_id]->rsp0;
 }
 
 }

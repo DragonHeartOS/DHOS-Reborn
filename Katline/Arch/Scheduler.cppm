@@ -4,6 +4,7 @@ import CommonLib;
 import :CPU;
 import :Thread;
 import :Debug;
+import :GDT;
 import :Sync;
 
 export {
@@ -12,6 +13,7 @@ export {
 	struct Scheduler {
 		void init();
 		void init_current_cpu();
+		auto create_process(Process *parent, u64 cr3) -> Process *;
 		auto adopt_current_thread(
 		    Process *process, uptr stack_base, usize stack_size) -> Thread *;
 		auto make_thread(Process *process, uptr function_ptr,
@@ -46,6 +48,7 @@ export {
 		Sync::SpinLock m_global_lock;
 		bool m_global_initialized {};
 
+		u64 m_pid_counter {};
 		u64 m_tid_counter {};
 		u32 m_default_slice_ticks { 8 };
 
@@ -104,6 +107,19 @@ auto Scheduler::the() -> Scheduler &
 {
 	static Scheduler instance {};
 	return instance;
+}
+
+auto Scheduler::create_process(Process *parent, u64 cr3) -> Process *
+{
+	auto *process { new Process {} };
+	{
+		Sync::ScopedIrqSpinLock guard { m_global_lock };
+		process->parent = parent;
+		process->pid = { ++m_pid_counter };
+		process->cr3 = cr3;
+		m_processes.push(process);
+	}
+	return process;
 }
 
 void Scheduler::init_current_cpu()
@@ -298,6 +314,8 @@ void Scheduler::schedule()
 	if (next->process && next->process->cr3 != current_cr3())
 		load_cr3(next->process->cr3);
 
+	set_kernel_stack_for_current_cpu(
+	    next->kernel_stack_base + next->kernel_stack_size);
 	CPUContext::switch_to(prev ? &prev->context : nullptr, &next->context);
 }
 
