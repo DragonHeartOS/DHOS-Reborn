@@ -16,35 +16,55 @@ export {
 		u8 *data;
 	};
 
-	class FramebufferController {
-	public:
+	struct FramebufferController {
+		struct Cell {
+			char ch {};
+			bool inverted {};
+			CL::Color::RGBColor color {};
+		};
+
+		static constexpr uint MAX_COLS { 256 };
+		static constexpr uint MAX_ROWS { 256 };
+
 		FramebufferController(Framebuffer *framebuffer);
 
-		void plot_pixel(uint const y, uint const x);
+		void plot_pixel(uint y, uint x);
+		void rect(uint y1, uint x1, uint y2, uint x2);
 
-		void rect(uint const y1, uint const x1, uint const y2, uint const x2);
+		void draw_raw_character(char ch, uint y, uint x, bool inverted = false);
+		void draw_character(char ch, bool inverted = false);
 
-		void draw_raw_character(char const ch, uint const y, uint const x,
-		    bool const inverted = false);
-		void draw_character(char const ch, bool const inverted = false);
-
-		void put_character(char const ch, bool const inverted = false);
-
+		void put_character(char ch, bool inverted = false);
 		void put_string_safe(
-		    char const *string, usize const size, bool const inverted = false);
-		void put_string(char const *string, bool const inverted = false);
+		    char const *string, usize size, bool inverted = false);
+		void put_string(char const *string, bool inverted = false);
 
-		void scroll_down(uint const lines = 1);
+		void scroll_down(uint lines = 1);
+		void redraw_text_area();
 
-		void put_logo(u8 const *data, uint const width, uint const height,
-		    uint const x, uint const y);
+		void put_logo(u8 const *data, uint width, uint height, uint x, uint y);
 
 		CL::Color::RGBColor color { CL::Color::WHITE };
-
-		CL::Math::Point cursor_position {};
+		CL::Math::Point<uint> cursor_position {};
 
 	private:
-		Framebuffer *m_framebuffer;
+		static constexpr uint s_font_width { 8 };
+		static constexpr uint s_font_height { 8 };
+		static constexpr uint s_text_y_offset { 72 };
+
+		auto text_x_offset() const -> uint;
+		auto text_y_offset() const -> uint;
+		auto columns() const -> uint;
+		auto rows() const -> uint;
+		auto text_row_to_physical(uint row) const -> uint;
+		void clear_cell_row(uint row);
+		void draw_cell(uint row, uint col);
+		void draw_glyph_direct(
+		    char ch, uint y, uint x, CL::Color::RGBColor fg, bool inverted);
+		auto pack_color(CL::Color::RGBColor c) const -> u32;
+
+		Framebuffer *m_framebuffer {};
+		uint m_first_row {};
 	};
 
 	}
@@ -54,24 +74,74 @@ export {
 
 namespace Katline::Controller {
 
-uint const FRAMEBUFFER_TEXT_Y_OFFSET = 72;
+static FramebufferController::Cell s_cells[FramebufferController::MAX_ROWS]
+                                          [FramebufferController::MAX_COLS] {};
 
 FramebufferController::FramebufferController(Framebuffer *framebuffer)
     : m_framebuffer { framebuffer }
 {
-	this->m_framebuffer = framebuffer;
+}
+
+auto FramebufferController::text_x_offset() const -> uint
+{
+	auto text_width { columns() * s_font_width };
+	if (text_width >= m_framebuffer->width)
+		return 0;
+	return (m_framebuffer->width - text_width) / 2;
+}
+
+auto FramebufferController::text_y_offset() const -> uint
+{
+	auto text_height { rows() * s_font_height };
+	if (s_text_y_offset + text_height >= m_framebuffer->height)
+		return s_text_y_offset;
+
+	return s_text_y_offset
+	    + ((m_framebuffer->height - s_text_y_offset - text_height) / 2);
+}
+
+auto FramebufferController::columns() const -> uint
+{
+	auto cols { static_cast<uint>(m_framebuffer->width) / s_font_width };
+	return cols > MAX_COLS ? MAX_COLS : cols;
+}
+
+auto FramebufferController::rows() const -> uint
+{
+	if (m_framebuffer->height <= s_text_y_offset)
+		return 0;
+
+	auto usable_height { static_cast<uint>(m_framebuffer->height)
+		- s_text_y_offset };
+	auto rows { usable_height / s_font_height };
+	return rows > MAX_ROWS ? MAX_ROWS : rows;
+}
+
+auto FramebufferController::text_row_to_physical(uint row) const -> uint
+{
+	auto r { rows() };
+	if (!r)
+		return 0;
+	return (m_first_row + row) % r;
+}
+
+auto FramebufferController::pack_color(CL::Color::RGBColor c) const -> u32
+{
+	return static_cast<u32>(c.b) | (static_cast<u32>(c.g) << 8)
+	    | (static_cast<u32>(c.r) << 16) | 0xff000000;
 }
 
 void FramebufferController::plot_pixel(uint y, uint x)
 {
-	if (y > (uint)m_framebuffer->height - 1)
+	if (!m_framebuffer || !m_framebuffer->data)
+		return;
+
+	if (y >= m_framebuffer->height)
 		y = m_framebuffer->height - 1;
-	if (x > (uint)m_framebuffer->width - 1)
+	if (x >= m_framebuffer->width)
 		x = m_framebuffer->width - 1;
 
-	auto fb {
-		m_framebuffer->data + x * 4 + y * m_framebuffer->pitch,
-	};
+	auto *fb { m_framebuffer->data + x * 4 + y * m_framebuffer->pitch };
 
 	fb[0] = color.b;
 	fb[1] = color.g;
@@ -82,116 +152,202 @@ void FramebufferController::plot_pixel(uint y, uint x)
 void FramebufferController::rect(uint y1, uint x1, uint y2, uint x2)
 {
 	if (x1 > x2) {
-		uint temp_x = x1;
-		x1 = x2;
-		x2 = temp_x;
+		CL::swap(x1, x2);
 	}
 
 	if (y1 > y2) {
-		uint temp_y = y1;
-		y1 = y2;
-		y2 = temp_y;
+		CL::swap(y1, y2);
 	}
 
-	for (auto i { y1 }; i < y2; i++)
-		for (auto j { x1 }; j < x2; j++)
-			plot_pixel(i, j);
+	for (auto y { y1 }; y < y2; ++y)
+		for (auto x { x1 }; x < x2; ++x)
+			plot_pixel(y, x);
+}
+
+void FramebufferController::draw_glyph_direct(
+    char ch, uint y, uint x, CL::Color::RGBColor fg, bool inverted)
+{
+	if (!m_framebuffer || !m_framebuffer->data)
+		return;
+
+	auto fg_color { pack_color(fg) };
+	auto bg_color { pack_color(CL::Color::BLACK) };
+
+	for (uint gy {}; gy < s_font_height; ++gy) {
+		auto screen_y { y + gy };
+		if (screen_y >= m_framebuffer->height)
+			continue;
+
+		auto glyph_row {
+			Katline::Font::KernelFontStd[static_cast<u8>(ch) * 8 + gy]
+		};
+
+		auto *row { reinterpret_cast<u32 *>(
+			m_framebuffer->data + screen_y * m_framebuffer->pitch) };
+
+		for (uint gx {}; gx < s_font_width; ++gx) {
+			auto screen_x { x + (s_font_width - 1 - gx) };
+			if (screen_x >= m_framebuffer->width)
+				continue;
+
+			bool pixel_set { ((glyph_row >> gx) & 1) != 0 };
+			bool draw_fg { inverted ? !pixel_set : pixel_set };
+			row[screen_x] = draw_fg ? fg_color : bg_color;
+		}
+	}
 }
 
 void FramebufferController::draw_raw_character(
-    char const ch, uint const y, uint const x, bool const inverted)
+    char ch, uint y, uint x, bool inverted)
 {
-	auto const y_ { y + FRAMEBUFFER_TEXT_Y_OFFSET };
-	auto const old_color { color };
-	CL::Color::RGBColor const background { CL::Color::BLACK };
-	for (uint temp_y {}; temp_y < 8; temp_y++) {
-		for (uint temp_x {}; temp_x < 8; temp_x++) {
-			auto character
-			    = Katline::Font::KernelFontStd[(uint)ch * 8 + temp_y];
-			bool const pixel_set { ((character >> temp_x) & 1) != 0 };
-			bool const draw_foreground { inverted ? !pixel_set : pixel_set };
-			color = draw_foreground ? old_color : background;
-			plot_pixel(temp_y + y_, x + (7 - temp_x));
-		}
-	}
-	color = old_color;
+	draw_glyph_direct(
+	    ch, text_y_offset() + y, text_x_offset() + x, color, inverted);
 }
 
-void FramebufferController::draw_character(char const ch, bool const inverted)
+void FramebufferController::draw_character(char ch, bool inverted)
 {
-	draw_raw_character(
-	    ch, (uint)cursor_position.Y(), (uint)cursor_position.X(), inverted);
+	draw_raw_character(ch, static_cast<uint>(cursor_position.y()),
+	    static_cast<uint>(cursor_position.x()), inverted);
 }
 
-void FramebufferController::put_character(char const ch, bool const inverted)
+void FramebufferController::clear_cell_row(uint row)
 {
+	auto cols { columns() };
+	auto physical { text_row_to_physical(row) };
+
+	for (uint col {}; col < cols; ++col)
+		s_cells[physical][col] = {};
+}
+
+void FramebufferController::draw_cell(uint row, uint col)
+{
+	auto cols { columns() };
+	auto r { rows() };
+
+	if (row >= r || col >= cols)
+		return;
+
+	auto physical { text_row_to_physical(row) };
+	auto const &cell { s_cells[physical][col] };
+
+	draw_glyph_direct(cell.ch ? cell.ch : ' ',
+	    text_y_offset() + row * s_font_height,
+	    text_x_offset() + col * s_font_width,
+	    cell.color.r || cell.color.g || cell.color.b ? cell.color : color,
+	    cell.inverted);
+}
+
+void FramebufferController::redraw_text_area()
+{
+	auto r { rows() };
+	auto cols { columns() };
+
+	for (uint row {}; row < r; ++row)
+		for (uint col {}; col < cols; ++col)
+			draw_cell(row, col);
+}
+
+void FramebufferController::put_character(char ch, bool inverted)
+{
+	auto cols { columns() };
+	auto r { rows() };
+
+	if (!cols || !r)
+		return;
+
+	auto row { static_cast<uint>(cursor_position.y()) / s_font_height };
+	auto col { static_cast<uint>(cursor_position.x()) / s_font_width };
+
 	if (ch == '\n') {
-		cursor_position.SetX(0);
+		col = 0;
+		++row;
 
-		if ((uint)cursor_position.Y() + FRAMEBUFFER_TEXT_Y_OFFSET + 8
-		    >= m_framebuffer->height) {
+		if (row >= r) {
 			scroll_down();
-		} else {
-			cursor_position.SetY(cursor_position.Y() + 8);
+			row = r - 1;
 		}
-	} else {
-		draw_character(ch, inverted);
 
-		cursor_position.SetX(cursor_position.X() + 8);
+		cursor_position.set_x(col * s_font_width);
+		cursor_position.set_y(row * s_font_height);
+		return;
+	}
 
-		if (cursor_position.X() >= m_framebuffer->width) {
-			cursor_position.SetX(0);
-			cursor_position.SetY(cursor_position.Y() + 8);
+	if (col >= cols) {
+		col = 0;
+		++row;
+	}
+
+	if (row >= r) {
+		scroll_down();
+		row = r - 1;
+	}
+
+	auto physical { text_row_to_physical(row) };
+	s_cells[physical][col] = {
+		.ch = ch,
+		.inverted = inverted,
+		.color = color,
+	};
+
+	draw_cell(row, col);
+
+	++col;
+	if (col >= cols) {
+		col = 0;
+		++row;
+
+		if (row >= r) {
+			scroll_down();
+			row = r - 1;
 		}
 	}
+
+	cursor_position.set_x(col * s_font_width);
+	cursor_position.set_y(row * s_font_height);
 }
 
 void FramebufferController::put_string_safe(
-    char const *string, usize const size, bool const inverted)
+    char const *string, usize size, bool inverted)
 {
-	for (usize i {}; i < size; i++)
+	for (usize i {}; i < size; ++i)
 		put_character(string[i], inverted);
 }
 
-void FramebufferController::put_string(char const *string, bool const inverted)
+void FramebufferController::put_string(char const *string, bool inverted)
 {
-	while (string[0] != '\0') {
-		put_character(string[0], inverted);
-		string++;
-	}
+	while (*string)
+		put_character(*string++, inverted);
 }
 
-void FramebufferController::scroll_down(uint const lines)
+void FramebufferController::scroll_down(uint lines)
 {
-	if (!lines)
+	auto r { rows() };
+	if (!lines || !r)
 		return;
 
-	uint const rows_to_scroll { lines * 8 };
-	if (rows_to_scroll >= m_framebuffer->height) {
-		::memset(m_framebuffer->data, 0,
-		    static_cast<usize>(m_framebuffer->pitch) * m_framebuffer->height);
+	if (lines >= r) {
+		for (uint row {}; row < r; ++row)
+			clear_cell_row(row);
+		m_first_row = 0;
+		redraw_text_area();
 		return;
 	}
 
-	usize const move_bytes { static_cast<usize>(m_framebuffer->pitch)
-		* (m_framebuffer->height - rows_to_scroll) };
-	usize const clear_bytes {
-		static_cast<usize>(m_framebuffer->pitch) * rows_to_scroll,
-	};
+	for (uint i {}; i < lines; ++i) {
+		m_first_row = (m_first_row + 1) % r;
+		clear_cell_row(r - 1);
+	}
 
-	::memmove(m_framebuffer->data,
-	    m_framebuffer->data + m_framebuffer->pitch * rows_to_scroll,
-	    move_bytes);
-	::memset(m_framebuffer->data + move_bytes, 0, clear_bytes);
+	redraw_text_area();
 }
 
-void FramebufferController::put_logo(u8 const *data, uint const width,
-    uint const height, uint const x, uint const y)
+void FramebufferController::put_logo(
+    u8 const *data, uint width, uint height, uint x, uint y)
 {
-	auto const old_color { color };
+	auto old_color { color };
 
-	for (uint i {}; i < height; i++) {
-		for (uint j {}; j < width; j++) {
+	for (uint i {}; i < height; ++i) {
+		for (uint j {}; j < width; ++j) {
 			color.r = data[i * width * 3 + j * 3];
 			color.g = data[i * width * 3 + j * 3 + 1];
 			color.b = data[i * width * 3 + j * 3 + 2];
