@@ -12,7 +12,7 @@ export {
 
 	using Handler = void (*)();
 
-	auto init_defaults() -> void;
+	auto init_defaults(u32 lapic_id) -> void;
 	auto register_isr(u8 vector, Handler handler) -> void;
 
 	}
@@ -22,7 +22,7 @@ export {
 
 namespace Katline::Interrupts {
 
-auto init_defaults() -> void { IDT::init(); }
+auto init_defaults(u32 lapic_id) -> void { IDT::init(lapic_id); }
 
 auto register_isr(u8 vector, Handler handler) -> void
 {

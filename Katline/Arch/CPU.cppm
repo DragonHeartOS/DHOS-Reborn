@@ -65,6 +65,7 @@ export {
 	auto current_cr3() -> uptr;
 	auto current_cs() -> uptr;
 	auto current_ss() -> uptr;
+	auto current_lapic_id() -> u32;
 	auto load_cr3(uptr phys) -> void;
 	auto invlpg(void *addr) -> void;
 	auto rdtsc() -> u64;
@@ -169,6 +170,11 @@ auto current_ss() -> uptr
 	u16 value {};
 	asm volatile("mov %%ss, %0" : "=r"(value));
 	return value;
+}
+
+auto current_lapic_id() -> u32
+{
+	return static_cast<u32>(rdmsr(0x802) & 0xffffffffull);
 }
 
 auto load_cr3(uptr phys) -> void

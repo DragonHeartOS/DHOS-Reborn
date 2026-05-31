@@ -44,6 +44,8 @@ export {
 		uptr entry_point {};
 		CPUContext context {};
 		u32 slice_remaining {};
+		u32 home_lapic_id {};
+		u32 last_lapic_id {};
 
 		uptr kernel_stack_base {};
 		usize kernel_stack_size {};

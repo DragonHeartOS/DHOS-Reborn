@@ -5,10 +5,13 @@ module;
 export module Katline:DebugImpl;
 
 import CommonLib;
+import :Sync;
 import :Debug;
 import :DebugSink;
 
 namespace Katline::Debug {
+
+static Sync::SpinLock s_output_lock;
 
 static CL::Atomic<bool> s_framebuffer_logging_enabled { false };
 static CL::Atomic<bool> s_log_queue_ready { false };
@@ -150,6 +153,8 @@ static auto write_formatted_impl(char const *str, va_list vl) -> void
 	entry.data[copy_len] = '\0';
 
 	if (!s_log_queue_ready.load()) {
+		Sync::ScopedIrqSpinLock guard { s_output_lock };
+
 		debug_write_serial(entry.data, entry.len);
 		if (s_framebuffer_logging_enabled.load())
 			debug_write_framebuffer(entry.data, entry.len);
@@ -174,6 +179,8 @@ auto drain_logs() -> void
 {
 	if (!s_log_queue_ready.load())
 		return;
+
+	Sync::ScopedIrqSpinLock guard { s_output_lock };
 
 	while (auto entry = s_log_queue.try_pop()) {
 		debug_write_serial(entry->data, entry->len);

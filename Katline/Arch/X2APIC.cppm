@@ -19,7 +19,9 @@ export {
 	using Errors = CL::Error<ErrorsV::ModeNotLatched, ErrorsV::SvrNotEnabled,
 	    ErrorsV::CalibrationFailed, ErrorsV::LvtReadbackMismatch>;
 
-	auto init_timer(u64 tsc_frequency_hz) -> CL::Result<void, Errors>;
+	auto init() -> CL::Result<void, Errors>;
+	auto init_local_timer(u64 tsc_frequency_hz) -> CL::Result<void, Errors>;
+	auto local_lapic_id() -> u32;
 	auto error_to_string(Errors const &error) -> CL::StringView;
 	auto timer_ticks() -> u64;
 
@@ -80,6 +82,7 @@ static constexpr u32 lvt_masked = 1u << 16;
 static constexpr u32 svr_software_enable = 1u << 8;
 
 static u64 volatile g_timer_ticks {};
+static bool g_timer_isr_registered {};
 
 static auto x2apic_msr(u32 reg) -> u32 { return x2apic_msr_base + reg; }
 
@@ -194,7 +197,7 @@ static auto validate_timer_readback(u32 reload) -> bool
 	return vector_ok && periodic_ok && unmasked && divide_ok && reload_ok;
 }
 
-auto init_timer(u64 tsc_frequency_hz) -> CL::Result<void, Errors>
+auto init() -> CL::Result<void, Errors>
 {
 	enable_x2apic();
 	if (!x2apic_mode_latched())
@@ -206,8 +209,20 @@ auto init_timer(u64 tsc_frequency_hz) -> CL::Result<void, Errors>
 	if ((x2apic_read(reg_svr) & svr_software_enable) == 0)
 		return fail(ErrorsV::SvrNotEnabled {});
 
-	Interrupts::register_isr(timer_vector,
-	    reinterpret_cast<void (*)()>(&x2apic_timer_interrupt_handler));
+	if (!g_timer_isr_registered) {
+		Interrupts::register_isr(timer_vector,
+		    reinterpret_cast<void (*)()>(&x2apic_timer_interrupt_handler));
+		g_timer_isr_registered = true;
+	}
+
+	return CL::Result<void, Errors>::Ok();
+}
+
+auto init_local_timer(u64 tsc_frequency_hz) -> CL::Result<void, Errors>
+{
+	auto const init_result { init() };
+	if (init_result.is_err())
+		return init_result;
 
 	auto apic_ticks_per_second { calibrate_apic_ticks_per_second(
 		tsc_frequency_hz) };
@@ -230,6 +245,8 @@ auto init_timer(u64 tsc_frequency_hz) -> CL::Result<void, Errors>
 
 	return CL::Result<void, Errors>::Ok();
 }
+
+auto local_lapic_id() -> u32 { return current_lapic_id(); }
 
 auto error_to_string(Errors const &error) -> CL::StringView
 {

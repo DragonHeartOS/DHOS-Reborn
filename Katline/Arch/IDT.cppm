@@ -2,6 +2,7 @@ export module Katline:IDT;
 
 import CommonLib;
 import :Panic;
+import :Sync;
 
 export {
 	namespace Katline {
@@ -26,6 +27,7 @@ export {
 			u64 base;
 		};
 
+		static void init(u32 lapic_id);
 		static void init();
 		static void set_handler(u8 vector, void (*handler)());
 	};
@@ -48,6 +50,9 @@ namespace Katline {
 IDT::IDTR idtr;
 IDT::Entry entries[256];
 
+static bool s_idt_built {};
+static Sync::SpinLock s_idt_lock;
+
 static_assert(sizeof(IDT::Entry) == 16, "IDT entry must be 16 bytes");
 static_assert(sizeof(IDT::IDTR) == 10, "IDTR must be 10 bytes");
 
@@ -67,37 +72,47 @@ auto IDT::get_offset(Entry &entry) -> u64
 	return offset;
 }
 
-auto IDT::init() -> void
+void IDT::init(u32 lapic_id)
 {
-	u16 code_selector;
-	asm volatile("mov %%cs, %0" : "=r"(code_selector));
+	{
+		Sync::ScopedIrqSpinLock guard { s_idt_lock };
 
-	for (u16 i {}; i < 256; i++) {
-		entries[i] = {};
-		entries[i].selector = code_selector;
-		entries[i].ist = 0;
-		entries[i].type_attr = 0x8e;
-		entries[i].ignore = 0;
+		if (!s_idt_built) {
+			u16 code_selector;
+			asm volatile("mov %%cs, %0" : "=r"(code_selector));
 
-		if (i < 32)
-			set_offset(entries[i],
-			    reinterpret_cast<u64>(
-			        Katline::exception_handler_for_vector(static_cast<u8>(i))));
-		else
-			set_offset(entries[i], (u64)&halt_forever);
+			for (u16 i {}; i < 256; i++) {
+				entries[i] = {};
+				entries[i].selector = code_selector;
+				entries[i].ist = 0;
+				entries[i].type_attr = 0x8e;
+				entries[i].ignore = 0;
+
+				if (i < 32)
+					set_offset(entries[i],
+					    reinterpret_cast<u64>(
+					        Katline::exception_handler_for_vector(
+					            static_cast<u8>(i))));
+				else
+					set_offset(
+					    entries[i], reinterpret_cast<u64>(&halt_forever));
+			}
+
+			idtr.limit = static_cast<u16>(sizeof(entries) - 1);
+			idtr.base = reinterpret_cast<u64>(&entries);
+
+			s_idt_built = true;
+		}
 	}
-
-	idtr.limit = (u16)(sizeof(entries) - 1);
-	idtr.base = (u64)&entries;
 
 	asm volatile("cli");
 	asm volatile("lidt %0" : : "m"(idtr));
-
-	Debug::write_formatted("[IDT]: Loaded.\n");
+	Debug::write_formatted("[IDT]: Loaded for CPU %d.\n", lapic_id);
 }
 
 auto IDT::set_handler(u8 vector, void (*handler)()) -> void
 {
+	Sync::ScopedIrqSpinLock guard { s_idt_lock };
 	set_offset(entries[vector], reinterpret_cast<u64>(handler));
 }
 

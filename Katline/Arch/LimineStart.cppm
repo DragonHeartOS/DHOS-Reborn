@@ -199,8 +199,9 @@ extern "C" auto kernel_start() -> void
 	for (uint i {}; i < mp_request.response->cpu_count; i++) {
 		auto *cpu = mp_request.response->cpus[i];
 		cpu->goto_address = [](limine_mp_info *info) {
-			Katline::boot_cpu(
-			    info->lapic_id, info->processor_id, info->extra_argument);
+			Katline::boot_cpu(info->lapic_id, info->processor_id,
+			    info->extra_argument,
+			    tsc_frequency_request.response->frequency);
 		};
 	}
 

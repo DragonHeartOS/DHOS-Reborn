@@ -98,9 +98,9 @@ auto katline_main(StartupInfo &info) -> void
 		kpanic("[CPU] missing APIC/x2APIC support; halting for bring-up.\n");
 	}
 
-	Interrupts::init_defaults();
+	Interrupts::init_defaults(info.bsp_lapic_id);
 	auto const timer_init_result {
-		Arch::X2APIC::init_timer(info.tsc_frequency_hz),
+		Arch::X2APIC::init_local_timer(info.tsc_frequency_hz),
 	};
 	if (timer_init_result.is_err()) {
 		auto const &error { timer_init_result.unwrap_err() };
@@ -193,30 +193,44 @@ auto katline_main(StartupInfo &info) -> void
 
 	u64 last_logged {};
 	for (;;) {
-		Debug::drain_logs();
-
 		u64 ticks { Arch::X2APIC::timer_ticks() };
-		u64 cur { ticks / 250ull };
+		u64 cur { ticks / 50ull };
 		if (cur != 0 && cur != last_logged) {
 			last_logged = cur;
-			Debug::print_formatted("[x2APIC] tick=%d (~%ds)\n",
-			    static_cast<int>(ticks), static_cast<int>(cur));
 			Debug::drain_logs();
 		}
 	}
 }
 
-void boot_cpu(u32 lapic_id, u32 processor_id, u64 extra)
+void boot_cpu(u32 lapic_id, u32 processor_id, u64 extra, u64 tsc_freq)
 {
 	// wait for bsp init
 	while (!k_bsp_initialized.load(CL::MemoryOrder::Acquire))
 		asm volatile("pause");
 
-	CL::ignore_unused(lapic_id, processor_id, extra);
+	CL::ignore_unused(processor_id, extra);
 
 	print_cpu_info(lapic_id);
+	Interrupts::init_defaults(lapic_id);
+	auto const timer_init_result {
+		Arch::X2APIC::init_local_timer(tsc_freq),
+	};
+	if (timer_init_result.is_err()) {
+		auto const &error { timer_init_result.unwrap_err() };
+		Debug::print_formatted("[CPU%d] x2APIC init failed: %s\n", lapic_id,
+		    Arch::X2APIC::error_to_string(error).data());
+		for (;;)
+			asm volatile("hlt");
+	}
 
-	asm volatile("cli");
+	Arch::Scheduler::the().init();
+	auto const rsp { Arch::current_rsp() };
+	auto const stack_top { (rsp + 4095ull) & ~4095ull };
+	auto const stack_start { stack_top > 65536ull ? stack_top - 65536ull : 0 };
+	Arch::Scheduler::the().adopt_current_thread(
+	    Arch::k_process, stack_start, 65536ull);
+
+	asm volatile("sti");
 	for (;;)
 		asm volatile("hlt");
 }
