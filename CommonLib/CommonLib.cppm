@@ -29,6 +29,7 @@ export import :String;
 export import :StringView;
 export import :Sync;
 export import :TypeTraits;
+export import :TypeList;
 export import :Types;
 export import :Utility;
 export import :Variant;

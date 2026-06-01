@@ -114,6 +114,12 @@ export {
 	template<typename T>
 	inline constexpr bool IsFloatingPointV = IsFloatingPoint<T>::Value;
 
+	template<typename T> struct IsEnum {
+		static constexpr bool Value = __is_enum(T);
+	};
+
+	template<typename T> inline constexpr bool IsEnumV = IsEnum<T>::Value;
+
 	template<typename T> struct IsUnsignedIntegral {
 		static constexpr bool Value = IsIntegralV<T> && (T(-1) > T(0));
 	};

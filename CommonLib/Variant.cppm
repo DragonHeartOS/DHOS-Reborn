@@ -1,6 +1,7 @@
 export module CommonLib:Variant;
 
 import :Option;
+import :Types;
 import :TypeTraits;
 import :Utility;
 
@@ -247,6 +248,13 @@ export {
 		/// @return The index of the type currently held by the Variant.
 		auto tag() const -> int { return m_tag; }
 
+		static auto from_tag_unsafe(usize tag) -> Variant
+		{
+			Variant v;
+			v.construct_from_tag_unsafe(tag);
+			return v;
+		}
+
 	private:
 		Variant() = default;
 
@@ -289,6 +297,20 @@ export {
 			m_tag = I;
 			new (&detail::VariantGet<I, detail::VariantStorage<Ts...>>::get(
 			    m_data)) T(forward<Args>(args)...);
+		}
+
+		template<int I = 0> auto construct_from_tag_unsafe(usize tag) -> void
+		{
+			if constexpr (I >= sizeof...(Ts)) {
+				__builtin_unreachable();
+			} else {
+				if (tag == static_cast<usize>(I)) {
+					construct<I>();
+					return;
+				}
+
+				construct_from_tag_unsafe<I + 1>(tag);
+			}
 		}
 
 		auto destroy() -> void { destroy_impl(); }

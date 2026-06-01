@@ -1,0 +1,4 @@
+X(GetPid, 0, sys_get_pid, u64)
+X(GetTid, 1, sys_get_tid, u64)
+X(Yield, 2, sys_yield, void)
+X(Exit, 3, sys_exit, void, i32 /* exit code */)

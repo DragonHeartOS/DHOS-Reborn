@@ -8,13 +8,15 @@ add_executable(${KERNEL_TARGET} ${SOURCES})
 file(GLOB_RECURSE KATLINE_MODULE_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/*.cppm"
 )
+list(FILTER KATLINE_MODULE_SOURCES EXCLUDE REGEX "/API/")
+
 target_sources(${KERNEL_TARGET}
     PUBLIC
         FILE_SET cxx_modules TYPE CXX_MODULES FILES
             ${KATLINE_MODULE_SOURCES}
 )
 target_sources(${KERNEL_TARGET} PRIVATE $<TARGET_OBJECTS:CommonLib>)
-target_link_libraries(${KERNEL_TARGET} PRIVATE CommonLib)
+target_link_libraries(${KERNEL_TARGET} PRIVATE CommonLib KatlineAPI)
 target_include_directories(${KERNEL_TARGET} PUBLIC .)
 set_property(TARGET ${KERNEL_TARGET} PROPERTY OUTPUT_NAME Katline)
 set_property(TARGET ${KERNEL_TARGET} PROPERTY LINK_FLAGS "-T ${CMAKE_SOURCE_DIR}/Katline/linker.ld -nostdlib -zmax-page-size=0x1000 -static")

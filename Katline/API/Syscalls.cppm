@@ -1,15 +1,14 @@
-export module Katline:SyscallTypes;
+export module KatlineAPI:Syscalls;
 
 import CommonLib;
 
 export {
 	namespace Katline::Syscalls {
 
-	enum class Number : u64 {
-		GetPid = 0,
-		GetTid = 1,
-		Yield = 2,
-		Exit = 3,
+	enum class SyscallNumber : u64 {
+#define X(name, id, fn, ret, ...) name = id,
+#include "SyscallList.def"
+#undef X
 	};
 
 	namespace ErrorsV {
@@ -32,7 +31,31 @@ export {
 	}
 }
 
-namespace Katline::Syscalls::ErrorsV {
+namespace Katline::Syscalls {
+
+template<usize N>
+consteval auto syscall_ids_are_unique(u64 const (&ids)[N]) -> bool
+{
+	for (usize i { 0 }; i < N; ++i) {
+		for (usize j { i + 1 }; j < N; ++j) {
+			if (ids[i] == ids[j])
+				return false;
+		}
+	}
+
+	return true;
+}
+
+constexpr u64 syscall_ids[] {
+#define X(name, id, fn, ret, ...) static_cast<u64>(id),
+#include "SyscallList.def"
+#undef X
+};
+
+static_assert(syscall_ids_are_unique(syscall_ids),
+    "duplicate syscall id in SyscallList.def");
+
+namespace ErrorsV {
 
 inline auto to_display_string(InvalidSyscall const &) -> CL::String
 {
@@ -55,8 +78,6 @@ inline auto to_display_string(PermissionDenied const &) -> CL::String
 }
 
 }
-
-namespace Katline::Syscalls {
 
 auto encode_error(SyscallError const &error) -> u64
 {

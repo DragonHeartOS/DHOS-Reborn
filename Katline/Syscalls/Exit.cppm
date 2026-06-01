@@ -3,6 +3,8 @@ export module Katline:SyscallExit;
 import CommonLib;
 import :Debug;
 import :Scheduler;
+import KatlineAPI;
+import :SyscallKernelContract;
 
 export {
 	namespace Katline::Syscalls {
@@ -19,5 +21,9 @@ namespace Katline::Syscalls {
 	    thread ? static_cast<int>(thread->tid.id) : -1, code);
 	Arch::Scheduler::the().thread_exit();
 }
+
+template<> struct Spec<SyscallNumber::Exit> {
+	[[noreturn]] static auto call(i32 code) -> Result<void> { exit(code); }
+};
 
 }
