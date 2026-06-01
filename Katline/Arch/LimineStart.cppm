@@ -36,14 +36,16 @@ static constexpr uint64_t kernel_stack_size = 65536;
 
 extern "C" void kernel_start();
 
-__attribute__((used,
-    section(
-        ".limine_requests"))) static volatile uint64_t limine_base_revision[]
+[[gnu::used,
+    gnu::section(
+        ".limine_requests")]] static uint64_t volatile limine_base_revision[]
     = LIMINE_BASE_REVISION(6);
 
-__attribute__((used,
-    section(".limine_requests"))) static volatile limine_stack_size_request
-    stack_size_request
+[[gnu::used,
+    gnu::section(
+        ".limine_"
+        "request"
+        "s")]] static limine_stack_size_request volatile stack_size_request
     = {
 	      .id = LIMINE_STACK_SIZE_REQUEST_ID,
 	      .revision = 0,
@@ -51,35 +53,39 @@ __attribute__((used,
 	      .stack_size = kernel_stack_size,
       };
 
-__attribute__((used,
-    section(".limine_requests"))) static volatile limine_framebuffer_request
-    framebuffer_request
+[[gnu::used,
+    gnu::section(
+        ".limine_"
+        "request"
+        "s")]] static limine_framebuffer_request volatile framebuffer_request
     = {
 	      .id = LIMINE_FRAMEBUFFER_REQUEST_ID,
 	      .revision = 0,
 	      .response = nullptr,
       };
 
-__attribute__((
-    used, section(".limine_requests"))) static volatile limine_memmap_request
-    memmap_request
+[[gnu::used,
+    gnu::section(
+        ".limine_"
+        "requests")]] static limine_memmap_request volatile memmap_request
     = {
 	      .id = LIMINE_MEMMAP_REQUEST_ID,
 	      .revision = 0,
 	      .response = nullptr,
       };
 
-__attribute__((used,
-    section(
-        ".limine_requests"))) static volatile limine_hhdm_request hhdm_request
+[[gnu::used,
+    gnu::section(
+        ".limine_requests")]] static limine_hhdm_request volatile hhdm_request
     = {
 	      .id = LIMINE_HHDM_REQUEST_ID,
 	      .revision = 0,
 	      .response = nullptr,
       };
 
-__attribute__((used,
-    section(".limine_requests"))) static volatile limine_mp_request mp_request
+[[gnu::used,
+    gnu::section(
+        ".limine_requests")]] static limine_mp_request volatile mp_request
     = {
 	      .id = LIMINE_MP_REQUEST_ID,
 	      .revision = 0,
@@ -87,49 +93,54 @@ __attribute__((used,
 	      .flags = LIMINE_MP_REQUEST_X86_64_X2APIC,
       };
 
-__attribute__((used,
-    section(
-        ".limine_requests"))) static volatile limine_rsdp_request rsdp_request
+[[gnu::used,
+    gnu::section(
+        ".limine_requests")]] static limine_rsdp_request volatile rsdp_request
     = {
 	      .id = LIMINE_RSDP_REQUEST_ID,
 	      .revision = 0,
 	      .response = nullptr,
       };
 
-__attribute__((used,
-    section(".limine_requests"))) static volatile limine_tsc_frequency_request
-    tsc_frequency_request
+[[gnu::used,
+    gnu::section(
+        ".limine_"
+        "request"
+        "s")]] static limine_tsc_frequency_request volatile tsc_frequency_request
     = {
 	      .id = LIMINE_TSC_FREQUENCY_REQUEST_ID,
 	      .revision = 0,
 	      .response = nullptr,
       };
 
-__attribute__((used,
-    section(
-        ".limine_requests"))) static volatile limine_executable_address_request
-    executable_address_request
+[[gnu::used,
+    gnu::section(
+        ".limine_requests")]] static limine_executable_address_request volatile executable_address_request
     = {
 	      .id = LIMINE_EXECUTABLE_ADDRESS_REQUEST_ID,
 	      .revision = 0,
 	      .response = nullptr,
       };
 
-__attribute__((used,
-    section(".limine_requests"))) static volatile limine_executable_file_request
-    executable_file_request
+[[gnu::used,
+    gnu::section(
+        ".limine_"
+        "request"
+        "s")]] static limine_executable_file_request volatile executable_file_request
     = {
 	      .id = LIMINE_EXECUTABLE_FILE_REQUEST_ID,
 	      .revision = 0,
 	      .response = nullptr,
       };
 
-__attribute__((
-    used, section(".limine_requests_start"))) static volatile uint64_t
-    limine_requests_start_marker[]
+[[gnu::used,
+    gnu::section(
+        ".limine_requests_"
+        "start")]] static uint64_t volatile limine_requests_start_marker[]
     = LIMINE_REQUESTS_START_MARKER;
-__attribute__((used, section(".limine_requests_end"))) static volatile uint64_t
-    limine_requests_end_marker[]
+[[gnu::used,
+    gnu::section(".limine_requests_"
+                 "end")]] static uint64_t volatile limine_requests_end_marker[]
     = LIMINE_REQUESTS_END_MARKER;
 
 extern "C" auto kernel_start() -> void
