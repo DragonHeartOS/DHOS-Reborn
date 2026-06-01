@@ -1,137 +1,166 @@
-Katline:
-    - load module[0] and module[1] as initial processes (excluding the kernel
-    process itself) thorugh minimal elf loader
-    - load module list from start code
-    - load cmdline from start code
-    - creates framebuffer memory object (from start)
-    - maps pages (`sys_memory_map(Handle memory_object, u64 offset, u64 size, MemoryFlags flags, void **out_addr)`)
-    - maps pages of processes (`sys_process_memory_map(Handle process, Handle memory_object, u64 offset, u64 size, MemoryFlags flags, void **out_addr)`)
-    - get current process (`sys_process_current() -> Result<Handle>`)
-    - creates processes (`sys_process_create() -> Result<Handle>`)
-    - creates threads (`sys_thread_create(process_handle, entry, stack) -> Result<Handle>`)
-    - start threads (`sys_thread_start(thread_handle)`)
-    - handle permissions via IPC
-    - processmanager and loader has boot capabilities (Cap::ManageCaps, Cap::BootFramebuffer, Cap::MapMMIO, Cap::ManageProcesses, Cap::BootModules, Cap::BootCmdline, Cap::IOPort)
+# Boot Notes
 
-    caps:
-    - ManageCaps: can remove caps of own or give caps (that the current process has) to child process
-    - BootFramebfufer: can get boot fb info from kernel
-    - MapMMIO: can use map physical/mmio-backed memory objets
-    - ManageProcesses: can create/kill processes
-    - BootModules: can get boot modules from kernell
-    - BootCmdline: can get cmdline from kernel
-    - IOPort: can use sys_out, sys_in and reserve io port ranges
+## Katline
 
-    caps arguments:
-    - pid
-    - cap id
+- Loads `module[0]` and `module[1]` as initial processes (excluding the kernel
+  process) through a minimal ELF loader.
+- Loads module list from start code.
+- Loads command line from start code.
+- Creates framebuffer memory object (from start info).
+- Maps pages via `sys_memory_map(Handle memory_object, u64 offset, u64 size,
+  MemoryFlags flags, void **out_addr)`.
+- Maps pages in another process via `sys_process_memory_map(Handle process,
+  Handle memory_object, u64 offset, u64 size, MemoryFlags flags, void
+  **out_addr)`.
+- Gets current process via `sys_process_current() -> Result<Handle>`.
+- Creates processes via `sys_process_create() -> Result<Handle>`.
+- Creates threads via `sys_thread_create(process_handle, entry, stack) -> Result<Handle>`.
+- Starts threads via `sys_thread_start(thread_handle)`.
+- Handles permissions via IPC.
+- Grants boot capabilities to ProcessManager and Loader:
+  - `Cap::ManageCaps`
+  - `Cap::BootFramebuffer`
+  - `Cap::MapMMIO`
+  - `Cap::ManageProcesses`
+  - `Cap::BootModules`
+  - `Cap::BootCmdline`
+  - `Cap::IOPort`
 
-    syscalls:
-    - sys_in(port, size) -> Result<u64>
-    - sys_out(port, value, size) -> Result<void>
+### Capabilities
 
-    ipc messages:
-    - Msg::GrantIOPortRange(pid, port, length) -> status, void (requires Cap::IOPort)
-    - Msg::GetBootFramebuffers(offset) -> status, Handle[4] (to memory object containign BootFramebufferList and actual framebuffer memory objects) (requires Cap::BootFramebuffer) offset for paging (since max 4 handles)
-    - Msg::GetBootModules() -> status, Handle (to memory object containing BootModuleList) (requires Cap:BootModules)
-    - Msg::GetBootCmdline() -> status, Handle (to memory object containing BootCmdline) (requires Cap::BootCmdline)
+- `ManageCaps`: remove own caps or grant owned caps to child processes.
+- `BootFramebuffer`: retrieve boot framebuffer info from kernel.
+- `MapMMIO`: map physical/MMIO-backed memory objects.
+- `ManageProcesses`: create/kill processes.
+- `BootModules`: retrieve boot modules from kernel.
+- `BootCmdline`: retrieve command line from kernel.
+- `IOPort`: use `sys_out`, `sys_in`, and reserve I/O port ranges.
 
-    ```cpp
-    struct BootCmdline {
-        u64 len;
-        char data[];
-    };
+Capability arguments:
 
-    struct BootFramebufferList {
-        u64 total_len;
-        u64 base_index;
-        u64 len;
-        u64 entries_offset;
-    };
+- `pid`
+- `cap id`
 
-    struct BootFramebufferEntry { // handle in IPC handles
-        u64 width;
-        u64 height;
-        u64 pitch;
-        u64 bpp;
-        u64 format;
-        u64 size;
-        u64 edid_len;
-        u64 edid_offset;
-        u64 flags;
-    };
+### I/O Syscalls
 
-    struct BootModuleList {
-        u64 len;
-        u64 entries_offset;
-    };
+- `sys_in(port, size) -> Result<u64>`
+- `sys_out(port, value, size) -> Result<void>`
 
-    struct BootModuleEntry {
-        u64 name_offset;
-        u64 name_len;
-        u64 data_offset;
-        u64 data_len;
-    };
-    ```
+### IPC Messages
 
-ProcessManager (module 0):
-    - manages services
-    - reads the module list from kernel via IPC with the kernel process
-    - reads the command line from kernel via the IPC with the kernel process
-    - loads (via Loader with IPC) initial boot modules specified in command
-    - treats the first module as process manager configuration
-    - line from the modules retrieved from the kernel
-    - handles binfmts that get registered through IPC
+- `Msg::GrantIOPortRange(pid, port, length) -> status, void`
+  - Requires `Cap::IOPort`.
+- `Msg::GetBootFramebuffers(offset) -> status, Handle[4]`
+  - Returns handles to a memory object containing `BootFramebufferList` and
+    framebuffer memory objects.
+  - Uses `offset` for paging (max 4 handles per message).
+  - Requires `Cap::BootFramebuffer`.
+- `Msg::GetBootModules() -> status, Handle`
+  - Returns handle to memory object containing `BootModuleList`.
+  - Requires `Cap::BootModules`.
+- `Msg::GetBootCmdline() -> status, Handle`
+  - Returns handle to memory object containing `BootCmdline`.
+  - Requires `Cap::BootCmdline`.
 
-Loader (module 1):
-    - loads and parses elf files
+```cpp
+struct BootCmdline {
+    u64 len;
+    char data[];
+};
 
-basically boot flow:
+struct BootFramebufferList {
+    u64 total_len;
+    u64 base_index;
+    u64 len;
+    u64 entries_offset;
+};
 
-1. Limine starts Katline
-2. Katline starts ProcessManager AND Loader
-3. ProcessManager reads cmdline/modules and asks Loader to spwan them
-4. Loader loads the shit processmanager wants
+struct BootFramebufferEntry { // handle in IPC handles
+    u64 width;
+    u64 height;
+    u64 pitch;
+    u64 bpp;
+    u64 format;
+    u64 size;
+    u64 edid_len;
+    u64 edid_offset;
+    u64 flags;
+};
 
-for ipc:
-    fully async
+struct BootModuleList {
+    u64 len;
+    u64 entries_offset;
+};
 
-    syscalls:
-    - `sys_ipc_send(u64 endpoint, IPCMessage *message, u64 flags) -> Result<void>` non-blocking send
-    - `sys_ipc_recv(IPCMessage *out_message, u64 flags) -> Result<void>` non-blocking receive
+struct BootModuleEntry {
+    u64 name_offset;
+    u64 name_len;
+    u64 data_offset;
+    u64 data_len;
+};
+```
 
-    sys_ipc_send can error out if the queue is full
+## ProcessManager (`module[0]`)
 
-    definitions:
-    ```cpp
-    struct IPCMessage {
-        u64 id;       // filled by kernel
-        u64 sender;   // filled by kernel
-        u64 reply_to; // 0 means "not a reply"
-        u64 cookie;   // cookie that can be set by the user
-        u64 type;
-        u64 status;
-        u64 args[6];
-        Handle handles[4]; // u64 array of kerenl mediated handles
-    };
-    ```
+- Manages services.
+- Reads module list from kernel via IPC.
+- Reads command line from kernel via IPC.
+- Loads initial boot modules (via Loader over IPC) specified in command line.
+- Treats the first module as ProcessManager configuration.
+- Handles registered binary formats (`binfmts`) via IPC.
 
-    when the kernel boots, the kernel process get the endpoint of 0, the
-    processmanager endpoint 1 and loader 2 (determined by module index)
+## Loader (`module[1]`)
 
-    after that, a NameServer keeps track of endpoints by registration of
-    processes. (see sender field)
+- Loads and parses ELF files.
 
-for events:
-    - `sys_wait_event(Event *out_event, EventFlags event_mask) -> Result<void>`
-    - `sys_timer_set(u64 us) -> Result<TimerID>`
-    - `sys_timer_cancel(TimerID id) -> Result<void>`
+## Boot Flow
 
-    event masks:
-    - `Event::IPC` - IPC queue has messages
-    - `Event::Child` - A child changed state
-    - `Event::Timer` - A timer expired
+1. Limine starts Katline.
+2. Katline starts ProcessManager and Loader.
+3. ProcessManager reads cmdline/modules and asks Loader to spawn processes.
+4. Loader loads the requested processes.
 
+## IPC
 
+- Fully async.
 
+IPC syscalls:
+
+- `sys_ipc_send(u64 endpoint, IPCMessage *message, u64 flags) -> Result<void>`
+  (non-blocking send)
+- `sys_ipc_recv(IPCMessage *out_message, u64 flags) -> Result<void>`
+  (non-blocking receive)
+
+Notes:
+
+- `sys_ipc_send` can fail if the queue is full.
+- At boot: kernel process endpoint is `0`, ProcessManager is `1`, Loader is `2`
+  (by module index).
+- After boot: a NameServer tracks endpoints by process registration (see
+  `sender` field).
+
+```cpp
+struct IPCMessage {
+    u64 id;       // filled by kernel
+    u64 sender;   // filled by kernel
+    u64 reply_to; // 0 means "not a reply"
+    u64 cookie;   // user-defined cookie
+    u64 type;
+    u64 status;
+    u64 args[6];
+    Handle handles[4]; // u64 array of kernel-mediated handles
+};
+```
+
+## Events
+
+- `sys_wait_event(Event *out_event, EventFlags event_mask) -> Result<void>`
+- `sys_timer_set(u64 us) -> Result<TimerID>`
+- `sys_timer_cancel(TimerID id) -> Result<void>`
+
+Event masks:
+
+- `Event::IPC`: IPC queue has messages.
+- `Event::Child`: a child changed state.
+- `Event::Timer`: a timer expired.
 
