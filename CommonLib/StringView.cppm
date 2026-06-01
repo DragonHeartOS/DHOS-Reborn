@@ -17,6 +17,11 @@ export {
 			return len;
 		}
 
+		constexpr BaseStringView()
+		    : BaseStringView { "" }
+		{
+		}
+
 		constexpr BaseStringView(CharTypeT const *c_str)
 		    : m_data { c_str }
 		    , m_size { length(c_str) }
