@@ -2,6 +2,7 @@ export module Katline:Panic;
 
 import CommonLib;
 import :Debug;
+import :KernelSymbols;
 
 export {
 	namespace Katline {
@@ -234,6 +235,70 @@ static auto print_exception_registers(ExceptionRegisters const &regs) -> void
 	    regs.rip, regs.cs, regs.rflags, regs.ss);
 }
 
+static auto is_canonical_address(u64 addr) -> bool
+{
+	auto const high { addr >> 48 };
+	return high == 0 || high == 0xffff;
+}
+
+static auto print_backtrace_from_frame(
+    u64 start_rbp, u64 start_rip, u64 stack_low, u64 stack_high) -> void
+{
+	constexpr u32 max_frames { 32 };
+
+	Debug::write_formatted("Backtrace:\n");
+	auto const frame_addr { start_rip };
+	auto const sym0 { lookup_kernel_symbol(frame_addr) };
+	Debug::write_formatted("#%02d", 0);
+	if (sym0.found) {
+		auto const delta { frame_addr - sym0.address };
+		Debug::write_formatted(" rip=0x%016x %.*s+0x%x", frame_addr,
+		    sym0.name.size(), sym0.name.data(), delta);
+		if (sym0.line != 0 && sym0.file.size() != 0)
+			Debug::write_formatted(
+			    " at %.*s:%u", sym0.file.size(), sym0.file.data(), sym0.line);
+		Debug::write_formatted("\n");
+	} else {
+		Debug::write_formatted(" rip=0x%016x\n", frame_addr);
+	}
+
+	auto rbp { start_rbp };
+	for (u32 frame { 1 }; frame < max_frames; ++frame) {
+		if (rbp == 0 || (rbp & 0x7u) != 0 || !is_canonical_address(rbp)
+		    || rbp < stack_low || (rbp + 16u) > stack_high) {
+			break;
+		}
+
+		auto const *current { reinterpret_cast<u64 const *>(rbp) };
+		auto const next_rbp { current[0] };
+		auto const return_rip { current[1] };
+
+		if (return_rip == 0 || !is_canonical_address(return_rip)) {
+			break;
+		}
+
+		auto const sym { lookup_kernel_symbol(return_rip) };
+		Debug::write_formatted("#%02d", static_cast<int>(frame));
+		if (sym.found) {
+			auto const delta { return_rip - sym.address };
+			Debug::write_formatted(" rip=0x%016x %.*s+0x%x", return_rip,
+			    sym.name.size(), sym.name.data(), delta);
+			if (sym.line != 0 && sym.file.size() != 0)
+				Debug::write_formatted(
+				    " at %.*s:%u", sym.file.size(), sym.file.data(), sym.line);
+			Debug::write_formatted("\n");
+		} else {
+			Debug::write_formatted(" rip=0x%016x\n", return_rip);
+		}
+
+		if (next_rbp <= rbp) {
+			break;
+		}
+
+		rbp = next_rbp;
+	}
+}
+
 [[noreturn]] static auto panic_loop() -> void
 {
 	for (;;)
@@ -418,12 +483,36 @@ auto exception_handler_for_vector(u8 vector) -> void (*)()
 auto kpanic(CL::StringView message, CL::Option<ExceptionRegisters const &> regs)
     -> void
 {
+	constexpr u64 stack_window { 64ull * 1024ull };
+
 	asm volatile("cli");
 	Debug::write_formatted("-=- KERNEL PANIC START -=-\n");
 	Debug::write_formatted("%.*s\n\n", message.size(), message.data());
 	if (regs) {
 		print_exception_details(*regs);
 		print_exception_registers(*regs);
+		if (((*regs).cs & 0x3u) == 0) {
+			Debug::write_formatted("\n");
+			auto const stack_low {
+				(*regs).rsp > stack_window ? (*regs).rsp - stack_window : 0ull
+			};
+			auto const stack_high { (*regs).rsp + stack_window };
+			print_backtrace_from_frame(
+			    (*regs).rbp, (*regs).rip, stack_low, stack_high);
+		} else {
+			Debug::write_formatted("backtrace: unavailable (userspace trap)\n");
+		}
+	} else {
+		u64 rbp {};
+		u64 rsp {};
+		asm volatile("mov %%rbp, %0" : "=r"(rbp));
+		asm volatile("mov %%rsp, %0" : "=r"(rsp));
+		auto const rip {
+			reinterpret_cast<u64>(__builtin_return_address(0)),
+		};
+		auto const stack_low { rsp > stack_window ? rsp - stack_window : 0ull };
+		auto const stack_high { rsp + stack_window };
+		print_backtrace_from_frame(rbp, rip, stack_low, stack_high);
 	}
 	Debug::write_formatted(
 	    "\nAll wings are grounded. The heart is silent.\nSystem halted.\n");

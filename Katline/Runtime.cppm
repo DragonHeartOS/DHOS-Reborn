@@ -81,6 +81,43 @@ auto print_cpu_info(u32 lapic_id)
 	    static_cast<int>(cpuid_info.has_x2apic));
 }
 
+[[gnu::noinline]] static auto panic_test_5(u64 seed) -> u64
+{
+	u64 volatile local { seed ^ 0x1234'5678'9abc'def0ull };
+	asm volatile("int3"); // panic :3
+	return local + 0x1111ull;
+}
+
+[[gnu::noinline]] static auto panic_test_4(u64 seed) -> u64
+{
+	u64 volatile local { panic_test_5(seed + 4) };
+	return local ^ 0x2222ull;
+}
+
+[[gnu::noinline]] static auto panic_test_3(u64 seed) -> u64
+{
+	u64 volatile local { panic_test_4(seed + 3) };
+	return local + 0x3333ull;
+}
+
+[[gnu::noinline]] static auto panic_test_2(u64 seed) -> u64
+{
+	u64 volatile local { panic_test_3(seed + 2) };
+	return local ^ 0x4444ull;
+}
+
+[[gnu::noinline]] static auto panic_test_1(u64 seed) -> u64
+{
+	u64 volatile local { panic_test_2(seed + 1) };
+	return local + 0x5555ull;
+}
+
+[[gnu::noinline]] static auto panic_test() -> u64
+{
+	u64 volatile local { panic_test_1(0xabc0) };
+	return local;
+}
+
 auto katline_main(StartupInfo &info) -> void
 {
 	Debug::init_log_queue();
@@ -202,6 +239,9 @@ auto katline_main(StartupInfo &info) -> void
 		Debug::print_formatted("(%d->%d) ", entry.key, entry.value);
 	});
 	Debug::print_formatted("\n");
+
+	auto const interrupt_test_cookie { panic_test() };
+	CL::ignore_unused(interrupt_test_cookie);
 
 	k_bsp_initialized.store(true, CL::MemoryOrder::Release);
 	Debug::drain_logs();
