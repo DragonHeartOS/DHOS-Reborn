@@ -110,6 +110,15 @@ export {
 			return m_data.size() ? m_data.size() - 1 : 0;
 		}
 
+		/// @brief Get the current capacity of the string buffer.
+		/// @return The number of characters that can be stored without
+		/// reallocation.
+		constexpr auto capacity() const -> usize
+		{
+			usize buffer_capacity = m_data.capacity();
+			return buffer_capacity ? buffer_capacity - 1 : 0;
+		}
+
 		/// @brief Check if the string is empty.
 		/// @return True if the string is empty, false otherwise.
 		constexpr auto is_empty() const -> bool { return size() == 0; }

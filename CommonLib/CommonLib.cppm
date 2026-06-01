@@ -11,6 +11,7 @@ export import :CString;
 export import :Color;
 export import :Error;
 export import :Flags;
+export import :FixedString;
 export import :Function;
 export import :HashMap;
 export import :InitializerList;
