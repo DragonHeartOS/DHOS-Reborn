@@ -31,4 +31,4 @@ xorriso -as mkisofs -b limine-bios-cd.bin \
         --efi-boot-part --efi-boot-image --protective-msdos-label \
         iso_root -o dhos.iso
 
-../limine/limine-install dhos.iso
+../limine/limine bios-install dhos.iso
