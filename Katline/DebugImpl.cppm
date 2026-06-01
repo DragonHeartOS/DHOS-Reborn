@@ -83,14 +83,36 @@ static auto write_formatted_impl(char const *str, va_list vl) -> void
 		for (usize k {}; k < len && j + 1 < sizeof(buffer); ++k)
 			buffer[j++] = s[k];
 	};
+	auto append_padded = [&](char const *s, usize len, usize width,
+	                        bool zero_pad) -> void {
+		if (width <= len) {
+			append_string(s, len);
+			return;
+		}
+
+		auto const pad_len { width - len };
+		char const pad_char { zero_pad ? '0' : ' ' };
+
+		if (zero_pad && len > 0 && s[0] == '-') {
+			append_char('-');
+			for (usize k {}; k < pad_len; ++k)
+				append_char('0');
+			append_string(s + 1, len - 1);
+			return;
+		}
+
+		for (usize k {}; k < pad_len; ++k)
+			append_char(pad_char);
+		append_string(s, len);
+	};
 
 	while (str && str[i]) {
 		if (str[i] == '%') {
 			i++;
 
 			int precision = -1;
-			usize hex_width = 0;
-			bool zero_pad_hex = false;
+			usize numeric_width = 0;
+			bool zero_pad = false;
 			enum class Length {
 				Default,
 				Long,
@@ -114,12 +136,12 @@ static auto write_formatted_impl(char const *str, va_list vl) -> void
 					}
 				}
 			} else if (str[i] == '0') {
-				zero_pad_hex = true;
+				zero_pad = true;
 				i++;
 
 				while (str[i] >= '0' && str[i] <= '9') {
-					hex_width
-					    = hex_width * 10 + static_cast<usize>(str[i] - '0');
+					numeric_width = numeric_width * 10
+					    + static_cast<usize>(str[i] - '0');
 					i++;
 				}
 			}
@@ -157,7 +179,8 @@ static auto write_formatted_impl(char const *str, va_list vl) -> void
 					itoa(va_arg(vl, int), temp);
 					break;
 				}
-				append_string(temp, strlen(temp));
+				auto const len { strlen(temp) };
+				append_padded(temp, len, numeric_width, zero_pad);
 				break;
 			}
 			case 'u': {
@@ -178,7 +201,8 @@ static auto write_formatted_impl(char const *str, va_list vl) -> void
 					    static_cast<u64>(va_arg(vl, unsigned int)), temp);
 					break;
 				}
-				append_string(temp, strlen(temp));
+				auto const len { strlen(temp) };
+				append_padded(temp, len, numeric_width, zero_pad);
 				break;
 			}
 			case 'x': {
@@ -198,7 +222,7 @@ static auto write_formatted_impl(char const *str, va_list vl) -> void
 					value = static_cast<u64>(va_arg(vl, unsigned int));
 					break;
 				}
-				usize width = zero_pad_hex ? hex_width : 0;
+				usize width = zero_pad ? numeric_width : 0;
 				u64_to_hex(value, temp, width);
 				append_string(temp, strlen(temp));
 				break;
