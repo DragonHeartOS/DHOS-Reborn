@@ -8,6 +8,11 @@
 
 The operating system is made to give you full control over your hardware from the display, audio or even serial. Currently, the operating system is in a _very_ primitive state.
 
+## Screenshots
+
+![Demo](Meta/screenshot.png)
+Yes, the kernel panic is intended.
+
 ## Getting started
 
 The system can be build and ran like this:
@@ -28,6 +33,8 @@ $ cmake --build Build -- run    # Run virtual machine
  - 64-bit
  - Multitasking microkernel kernel
  - Filesystem: FAT-32
+
+More in [the notes file](notes.md).
 
 ## Components
 

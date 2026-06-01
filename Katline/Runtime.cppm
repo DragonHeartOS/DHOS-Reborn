@@ -240,9 +240,6 @@ auto katline_main(StartupInfo &info) -> void
 	});
 	Debug::print_formatted("\n");
 
-	auto const interrupt_test_cookie { panic_test() };
-	CL::ignore_unused(interrupt_test_cookie);
-
 	k_bsp_initialized.store(true, CL::MemoryOrder::Release);
 	Debug::drain_logs();
 
@@ -253,6 +250,11 @@ auto katline_main(StartupInfo &info) -> void
 		if (cur != 0 && cur != last_logged) {
 			last_logged = cur;
 			Debug::drain_logs();
+		}
+
+		if (cur & 0b10) {
+			auto const test { panic_test() };
+			CL::ignore_unused(test);
 		}
 	}
 }
