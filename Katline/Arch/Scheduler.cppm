@@ -57,6 +57,7 @@ export {
 		bool m_global_initialized {};
 
 		u64 m_pid_counter {};
+		CL::Atomic<u64> m_endpoint_counter { 1 };
 		u64 m_tid_counter {};
 		u32 m_default_slice_ticks { 8 };
 
@@ -98,6 +99,7 @@ void Scheduler::init()
 				.parent = nullptr,
 				.pid = { 0 },
 				.threads = {},
+				.endpoint_id = 0,
 				.cr3 = current_cr3(),
 			};
 			m_processes.push(k_process);
@@ -124,6 +126,7 @@ auto Scheduler::create_process(Process *parent, u64 cr3) -> Process *
 		Sync::ScopedIrqSpinLock guard { m_global_lock };
 		process->parent = parent;
 		process->pid = { ++m_pid_counter };
+		process->endpoint_id = m_endpoint_counter.fetch_add(1);
 		process->cr3 = cr3;
 		process->ipc_message_queue.init();
 		m_processes.push(process);
