@@ -26,6 +26,34 @@ export {
 				m_slots[i].seq.store(i, MemoryOrder::Relaxed);
 		}
 
+		auto try_push(T const &value) -> bool
+		{
+			for (;;) {
+				u64 head { m_head.load(MemoryOrder::Relaxed) };
+				auto &slot { m_slots[head & mask] };
+				u64 seq { slot.seq.load(MemoryOrder::Acquire) };
+				i64 dif { static_cast<i64>(seq) - static_cast<i64>(head) };
+
+				if (dif == 0) {
+					u64 expected { head };
+					if (!m_head.compare_exchange(expected, head + 1,
+					        MemoryOrder::AcquireRelease,
+					        MemoryOrder::Relaxed)) {
+						continue;
+					}
+
+					memcpy(slot.storage, &value, sizeof(T));
+					slot.seq.store(head + 1, MemoryOrder::Release);
+					return true;
+				}
+
+				if (dif < 0)
+					return false;
+
+				continue;
+			}
+		}
+
 		auto push_blocking(T const &value) -> void
 		{
 			for (;;) {
