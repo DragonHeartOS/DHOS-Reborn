@@ -10,6 +10,12 @@ import :Sync;
 export {
 	namespace Katline::Arch {
 
+	enum class IPCSendStatus : u8 {
+		Ok,
+		InvalidEndpoint,
+		QueueFull,
+	};
+
 	struct Scheduler {
 		void init();
 		void init_current_cpu();
@@ -26,7 +32,8 @@ export {
 		void block_current();
 		void unblock(Thread *thread);
 		[[noreturn]] void thread_exit();
-		auto send_ipc_message(u64 endpoint, IPC::Message &message) -> bool;
+		auto send_ipc_message(u64 endpoint, IPC::Message &message)
+		    -> IPCSendStatus;
 
 		static auto the() -> Scheduler &;
 
@@ -428,21 +435,20 @@ void Scheduler::unblock(Thread *thread)
 		asm volatile("hlt");
 }
 
-auto Scheduler::send_ipc_message(u64 endpoint, IPC::Message &message) -> bool
+auto Scheduler::send_ipc_message(u64 endpoint, IPC::Message &message)
+    -> IPCSendStatus
 {
 	auto process_opt {
 		m_processes.iter().find_if(
 		    [&](auto v) { return v->endpoint_id == endpoint; }),
 	};
 	if (!process_opt)
-		return false;
+		return IPCSendStatus::InvalidEndpoint;
 
 	auto &process { *process_opt };
-	// FIXME: Instead of doing a blocking push here, make it non-blocking so
-	// that the IPCSend syscall remains non-blocking.
-	process->ipc_message_queue.push_blocking(message);
-
-	return true;
+	return process->ipc_message_queue.try_push(message)
+	    ? IPCSendStatus::Ok
+	    : IPCSendStatus::QueueFull;
 }
 
 auto Scheduler::local_lapic_id() const -> u32 { return current_lapic_id(); }

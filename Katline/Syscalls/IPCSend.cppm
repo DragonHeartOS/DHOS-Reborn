@@ -28,8 +28,11 @@ template<> struct Spec<SyscallNumber::IPCSend> {
 			// TODO: Should probably validate the handles before actually send
 			// ing the IPC message. Since there's currently no use of handles,
 			// there's no way to way to do this.
-			if (!sched.send_ipc_message(endpoint, msg))
+			auto const status { sched.send_ipc_message(endpoint, msg) };
+			if (status == Arch::IPCSendStatus::InvalidEndpoint)
 				return Result<void>::Err(ErrorsV::InvalidArgument {});
+			if (status == Arch::IPCSendStatus::QueueFull)
+				return Result<void>::Err(ErrorsV::QueueFull {});
 
 			return Result<void>::Ok();
 		});
