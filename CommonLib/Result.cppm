@@ -686,5 +686,98 @@ export {
 		}
 	};
 
+	template<typename T, typename E>
+	auto option_ok_or(Option<T> const &opt, E error) -> Result<T, E>
+	{
+		if (opt.is_some())
+			return Result<T, E>::Ok(opt.get_unsafe());
+
+		return Result<T, E>::Err(static_cast<E &&>(error));
+	}
+
+	template<typename T, typename E>
+	auto option_ok_or(Option<T> &&opt, E error) -> Result<T, E>
+	{
+		if (opt.is_some())
+			return Result<T, E>::Ok(detail::move_ref(opt.get_unsafe()));
+
+		return Result<T, E>::Err(static_cast<E &&>(error));
+	}
+
+	template<typename T, typename E, typename Fn>
+	auto option_ok_or_else(Option<T> const &opt, Fn &&fn) -> Result<T, E>
+	{
+		if (opt.is_some())
+			return Result<T, E>::Ok(opt.get_unsafe());
+
+		return Result<T, E>::Err(static_cast<Fn &&>(fn)());
+	}
+
+	template<typename T, typename E, typename Fn>
+	auto option_ok_or_else(Option<T> &&opt, Fn &&fn) -> Result<T, E>
+	{
+		if (opt.is_some())
+			return Result<T, E>::Ok(detail::move_ref(opt.get_unsafe()));
+
+		return Result<T, E>::Err(static_cast<Fn &&>(fn)());
+	}
+
+	template<typename T, typename E>
+	auto transpose(Option<Result<T, E>> const &opt) -> Result<Option<T>, E>
+	{
+		if (opt.is_none())
+			return Result<Option<T>, E>::Ok(Option<T> {});
+
+		auto const &inner { opt.get_unsafe() };
+		if (inner.is_err())
+			return Result<Option<T>, E>::Err(inner.get_err_unsafe());
+
+		return Result<Option<T>, E>::Ok(Option<T> { inner.get_ok_unsafe() });
+	}
+
+	template<typename T, typename E>
+	auto transpose(Option<Result<T, E>> &&opt) -> Result<Option<T>, E>
+	{
+		if (opt.is_none())
+			return Result<Option<T>, E>::Ok(Option<T> {});
+
+		auto &inner { opt.get_unsafe() };
+		if (inner.is_err())
+			return Result<Option<T>, E>::Err(
+			    detail::move_ref(inner.get_err_unsafe()));
+
+		return Result<Option<T>, E>::Ok(
+		    Option<T> { detail::move_ref(inner.get_ok_unsafe()) });
+	}
+
+	template<typename T, typename E>
+	auto transpose(Result<Option<T>, E> const &res) -> Option<Result<T, E>>
+	{
+		if (res.is_err())
+			return Option<Result<T, E>>(
+			    Result<T, E>::Err(res.get_err_unsafe()));
+
+		auto const &opt { res.get_ok_unsafe() };
+		if (opt.is_none())
+			return Option<Result<T, E>> {};
+
+		return Option<Result<T, E>>(Result<T, E>::Ok(opt.get_unsafe()));
+	}
+
+	template<typename T, typename E>
+	auto transpose(Result<Option<T>, E> &&res) -> Option<Result<T, E>>
+	{
+		if (res.is_err())
+			return Option<Result<T, E>>(
+			    Result<T, E>::Err(detail::move_ref(res.get_err_unsafe())));
+
+		auto &opt { res.get_ok_unsafe() };
+		if (opt.is_none())
+			return Option<Result<T, E>> {};
+
+		return Option<Result<T, E>>(
+		    Result<T, E>::Ok(detail::move_ref(opt.get_unsafe())));
+	}
+
 	}
 }

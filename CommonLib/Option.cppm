@@ -8,6 +8,23 @@ export {
 	namespace CL {
 
 	template<typename T> struct Option;
+	template<typename T, typename E> struct Result;
+	template<typename T, typename E>
+	auto option_ok_or(Option<T> const &opt, E error) -> Result<T, E>;
+	template<typename T, typename E>
+	auto option_ok_or(Option<T> &&opt, E error) -> Result<T, E>;
+	template<typename T, typename E, typename Fn>
+	auto option_ok_or_else(Option<T> const &opt, Fn &&fn) -> Result<T, E>;
+	template<typename T, typename E, typename Fn>
+	auto option_ok_or_else(Option<T> &&opt, Fn &&fn) -> Result<T, E>;
+	template<typename T, typename E>
+	auto transpose(Option<Result<T, E>> const &opt) -> Result<Option<T>, E>;
+	template<typename T, typename E>
+	auto transpose(Option<Result<T, E>> &&opt) -> Result<Option<T>, E>;
+	template<typename T, typename E>
+	auto transpose(Result<Option<T>, E> const &res) -> Option<Result<T, E>>;
+	template<typename T, typename E>
+	auto transpose(Result<Option<T>, E> &&res) -> Option<Result<T, E>>;
 
 	namespace detail {
 
@@ -126,6 +143,31 @@ export {
 				return self().get_unsafe();
 
 			return fallback;
+		}
+
+		template<typename E>
+		constexpr auto ok_or(E error) const & -> Result<T, E>
+		{
+			return option_ok_or(self(), static_cast<E &&>(error));
+		}
+
+		template<typename E> constexpr auto ok_or(E error) && -> Result<T, E>
+		{
+			return option_ok_or(
+			    static_cast<Derived &&>(self()), static_cast<E &&>(error));
+		}
+
+		template<typename E, typename Fn>
+		constexpr auto ok_or_else(Fn &&fn) const & -> Result<T, E>
+		{
+			return option_ok_or_else<T, E>(self(), static_cast<Fn &&>(fn));
+		}
+
+		template<typename E, typename Fn>
+		constexpr auto ok_or_else(Fn &&fn) && -> Result<T, E>
+		{
+			return option_ok_or_else<T, E>(
+			    static_cast<Derived &&>(self()), static_cast<Fn &&>(fn));
 		}
 
 		template<typename Fn> constexpr auto or_else(Fn &&fn) -> Derived
