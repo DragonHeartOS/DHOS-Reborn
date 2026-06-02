@@ -2,11 +2,12 @@
 
 ## Katline
 
-- Loads `module[0]` and `module[1]` as initial processes (excluding the kernel
-  process) through a minimal ELF loader.
-- Loads module list from start code.
-- Loads command line from start code.
-- Creates framebuffer memory object (from start info).
+- Starts one generic first user process from a bootstrap blob embedded in the
+  kernel binary (this is to avoid putting an ELF loader in the kernele, it can
+  be embedded with #embed i love c++).
+- Copies the embedded bootstrap image to any free address and jumps to its
+  entry point.
+- Exposes boot data through IPC and memory-object handles.
 - Maps pages via `sys_memory_map(Handle memory_object, u64 offset, u64 size,
   MemoryFlags flags, void **out_addr)`.
 - Maps pages in another process via `sys_process_memory_map(Handle process,
@@ -17,13 +18,11 @@
 - Creates threads via `sys_thread_create(process_handle, entry, stack) -> Result<Handle>`.
 - Starts threads via `sys_thread_start(thread_handle)`.
 - Handles permissions via IPC.
-- Grants boot capabilities to ProcessManager and Loader:
+- Grants boot capabilities to the first process:
   - `Cap::ManageCaps`
-  - `Cap::BootFramebuffer`
+  - `Cap::BootInfo`
   - `Cap::MapMMIO`
   - `Cap::ManageProcesses`
-  - `Cap::BootModules`
-  - `Cap::BootCmdline`
   - `Cap::IOPort`
 
 ### Capabilities
@@ -41,6 +40,13 @@ Capability arguments:
 - `pid`
 - `cap id`
 
+### Boot Info
+
+- `Msg::GetBootInfo() -> status, Handle`
+- Returns a handle to one packed `BootInfoTable`.
+- The table contains metadata for modules, command line, and framebuffers.
+- Metadata includes IDs used to fetch the actual memory objects later.
+
 ### I/O Syscalls
 
 - `sys_in(port, size) -> Result<u64>`
@@ -48,34 +54,57 @@ Capability arguments:
 
 ### IPC Messages
 
+- `Msg::GetBootInfo() -> status, Handle`
+  - Returns handle to `BootInfoTable`.
+  - Requires `Cap::BootInfo`
+- `Msg::GetBootModuleMemoryObjectById(id) -> status, Handle`
+  - Returns handle to a memory object containing the module binary.
+  - Requires `Cap::BootInfo`.
+- `Msg::GetCmdlineMemoryObject() -> status, Handle`
+  - Returns handle to a memory object containing `BootCmdline`.
+  - Requires `Cap::BootInfo`.
+- `Msg::GetFramebufferMemoryObjectById(id) -> status, Handle`
+  - Returns handle to a memory object containing framebuffer data.
+  - Requires `Cap::BootInfo`.
 - `Msg::GrantIOPortRange(pid, port, length) -> status, void`
   - Requires `Cap::IOPort`.
-- `Msg::GetBootFramebuffers(offset) -> status, Handle[4]`
-  - Returns handles to a memory object containing `BootFramebufferList` and
-    framebuffer memory objects.
-  - Uses `offset` for paging (max 4 handles per message).
-  - Requires `Cap::BootFramebuffer`.
-- `Msg::GetBootModules() -> status, Handle`
-  - Returns handle to memory object containing `BootModuleList`.
-  - Requires `Cap::BootModules`.
-- `Msg::GetBootCmdline() -> status, Handle`
-  - Returns handle to memory object containing `BootCmdline`.
-  - Requires `Cap::BootCmdline`.
 
 ```cpp
+struct BootInfoTable {
+    u64 total_len;
+    u64 modules_offset;
+    u64 modules_len;
+    u64 cmdline_offset;
+    u64 cmdline_len;
+    u64 framebuffers_offset;
+    u64 framebuffers_len;
+};
+
 struct BootCmdline {
     u64 len;
     char data[];
 };
 
+struct BootModuleList {
+    u64 len;
+    u64 entries_offset;
+};
+
+struct BootModuleEntry {
+    u64 id;
+    u64 name_offset;
+    u64 name_len;
+    u64 size;
+    u64 flags;
+};
+
 struct BootFramebufferList {
-    u64 total_len;
-    u64 base_index;
     u64 len;
     u64 entries_offset;
 };
 
 struct BootFramebufferEntry { // handle in IPC handles
+    u64 id;
     u64 width;
     u64 height;
     u64 pitch;
@@ -86,43 +115,47 @@ struct BootFramebufferEntry { // handle in IPC handles
     u64 edid_offset;
     u64 flags;
 };
-
-struct BootModuleList {
-    u64 len;
-    u64 entries_offset;
-};
-
-struct BootModuleEntry {
-    u64 name_offset;
-    u64 name_len;
-    u64 data_offset;
-    u64 data_len;
-};
 ```
 
-## ProcessManager (`module[0]`)
+## Bootstrap
 
-- Manages services.
-- Reads module list from kernel via IPC.
-- Reads command line from kernel via IPC.
-- Loads initial boot modules (via Loader over IPC) specified in command line.
-- Treats the first module as ProcessManager configuration.
-- Handles registered binary formats (`binfmts`) via IPC.
+- First user process started directly by the kernel.
+- Reads `BootInfoTable` from kernel via IPC.
+- Uses its own tiny built-in loader to start `Loader`.
+- Uses `Loader` to start `ProcessManager`.
+- Reads boot modules and command line from the boot info table.
+- ~~Dies~~ Exits after it starts PM and Loader.
 
-## Loader (`module[1]`)
+## Loader
 
 - Loads and parses ELF files.
+- Starts after bootstrap loads it from the boot module payloads.
+
+## ProcessManager
+
+- Manages services.
+- Reads `BootInfoTable` from kernel via IPC.
+- Reads command line, module metadata, and framebuffer metadata from the boot
+  info table.
+- Loads boot-selected services (via Loader over IPC) specified in command line.
+- Handles registered binary formats (`binfmts`) via IPC.
 
 ## Boot Flow
 
 1. Limine starts Katline.
-2. Katline starts ProcessManager and Loader.
-3. ProcessManager reads cmdline/modules and asks Loader to spawn processes.
-4. Loader loads the requested processes.
+2. Katline copies the embedded bootstrap image to a free address and starts it.
+3. Bootstrap asks the kernel for `BootInfoTable`.
+4. Bootstrap reads cmdline and module metadata.
+5. Bootstrap fetches module payloads by ID.
+6. Bootstrap starts Loader using its own tiny bootstrap ELF loader.
+7. Bootstrap asks Loader to start ProcessManager.
+8. ProcessManager becomes the normal service and process orchestrator.
 
 ## IPC
 
 - Fully async.
+- Boot data is fetched by request.
+- Kernel fills `handles[]` in reply messages (if sent by kernel).
 
 IPC syscalls:
 
@@ -134,8 +167,7 @@ IPC syscalls:
 Notes:
 
 - `sys_ipc_send` can fail if the queue is full.
-- At boot: kernel process endpoint is `0`, ProcessManager is `1`, Loader is `2`
-  (by module index).
+- Boot endpoints are an internal bootstrap detail only.
 - After boot: a NameServer tracks endpoints by process registration (see
   `sender` field).
 
@@ -163,4 +195,3 @@ Event masks:
 - `Event::IPC`: IPC queue has messages.
 - `Event::Child`: a child changed state.
 - `Event::Timer`: a timer expired.
-
