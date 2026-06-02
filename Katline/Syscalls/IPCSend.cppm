@@ -25,6 +25,9 @@ template<> struct Spec<SyscallNumber::IPCSend> {
 			msg.sender = thread->process->endpoint_id;
 			msg.id = g_id_counter.fetch_add(1);
 
+			// TODO: Should probably validate the handles before actually send
+			// ing the IPC message. Since there's currently no use of handles,
+			// there's no way to way to do this.
 			if (!sched.send_ipc_message(endpoint, msg))
 				return Result<void>::Err(ErrorsV::InvalidArgument {});
 
