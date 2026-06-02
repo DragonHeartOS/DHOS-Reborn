@@ -2,6 +2,7 @@ export module Katline:Thread;
 
 import CommonLib;
 import :CPU;
+import KatlineAPI;
 
 export {
 	namespace Katline::Arch {
@@ -34,6 +35,8 @@ export {
 
 		ProcessID pid {};
 		CL::ArrayList<Thread *> threads {};
+		CL::MpscQueue<IPC::Message, 256> ipc_message_queue {};
+		u64 endpoint_id {};
 
 		u64 cr3;
 	};

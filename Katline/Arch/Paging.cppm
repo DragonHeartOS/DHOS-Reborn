@@ -24,6 +24,12 @@ export {
 
 	using PageFlags = CL::Flags<PageFlag>;
 
+	struct PageLookup {
+		uptr physical {};
+		PageFlags flags {};
+		uptr page_size {};
+	};
+
 	struct PageTableEntry {
 		static constexpr u64 address_mask { 0x000ffffffffff000ull };
 
@@ -59,6 +65,7 @@ export {
 	auto init(uptr hhdm_offset) -> void;
 	auto current_root() -> PageTable *;
 	auto phys_address(PageTable const *table) -> uptr;
+	auto phys_to_virt(uptr phys) -> void *;
 	auto create_table() -> PageTable *;
 
 	auto map(PageTable *root, uptr virt, uptr phys, PageFlags flags) -> bool;
@@ -68,6 +75,7 @@ export {
 
 	auto unmap(PageTable *root, uptr virt) -> bool;
 	auto translate(PageTable *root, uptr virt) -> CL::Option<uptr>;
+	auto query(PageTable *root, uptr virt) -> CL::Option<PageLookup>;
 
 	auto clone_address_space(PageTable const *root) -> PageTable *;
 	auto clone_current_address_space() -> PageTable *;
@@ -113,7 +121,7 @@ static constexpr auto level_page_mask(usize level) -> uptr
 	return level_page_size(level) - 1;
 }
 
-static auto phys_to_virt(uptr phys) -> void *
+auto phys_to_virt(uptr phys) -> void *
 {
 	return reinterpret_cast<void *>(phys + g_hhdm_offset);
 }
@@ -259,6 +267,20 @@ auto translate(PageTable *root, uptr virt) -> CL::Option<uptr>
 	auto const mask { level_page_mask(result.level) };
 
 	return (result.entry->address() & ~mask) | (virt & mask);
+}
+
+auto query(PageTable *root, uptr virt) -> CL::Option<PageLookup>
+{
+	auto result { walk(root, virt, false, {}) };
+	if (!result.entry || !result.entry->present())
+		return {};
+
+	auto const mask { level_page_mask(result.level) };
+	return PageLookup {
+		.physical = (result.entry->address() & ~mask) | (virt & mask),
+		.flags = result.entry->flags(),
+		.page_size = level_page_size(result.level),
+	};
 }
 
 static auto clone_table_recursive(PageTable const *src, usize level)

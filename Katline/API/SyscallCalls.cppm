@@ -3,6 +3,7 @@ export module KatlineAPI:SyscallCalls;
 import CommonLib;
 import :Syscalls;
 import :SyscallContract;
+import :IPC;
 
 export {
 	namespace Katline::Syscalls {

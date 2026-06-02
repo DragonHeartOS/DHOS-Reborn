@@ -2,9 +2,133 @@ export module Katline:SyscallKernelContract;
 
 import CommonLib;
 import KatlineAPI;
+import :Paging;
+import :Scheduler;
 
 export {
 	namespace Katline::Syscalls {
+
+	inline constexpr uptr user_space_limit { 0x0000800000000000ull };
+
+	constexpr auto is_valid_user_address(uptr addr) -> bool
+	{
+		return addr < user_space_limit && (addr >> 48) == 0;
+	}
+
+	template<typename T>
+	auto copy_from_user(uptr raw, T *buffer, usize size) -> bool
+	{
+		if (size == 0)
+			return true;
+
+		auto *root { Arch::Paging::current_root() };
+		usize copied {};
+		while (copied < size) {
+			auto const virt { raw + copied };
+			auto const page { Arch::Paging::query(root, virt) };
+			if (!page)
+				return false;
+
+			if (!page->flags.contains(Arch::Paging::PageFlag::User))
+				return false;
+
+			auto const page_offset { virt % page->page_size };
+			auto const chunk {
+				page->page_size - page_offset < size - copied
+				    ? page->page_size - page_offset
+				    : size - copied,
+			};
+			auto *const user_ptr { reinterpret_cast<u8 *>(
+				Arch::Paging::phys_to_virt(page->physical)) };
+
+			memcpy(reinterpret_cast<u8 *>(buffer) + copied, user_ptr, chunk);
+
+			copied += chunk;
+		}
+
+		return true;
+	}
+
+	template<typename T>
+	auto copy_to_user(uptr raw, T const *buffer, usize size) -> bool
+	{
+		if (size == 0)
+			return true;
+
+		auto *root { Arch::Paging::current_root() };
+		usize copied {};
+		while (copied < size) {
+			auto const virt { raw + copied };
+			auto const page { Arch::Paging::query(root, virt) };
+			if (!page)
+				return false;
+
+			if (!page->flags.contains(Arch::Paging::PageFlag::User))
+				return false;
+			if (!page->flags.contains(Arch::Paging::PageFlag::Writable))
+				return false;
+
+			auto const page_offset { virt % page->page_size };
+			auto const chunk {
+				page->page_size - page_offset < size - copied
+				    ? page->page_size - page_offset
+				    : size - copied,
+			};
+			auto *const user_ptr { reinterpret_cast<u8 *>(
+				Arch::Paging::phys_to_virt(page->physical)) };
+
+			memcpy(
+			    user_ptr, reinterpret_cast<u8 const *>(buffer) + copied, chunk);
+
+			copied += chunk;
+		}
+
+		return true;
+	}
+
+	template<typename T> auto copy_in(UserPtrConst<T> ptr) -> Result<T>
+	{
+		static_assert(__is_trivially_copyable(T),
+		    "userspace copies require trivially copyable types");
+
+		auto *thread { Arch::Scheduler::the().current_thread() };
+		if (!thread || !thread->process)
+			return Result<T>::Err(ErrorsV::InvalidArgument {});
+
+		auto const raw { ptr.addr() };
+		if (ptr.is_null() || sizeof(T) > user_space_limit
+		    || !is_valid_user_address(raw)
+		    || raw > user_space_limit - sizeof(T))
+			return Result<T>::Err(ErrorsV::BadAddress {});
+
+		T value {};
+		if (!copy_from_user(raw, &value, sizeof(T)))
+			return Result<T>::Err(ErrorsV::BadAddress {});
+
+		return Result<T>::Ok(value);
+	}
+
+	template<typename T>
+	auto copy_out(UserPtr<T> ptr, T const &value) -> Result<void>
+	{
+		static_assert(__is_trivially_copyable(T),
+		    "userspace copies require trivially copyable types");
+
+		auto *thread { Arch::Scheduler::the().current_thread() };
+		if (!thread || !thread->process)
+			return Result<void>::Err(ErrorsV::InvalidArgument {});
+
+		auto const raw { ptr.addr() };
+		if (ptr.is_null() || sizeof(T) > user_space_limit
+		    || !is_valid_user_address(raw)
+		    || raw > user_space_limit - sizeof(T))
+			return Result<void>::Err(ErrorsV::BadAddress {});
+
+		if (!copy_to_user(raw, &value, sizeof(T)))
+			return Result<void>::Err(ErrorsV::BadAddress {});
+
+		return Result<void>::Ok();
+	}
 
 	template<SyscallNumber Id> struct Spec;
 

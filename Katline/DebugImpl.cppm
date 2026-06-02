@@ -83,8 +83,8 @@ static auto write_formatted_impl(char const *str, va_list vl) -> void
 		for (usize k {}; k < len && j + 1 < sizeof(buffer); ++k)
 			buffer[j++] = s[k];
 	};
-	auto append_padded = [&](char const *s, usize len, usize width,
-	                        bool zero_pad) -> void {
+	auto append_padded
+	    = [&](char const *s, usize len, usize width, bool zero_pad) -> void {
 		if (width <= len) {
 			append_string(s, len);
 			return;
@@ -140,8 +140,8 @@ static auto write_formatted_impl(char const *str, va_list vl) -> void
 				i++;
 
 				while (str[i] >= '0' && str[i] <= '9') {
-					numeric_width = numeric_width * 10
-					    + static_cast<usize>(str[i] - '0');
+					numeric_width
+					    = numeric_width * 10 + static_cast<usize>(str[i] - '0');
 					i++;
 				}
 			}

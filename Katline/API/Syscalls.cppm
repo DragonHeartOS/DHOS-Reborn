@@ -16,11 +16,12 @@ export {
 	struct InvalidArgument { };
 	struct BadAddress { };
 	struct PermissionDenied { };
+	struct EmptyQueue { };
 	}
 
-	using SyscallError
-	    = CL::Error<ErrorsV::InvalidSyscall, ErrorsV::InvalidArgument,
-	        ErrorsV::BadAddress, ErrorsV::PermissionDenied>;
+	using SyscallError = CL::Error<ErrorsV::InvalidSyscall,
+	    ErrorsV::InvalidArgument, ErrorsV::BadAddress,
+	    ErrorsV::PermissionDenied, ErrorsV::EmptyQueue>;
 
 	template<typename T> using Result = CL::Result<T, SyscallError>;
 
@@ -75,6 +76,11 @@ inline auto to_display_string(BadAddress const &) -> CL::String
 inline auto to_display_string(PermissionDenied const &) -> CL::String
 {
 	return "syscall permission denied";
+}
+
+inline auto to_display_string(EmptyQueue const &) -> CL::String
+{
+	return "empty queue";
 }
 
 }

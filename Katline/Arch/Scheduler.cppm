@@ -26,6 +26,7 @@ export {
 		void block_current();
 		void unblock(Thread *thread);
 		[[noreturn]] void thread_exit();
+		auto send_ipc_message(u64 endpoint, IPC::Message &message) -> bool;
 
 		static auto the() -> Scheduler &;
 
@@ -117,6 +118,7 @@ auto Scheduler::create_process(Process *parent, u64 cr3) -> Process *
 		process->parent = parent;
 		process->pid = { ++m_pid_counter };
 		process->cr3 = cr3;
+		process->ipc_message_queue.init();
 		m_processes.push(process);
 	}
 	return process;
@@ -424,6 +426,23 @@ void Scheduler::unblock(Thread *thread)
 	schedule();
 	for (;;)
 		asm volatile("hlt");
+}
+
+auto Scheduler::send_ipc_message(u64 endpoint, IPC::Message &message) -> bool
+{
+	auto process_opt {
+		m_processes.iter().find_if(
+		    [&](auto v) { return v->endpoint_id == endpoint; }),
+	};
+	if (!process_opt)
+		return false;
+
+	auto &process { *process_opt };
+	// FIXME: Instead of doing a blocking push here, make it non-blocking so
+	// that the IPCSend syscall remains non-blocking.
+	process->ipc_message_queue.push_blocking(message);
+
+	return true;
 }
 
 auto Scheduler::local_lapic_id() const -> u32 { return current_lapic_id(); }

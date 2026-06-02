@@ -3,8 +3,9 @@ export module Katline:Syscalls;
 export import :SyscallABI;
 export import :SyscallKernelContract;
 export import :SyscallDispatch;
-export import :SyscallGetPid;
-export import :SyscallGetTid;
-export import :SyscallYield;
-export import :SyscallExit;
+
+#define X(name, ...) import :Syscall##name;
+#import <Katline/API/SyscallList.def>
+#undef X
+
 export import KatlineAPI;

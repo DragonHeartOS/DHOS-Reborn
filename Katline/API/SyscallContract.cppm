@@ -16,6 +16,7 @@ export {
 
 		constexpr auto is_null() const -> bool { return raw == 0; }
 		constexpr auto addr() const -> u64 { return raw; }
+		constexpr auto get() const -> T * { return reinterpret_cast<T *>(raw); }
 	};
 
 	template<typename T> struct UserPtrConst {
@@ -28,6 +29,10 @@ export {
 
 		constexpr auto is_null() const -> bool { return raw == 0; }
 		constexpr auto addr() const -> u64 { return raw; }
+		constexpr auto get() const -> T const *
+		{
+			return reinterpret_cast<T const *>(raw);
+		}
 	};
 
 	}
