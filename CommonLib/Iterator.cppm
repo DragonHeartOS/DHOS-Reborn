@@ -159,7 +159,7 @@ export {
 		/// @endcode
 		template<class P> auto any(P pred) && -> bool
 		{
-			return move(self()).find_if(move(pred)).has_value();
+			return move(self()).find_if(move(pred)).is_some();
 		}
 
 		template<class P>
