@@ -260,7 +260,7 @@ auto katline_main(StartupInfo &info) -> void
 			Debug::drain_logs();
 		}
 
-		if (cur & 0b10) {
+		if (cur & 0b100) {
 			auto const test { panic_test() };
 			CL::ignore_unused(test);
 		}
