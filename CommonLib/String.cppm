@@ -354,6 +354,17 @@ export {
 			return BaseStringView(data() + start, count);
 		}
 
+		/// @brief Get a substring view of the string.
+		/// @param start The starting index of the substring.
+		/// @return A BaseStringView into the string.
+		auto substring(usize start) const -> BaseStringView<CharTypeT>
+		{
+			if (start >= size())
+				return {};
+
+			return BaseStringView(data() + start, size() - start);
+		}
+
 		constexpr auto operator==(BaseStringView<CharTypeT> const &other) const
 		    -> bool
 		{
