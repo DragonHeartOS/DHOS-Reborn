@@ -28,12 +28,19 @@ export {
 		User,
 	};
 
+	enum class ProcessState : u8 {
+		Running,
+		Dead,
+	};
+
 	struct Thread;
 
 	struct Process {
 		Process *parent {};
 
 		ProcessID pid {};
+		u64 handle_count {};
+		ProcessState state { ProcessState::Running };
 		CL::ArrayList<Thread *> threads {};
 		CL::MpscQueue<IPC::Message, 256> ipc_message_queue {};
 		u64 endpoint_id {};
@@ -44,6 +51,7 @@ export {
 	struct Thread {
 		ThreadID tid {};
 		ThreadState tstate { ThreadState::Ready };
+		u64 handle_count {};
 		uptr entry_point {};
 		CPUContext context {};
 		u32 slice_remaining {};

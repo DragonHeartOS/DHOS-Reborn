@@ -14,6 +14,7 @@ import :X2APIC;
 import :FrameAllocator;
 import :Paging;
 import :MemoryManager;
+import :HandleManager;
 import :SyscallABI;
 
 export {
@@ -51,7 +52,7 @@ namespace Katline {
 static auto reserve_mmap_phys_range(Memory::MemoryMap *mmap, uptr hhdm_offset,
     uptr phys_base, usize size) -> void
 {
-	for (u64 i {}; i < mmap->size; ++i) {
+	for (u64 i {}; i < mmap->size; i++) {
 		auto *const md { &mmap->data[i] };
 		if (md->type != Memory::MemoryType::USABLE || md->size == 0)
 			continue;
@@ -177,6 +178,7 @@ auto katline_main(StartupInfo &info) -> void
 		}
 	}
 	Memory::MM::init(info.mmap);
+	Arch::HandleManager::the();
 	auto *const shadow_root { Arch::Paging::clone_current_address_space() };
 	if (!shadow_root) {
 		Debug::print_formatted(
@@ -190,7 +192,7 @@ auto katline_main(StartupInfo &info) -> void
 	Arch::Scheduler::the().init();
 	Arch::Scheduler::the().adopt_current_thread(
 	    Arch::k_process, stack_start, info.stack_size);
-	for (usize worker_index {}; worker_index < 8; ++worker_index) {
+	for (usize worker_index {}; worker_index < 8; worker_index++) {
 		Arch::Scheduler::the().make_thread(
 		    Arch::k_process, reinterpret_cast<uptr>(+[]() {
 			    auto *thread { Arch::Scheduler::the().current_thread() };

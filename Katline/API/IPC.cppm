@@ -1,14 +1,11 @@
 export module KatlineAPI:IPC;
 
 import CommonLib;
+import :Types;
 
 export {
 
 	namespace Katline::IPC {
-
-	struct Handle {
-		u64 id;
-	};
 
 	struct Message {
 		u64 id;

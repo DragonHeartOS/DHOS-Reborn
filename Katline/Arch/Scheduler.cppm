@@ -5,6 +5,7 @@ import :CPU;
 import :Thread;
 import :Debug;
 import :GDT;
+import :HandleManager;
 import :Sync;
 
 export {
@@ -98,7 +99,9 @@ void Scheduler::init()
 			k_process = new Process {
 				.parent = nullptr,
 				.pid = { 0 },
+				.handle_count = 0,
 				.threads = {},
+				.ipc_message_queue = {},
 				.endpoint_id = 0,
 				.cr3 = current_cr3(),
 			};
@@ -369,7 +372,7 @@ void Scheduler::on_timer_tick()
 		return;
 
 	if (current->slice_remaining > 0)
-		--current->slice_remaining;
+		current->slice_remaining--;
 
 	if (current->slice_remaining == 0) {
 		schedule();
@@ -458,7 +461,7 @@ auto Scheduler::local_lapic_id() const -> u32 { return current_lapic_id(); }
 
 auto Scheduler::find_cpu_state(u32 lapic_id) -> CPUState *
 {
-	for (usize i {}; i < m_cpus.size(); ++i) {
+	for (usize i {}; i < m_cpus.size(); i++) {
 		auto *cpu { m_cpus[i] };
 		if (cpu && cpu->lapic_id == lapic_id)
 			return cpu;
@@ -491,7 +494,7 @@ auto Scheduler::is_in_ready_queue(CPUState const &cpu, Thread *thread) const
 	if (!thread)
 		return false;
 
-	for (usize i { cpu.ready_head }; i < cpu.ready_threads.size(); ++i) {
+	for (usize i { cpu.ready_head }; i < cpu.ready_threads.size(); i++) {
 		if (cpu.ready_threads[i] == thread)
 			return true;
 	}
@@ -536,7 +539,7 @@ void Scheduler::compact_ready_queue_if_needed(CPUState &cpu)
 
 	auto remaining { cpu.ready_threads.size() - cpu.ready_head };
 	usize out {};
-	for (usize i {}; i < remaining; ++i) {
+	for (usize i {}; i < remaining; i++) {
 		auto *candidate { cpu.ready_threads[cpu.ready_head + i] };
 		if (candidate)
 			cpu.ready_threads[out++] = candidate;
@@ -551,7 +554,7 @@ auto Scheduler::steal_thread_for_cpu(CPUState &cpu) -> Thread *
 	CL::ArrayList<CPUState *> candidates;
 	{
 		Sync::ScopedIrqSpinLock guard { m_global_lock };
-		for (usize i {}; i < m_cpus.size(); ++i) {
+		for (usize i {}; i < m_cpus.size(); i++) {
 			auto *victim { m_cpus[i] };
 			if (!victim || victim == &cpu || !victim->online)
 				continue;
@@ -559,7 +562,7 @@ auto Scheduler::steal_thread_for_cpu(CPUState &cpu) -> Thread *
 		}
 	}
 
-	for (usize i {}; i < candidates.size(); ++i) {
+	for (usize i {}; i < candidates.size(); i++) {
 		auto *victim { candidates[i] };
 		if (!victim)
 			continue;
@@ -568,7 +571,7 @@ auto Scheduler::steal_thread_for_cpu(CPUState &cpu) -> Thread *
 		{
 			Sync::ScopedIrqSpinLock victim_guard { victim->queue_lock };
 			for (usize idx { victim->ready_threads.size() };
-			    idx > victim->ready_head; --idx) {
+			    idx > victim->ready_head; idx--) {
 				auto slot { idx - 1 };
 				auto *candidate { victim->ready_threads[slot] };
 				if (!candidate)
@@ -606,10 +609,26 @@ void Scheduler::reap_zombies()
 	if (m_zombies.is_empty())
 		return;
 
-	for (usize i {}; i < m_zombies.size(); ++i) {
+	CL::ArrayList<Thread *> survivors;
+	for (usize i {}; i < m_zombies.size(); i++) {
 		auto *thread { m_zombies[i] };
 		if (!thread)
 			continue;
+		if (thread->handle_count > 0) {
+			survivors.push(thread);
+			continue;
+		}
+
+		auto *process { thread->process };
+		if (process) {
+			for (usize j {}; j < process->threads.size(); j++) {
+				if (process->threads[j] == thread) {
+					process->threads.remove_at(j);
+					break;
+				}
+			}
+		}
+
 		if (thread->stack_is_heap_allocated && thread->kernel_stack_base) {
 			auto *stack {
 				reinterpret_cast<u8 *>(thread->kernel_stack_base),
@@ -617,8 +636,16 @@ void Scheduler::reap_zombies()
 			delete[] stack;
 		}
 		delete thread;
+
+		if (process && process != k_process
+		    && process->state != ProcessState::Dead
+		    && !process->threads.iter().any(
+		        [](auto c) { return c && c->tstate != ThreadState::Dead; })) {
+			process->state = ProcessState::Dead;
+			Arch::HandleManager::the().release_owned_handles(process);
+		}
 	}
-	m_zombies.clear();
+	m_zombies = CL::move(survivors);
 }
 
 [[noreturn]] void thread_entry_trampoline()

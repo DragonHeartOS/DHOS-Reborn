@@ -1,6 +1,7 @@
 export module KatlineAPI:Syscalls;
 
 import CommonLib;
+import :Types;
 
 export {
 	namespace Katline::Syscalls {
@@ -29,6 +30,7 @@ export {
 	auto encode_error(SyscallError const &error) -> u64;
 	auto encode_void(Result<void> const &result) -> u64;
 	auto encode_u64(Result<u64> const &result) -> u64;
+	auto encode_handle(Result<Katline::Handle> const &result) -> u64;
 
 	}
 }
@@ -38,8 +40,8 @@ namespace Katline::Syscalls {
 template<usize N>
 consteval auto syscall_ids_are_unique(u64 const (&ids)[N]) -> bool
 {
-	for (usize i { 0 }; i < N; ++i) {
-		for (usize j { i + 1 }; j < N; ++j) {
+	for (usize i { 0 }; i < N; i++) {
+		for (usize j { i + 1 }; j < N; j++) {
 			if (ids[i] == ids[j])
 				return false;
 		}
@@ -108,6 +110,13 @@ auto encode_u64(Result<u64> const &result) -> u64
 	if (result.is_err())
 		return encode_error(result.unwrap_err());
 	return *result;
+}
+
+auto encode_handle(Result<Katline::Handle> const &result) -> u64
+{
+	if (result.is_err())
+		return encode_error(result.unwrap_err());
+	return result->id;
 }
 
 }

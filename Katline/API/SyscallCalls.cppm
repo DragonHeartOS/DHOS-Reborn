@@ -1,6 +1,7 @@
 export module KatlineAPI:SyscallCalls;
 
 import CommonLib;
+import :Types;
 import :Syscalls;
 import :SyscallContract;
 import :IPC;
@@ -37,13 +38,15 @@ inline constexpr bool IsUserPointerV = IsUserPointer<T>::Value;
 
 template<typename T>
 inline constexpr bool IsSyscallArgV
-    = CL::IsIntegralV<T> || CL::IsEnumV<T> || IsUserPointerV<T>;
+    = CL::IsIntegralV<T> || CL::IsEnumV<T> || IsUserPointerV<T> || IsHandleV<T>;
 
 template<typename T> constexpr auto encode_syscall_arg(T value) -> u64
 {
 	static_assert(IsSyscallArgV<T>, "unsupported syscall argument type");
 
-	if constexpr (IsUserPointerV<T>) {
+	if constexpr (IsHandleV<T>) {
+		return value.id;
+	} else if constexpr (IsUserPointerV<T>) {
 		return value.addr();
 	} else {
 		return static_cast<u64>(value);
@@ -60,9 +63,12 @@ template<typename Ret> auto decode_syscall_result(u64 raw) -> Result<Ret>
 
 	if constexpr (CL::SameAs<Ret, void>) {
 		return Result<void>::Ok();
+	} else if constexpr (CL::SameAs<Ret, Handle>) {
+		return Result<Handle>::Ok(Handle { raw });
 	} else {
 		static_assert(CL::SameAs<Ret, u64>,
-		    "only void and u64 syscall return types are currently supported");
+		    "only void, u64, and Handle syscall return types are currently "
+		    "supported");
 		return Result<u64>::Ok(raw);
 	}
 }

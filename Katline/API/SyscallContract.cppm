@@ -1,6 +1,7 @@
 export module KatlineAPI:SyscallContract;
 
 import CommonLib;
+import :Types;
 import :Syscalls;
 
 export {
@@ -34,6 +35,9 @@ export {
 			return reinterpret_cast<T const *>(raw);
 		}
 	};
+
+	template<typename T>
+	inline constexpr bool IsHandleV = CL::SameAs<CL::RemoveConstRef<T>, Handle>;
 
 	}
 }

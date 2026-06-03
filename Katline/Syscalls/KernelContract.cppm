@@ -3,6 +3,7 @@ export module Katline:SyscallKernelContract;
 import CommonLib;
 import KatlineAPI;
 import :Paging;
+import :HandleManager;
 import :Scheduler;
 
 export {
@@ -130,6 +131,22 @@ export {
 		return Result<void>::Ok();
 	}
 
+	template<typename T>
+	auto resolve_handle(Handle handle, Arch::HandleKind kind) -> T *
+	{
+		auto *thread { Arch::Scheduler::the().current_thread() };
+		if (!thread || !thread->process)
+			return nullptr;
+
+		return Arch::HandleManager::the().resolve<T>(
+		    thread->process, handle, kind);
+	}
+
+	inline auto validate_handle(Handle handle, Arch::HandleKind kind) -> bool
+	{
+		return resolve_handle<u8>(handle, kind) != nullptr;
+	}
+
 	template<SyscallNumber Id> struct Spec;
 
 	template<SyscallNumber Id>
@@ -169,8 +186,8 @@ template<typename T>
 inline constexpr bool IsUserPointerV = IsUserPointer<T>::Value;
 
 template<typename T>
-inline constexpr bool IsSyscallArgV
-    = CL::IsIntegralV<T> || CL::IsEnumV<T> || IsUserPointerV<T>;
+inline constexpr bool IsSyscallArgV = CL::IsIntegralV<T> || CL::IsEnumV<T>
+    || IsUserPointerV<T> || CL::SameAs<CL::RemoveConstRef<T>, Handle>;
 
 template<usize Index>
 constexpr auto raw_arg_at(u64 arg0, u64 arg1, u64 arg2, u64 arg3, u64 arg4)
@@ -194,6 +211,8 @@ template<typename T> constexpr auto decode_syscall_arg(u64 value) -> T
 
 	if constexpr (IsUserPointerV<T>) {
 		return T::from_raw(value);
+	} else if constexpr (CL::SameAs<CL::RemoveConstRef<T>, Handle>) {
+		return Handle { value };
 	} else {
 		return static_cast<T>(value);
 	}
@@ -203,6 +222,8 @@ template<typename Ret> auto encode_result(Result<Ret> const &result) -> u64
 {
 	if constexpr (CL::SameAs<Ret, void>)
 		return encode_void(result);
+	else if constexpr (CL::SameAs<Ret, Handle>)
+		return encode_handle(result);
 	else
 		return encode_u64(result);
 }
