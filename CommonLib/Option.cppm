@@ -1,7 +1,6 @@
 export module CommonLib:Option;
 
 import :Platform;
-import :StringView;
 import :TypeTraits;
 
 export {
@@ -48,7 +47,7 @@ export {
 			return static_cast<Derived &>(*this).get_unsafe();
 		}
 
-		auto expect(StringView const message) -> T &
+		auto expect(char const *message) -> T &
 		{
 			if (static_cast<Derived &>(*this).is_none())
 				panic(message);

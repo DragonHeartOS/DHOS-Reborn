@@ -1,6 +1,7 @@
 export module CommonLib:Iterator;
 
 import :Option;
+import :Pair;
 import :TypeTraits;
 import :Utility;
 
@@ -15,6 +16,7 @@ export {
 
 	template<class Iter, class F> struct MapIter;
 	template<class Iter, class P> struct FilterIter;
+	template<class Iter> struct EnumerateIter;
 	template<DoubleEndedIterator Iter> struct ReverseIter;
 
 	/// @brief A base class for iterators that provides common iterator methods
@@ -59,6 +61,15 @@ export {
 		{
 			return FilterIter<Self, P>(move(self()), move(pred));
 		}
+		auto enumerate() & = delete ("Iterator must be an rvalue");
+		/// @brief Create a new iterator that yields `(index, value)` pairs.
+		/// @return A new iterator that yields the zero-based index with each
+		/// element from the original iterator.
+		///
+		/// @code
+		/// auto indexed { range(3).enumerate() };
+		/// @endcode
+		auto enumerate() && { return EnumerateIter<Self>(move(self())); }
 		template<class F>
 		void for_each(F f) & = delete ("Iterator must be an rvalue");
 		/// @brief Apply a function to each element of the iterator.
@@ -298,6 +309,28 @@ export {
 			}
 
 			return decltype(next(iter)) {};
+		}
+	};
+
+	template<class Iter> struct EnumerateIter : Iterator<EnumerateIter<Iter>> {
+		Iter iter;
+		usize index {};
+
+		EnumerateIter(Iter iter)
+		    : iter { move(iter) }
+		{
+		}
+
+		auto next()
+		{
+			auto x { iter.next() };
+
+			if (!x)
+				return Option<Pair<usize, decltype(*x)>> {};
+
+			return Option<Pair<usize, decltype(*x)>> {
+				Pair<usize, decltype(*x)> { index++, *x },
+			};
 		}
 	};
 

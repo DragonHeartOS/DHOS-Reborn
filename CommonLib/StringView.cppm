@@ -1,6 +1,8 @@
 export module CommonLib:StringView;
 
 import :Types;
+import :Iterator;
+import :Option;
 
 export {
 	namespace CL {
@@ -8,6 +10,28 @@ export {
 	/// @brief A non-owning view of a string of characters.
 	/// @tparam CharTypeT The type of the characters in the string view.
 	template<typename CharTypeT> struct BaseStringView {
+		struct Iter : Iterator<Iter> {
+			CharTypeT const *current { nullptr };
+			CharTypeT const *end { nullptr };
+
+			auto next() -> Option<CharTypeT const &>
+			{
+				if (current == end)
+					return {};
+
+				return *current++;
+			}
+
+			auto next_back() -> Option<CharTypeT const &>
+			{
+				if (current == end)
+					return {};
+
+				--end;
+				return *end;
+			}
+		};
+
 		static constexpr auto length(CharTypeT const *c_str) -> usize
 		{
 			usize len {};
@@ -47,6 +71,26 @@ export {
 		/// @brief Get the size of the string view.
 		/// @return The size of the string view.
 		constexpr auto size() const -> usize { return m_size; }
+
+		/// @brief Get an iterator over the characters in the string view.
+		/// @return An iterator over the characters in the string view.
+		constexpr auto iter() -> Iter
+		{
+			return Iter {
+				.current = data(),
+				.end = data() + size(),
+			};
+		}
+
+		/// @brief Get an iterator over the characters in the string view.
+		/// @return An iterator over the characters in the string view.
+		constexpr auto iter() const -> Iter
+		{
+			return Iter {
+				.current = data(),
+				.end = data() + size(),
+			};
+		}
 
 		/// @brief Get a substring view of the string view.
 		/// @param start The starting index of the substring.

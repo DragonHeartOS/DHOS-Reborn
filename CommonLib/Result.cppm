@@ -22,13 +22,13 @@ export {
 	constexpr auto require_ok(bool is_ok, StringView message) -> void
 	{
 		if (!is_ok)
-			panic(message);
+			panic(message.data());
 	}
 
 	constexpr auto require_err(bool is_ok, StringView message) -> void
 	{
 		if (is_ok)
-			panic(message);
+			panic(message.data());
 	}
 
 	template<typename T> constexpr auto move_ref(T &value) -> T &&

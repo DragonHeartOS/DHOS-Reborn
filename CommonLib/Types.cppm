@@ -20,4 +20,6 @@ export {
 
 	using uptr = unsigned long;
 	using usize = decltype(sizeof(0));
+
+	using nullptr_t = decltype(nullptr);
 }

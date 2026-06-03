@@ -1,11 +1,11 @@
 export module CommonLib:Platform;
 
-import :StringView;
+import :Types;
 
 export {
 	namespace CL {
 
-	[[noreturn]] void panic(StringView const message);
+	[[noreturn]] void panic(char const *message);
 
 	}
 

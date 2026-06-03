@@ -3,6 +3,8 @@ export module CommonLib:CString;
 import :Types;
 
 export {
+	namespace CL {
+
 	auto strlen(char const *str) -> usize
 	{
 		char const *s;
@@ -113,5 +115,7 @@ export {
 		asm volatile("rep stosb" : "+D"(d), "+c"(bytes) : "a"(b) : "memory");
 
 		return dst;
+	}
+
 	}
 }

@@ -17,6 +17,7 @@ export import :HashMap;
 export import :InitializerList;
 export import :Iterator;
 export import :LinkedList;
+export import :Pair;
 export import :Math;
 export import :Memory;
 export import :Option;
