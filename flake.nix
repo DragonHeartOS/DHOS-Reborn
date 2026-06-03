@@ -29,6 +29,7 @@
                 llvmPackages_21.clang-unwrapped
                 llvmPackages_21.lld
                 llvmPackages_21.clang-tools
+                llvmPackages_21.bintools
                 lldb
                 codespell
 

@@ -17,6 +17,7 @@ include_directories(${CMAKE_CURRENT_LIST_DIR})
 add_subdirectory(CommonLib)
 add_subdirectory(Katline/API)
 add_subdirectory(Libraries)
+add_subdirectory(Applications)
 add_subdirectory(Katline)
 
 add_custom_target(image

@@ -55,7 +55,8 @@ extern "C" void _start()
 		for (char const **entry { envp }; entry && *entry; entry++) {
 			CL::StringView var { *entry };
 
-			auto pos { var.iter().enumerate().find_if([](auto const &x) { return x.second == '='; }) };
+			auto pos { var.iter().enumerate().find_if(
+				[](auto const &x) { return x.second == '='; }) };
 			if (pos.is_none())
 				continue;
 

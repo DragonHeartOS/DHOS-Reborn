@@ -47,6 +47,9 @@ auto drain_logs() -> void;
 void print_formatted(char const *str, ...);
 }
 
+extern "C" void memcpy(void *a, void const *b, usize c) { CL::memcpy(a, b, c); }
+extern "C" void memset(void *a, int v, usize c) { CL::memset(a, v, c); }
+
 namespace Katline {
 
 static auto reserve_mmap_phys_range(Memory::MemoryMap *mmap, uptr hhdm_offset,

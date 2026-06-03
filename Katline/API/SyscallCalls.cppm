@@ -11,15 +11,31 @@ export {
 
 	extern "C" auto syscall_raw(
 	    u64 number, u64 arg0, u64 arg1, u64 arg2, u64 arg3, u64 arg4) -> u64;
-
-#define X(name, id, fn, ret, ...) auto fn(__VA_ARGS__)->Result<ret>;
-#include "SyscallList.def"
-#undef X
-
 	}
 }
 
 namespace Katline::Syscalls {
+
+template<typename ExpectedList, typename ActualList>
+struct AreSyscallArgsCompatible;
+
+template<typename... Expected, typename... Actual>
+struct AreSyscallArgsCompatible<CL::TypeList<Expected...>, CL::TypeList<Actual...>> {
+	static constexpr bool Value = sizeof...(Expected) == sizeof...(Actual)
+	    && (__is_constructible(Expected, Actual) && ...);
+};
+
+template<typename ExpectedList, typename ActualList>
+inline constexpr bool AreSyscallArgsCompatibleV
+	= AreSyscallArgsCompatible<ExpectedList, ActualList>::Value;
+
+template<typename Ret, typename... Expected, typename... Actual>
+auto invoke_userspace_typed(
+	SyscallNumber id, CL::TypeList<Expected...>, Actual... args) -> Result<Ret>
+{
+	static_assert(sizeof...(Expected) == sizeof...(Actual));
+	return invoke_userspace<Ret>(id, Expected(args)...);
+}
 
 template<typename T> struct IsUserPointer {
 	static constexpr bool Value = false;
@@ -96,6 +112,24 @@ auto invoke_userspace(SyscallNumber id, A0 a0) -> Result<Ret>
 	    syscall_raw(static_cast<u64>(id), encode_syscall_arg(a0), 0, 0, 0, 0));
 }
 
+extern "C" auto syscall_raw(
+    u64 number, u64 arg0, u64 arg1, u64 arg2, u64 arg3, u64 arg4) -> u64
+{
+	register u64 rax asm("rax") = number;
+	register u64 rdi asm("rdi") = arg0;
+	register u64 rsi asm("rsi") = arg1;
+	register u64 rdx asm("rdx") = arg2;
+	register u64 r10 asm("r10") = arg3;
+	register u64 r8 asm("r8") = arg4;
+
+	asm volatile("syscall"
+	    : "+a"(rax)
+	    : "D"(rdi), "S"(rsi), "d"(rdx), "r"(r10), "r"(r8)
+	    : "rcx", "r11", "memory");
+
+	return rax;
+}
+
 template<typename Ret, typename A0, typename A1>
 auto invoke_userspace(SyscallNumber id, A0 a0, A1 a1) -> Result<Ret>
 {
@@ -131,12 +165,13 @@ auto invoke_userspace(SyscallNumber id, A0 a0, A1 a1, A2 a2, A3 a3, A4 a4)
 }
 
 #define X(name, id, fn, ret, ...) \
-	template<typename... A> auto fn(A... args) -> Result<ret> \
+	export template<typename... A> auto fn(A... args) -> Result<ret> \
 	{ \
+		using ExpectedArgs = CL::TypeList<__VA_ARGS__>; \
 		static_assert( \
-		    CL::SameAs<CL::TypeList<A...>, CL::TypeList<__VA_ARGS__>>, \
-		    "syscall wrapper argument types must match SyscallList.def"); \
-		return invoke_userspace<ret>(SyscallNumber::name, args...); \
+		    AreSyscallArgsCompatibleV<ExpectedArgs, CL::TypeList<A...>>, \
+		    "syscall wrapper argument types must be constructible to those declared in SyscallList.def"); \
+		return invoke_userspace_typed<ret>(SyscallNumber::name, ExpectedArgs {}, args...); \
 	}
 #include "SyscallList.def"
 #undef X
