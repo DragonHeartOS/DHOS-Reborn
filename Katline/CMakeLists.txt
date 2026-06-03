@@ -20,8 +20,11 @@ target_sources(${KERNEL_TARGET}_core
 )
 target_link_libraries(${KERNEL_TARGET}_core PRIVATE CommonLib KatlineAPI)
 target_include_directories(${KERNEL_TARGET}_core PUBLIC .)
+target_compile_definitions(${KERNEL_TARGET}_core PRIVATE KATLINE_BOOTSTRAP_BIN_PATH="${BOOTSTRAP_BIN_PATH}")
+target_include_directories(${KERNEL_TARGET}_core PRIVATE "${CMAKE_BINARY_DIR}/Applications/Bootstrap")
 target_compile_options(${KERNEL_TARGET}_core PRIVATE
     $<$<COMPILE_LANGUAGE:CXX>:${CXX_COMPILER_FLAGS} ${KERNEL_CXX_FLAGS}>)
+add_dependencies(${KERNEL_TARGET}_core BootstrapImage)
 
 add_executable(${KERNEL_TARGET}_seed
     $<TARGET_OBJECTS:${KERNEL_TARGET}_core>
@@ -55,3 +58,4 @@ set_property(TARGET ${KERNEL_TARGET} PROPERTY OUTPUT_NAME Katline)
 set_property(TARGET ${KERNEL_TARGET} PROPERTY LINK_FLAGS "${KERNEL_LINK_FLAGS}")
 target_compile_options(${KERNEL_TARGET} PRIVATE
     $<$<COMPILE_LANGUAGE:CXX>:${CXX_COMPILER_FLAGS} ${KERNEL_CXX_FLAGS}>)
+add_dependencies(${KERNEL_TARGET} BootstrapImage)

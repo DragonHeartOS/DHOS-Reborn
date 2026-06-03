@@ -16,6 +16,7 @@ target_compile_options(Bootstrap PRIVATE
 set_property(TARGET Bootstrap PROPERTY LINK_FLAGS "-nostdlib -static -T ${CMAKE_CURRENT_SOURCE_DIR}/linker.ld")
 
 set(BOOTSTRAP_BIN "${CMAKE_CURRENT_BINARY_DIR}/Bootstrap.bin")
+set(BOOTSTRAP_ENTRY_HEADER "${CMAKE_CURRENT_BINARY_DIR}/BootstrapEntry.h")
 
 add_custom_command(
 	OUTPUT ${BOOTSTRAP_BIN}
@@ -24,6 +25,14 @@ add_custom_command(
 	VERBATIM
 )
 
-add_custom_target(BootstrapImage ALL DEPENDS ${BOOTSTRAP_BIN})
+add_custom_command(
+	OUTPUT ${BOOTSTRAP_ENTRY_HEADER}
+	COMMAND python3 "${CMAKE_SOURCE_DIR}/Util/GenerateBootstrapEntry.py" "${BOOTSTRAP_ENTRY_HEADER}" "$<TARGET_FILE:Bootstrap>"
+	DEPENDS Bootstrap "${CMAKE_SOURCE_DIR}/Util/GenerateBootstrapEntry.py"
+	VERBATIM
+)
+
+add_custom_target(BootstrapImage ALL DEPENDS ${BOOTSTRAP_BIN} ${BOOTSTRAP_ENTRY_HEADER})
 
 set(BOOTSTRAP_BIN_PATH ${BOOTSTRAP_BIN} CACHE INTERNAL "Bootstrap binary output path")
+set(BOOTSTRAP_ENTRY_HEADER_PATH ${BOOTSTRAP_ENTRY_HEADER} CACHE INTERNAL "Bootstrap entry header path")
