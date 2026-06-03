@@ -48,6 +48,33 @@ export {
 		/// @return The size of the string view.
 		constexpr auto size() const -> usize { return m_size; }
 
+		/// @brief Get a substring view of the string view.
+		/// @param start The starting index of the substring.
+		/// @param count The number of characters in the substring.
+		/// @return A BaseStringView into the string view.
+		constexpr auto substring(usize start, usize count) const
+		    -> BaseStringView<CharTypeT>
+		{
+			if (start >= size())
+				return {};
+
+			if (start + count > size())
+				count = size() - start;
+
+			return BaseStringView(data() + start, count);
+		}
+
+		/// @brief Get a substring view of the string view.
+		/// @param start The starting index of the substring.
+		/// @return A BaseStringView into the string view.
+		constexpr auto substring(usize start) const -> BaseStringView<CharTypeT>
+		{
+			if (start >= size())
+				return {};
+
+			return BaseStringView(data() + start, size() - start);
+		}
+
 		// /// @brief Get a span over the string view.
 		// /// @return A span over the string view.
 		// constexpr auto span() const -> Span<CharTypeT const>
