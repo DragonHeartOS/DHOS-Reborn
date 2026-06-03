@@ -610,13 +610,12 @@ void Scheduler::reap_zombies()
 		return;
 
 	CL::ArrayList<Thread *> survivors;
-	for (usize i {}; i < m_zombies.size(); i++) {
-		auto *thread { m_zombies[i] };
+	m_zombies.iter().for_each([&](auto *thread) {
 		if (!thread)
-			continue;
+			return;
 		if (thread->handle_count > 0) {
 			survivors.push(thread);
-			continue;
+			return;
 		}
 
 		auto *process { thread->process };
@@ -644,7 +643,7 @@ void Scheduler::reap_zombies()
 			process->state = ProcessState::Dead;
 			Arch::HandleManager::the().release_owned_handles(process);
 		}
-	}
+	});
 	m_zombies = CL::move(survivors);
 }
 
