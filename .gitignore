@@ -17,3 +17,4 @@ Toolchain/build*
 Toolchain/binutils*
 Toolchain/gcc*
 .direnv
+result
