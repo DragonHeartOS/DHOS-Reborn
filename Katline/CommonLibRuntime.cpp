@@ -1,9 +1,10 @@
 module CommonLib;
 
 import :Platform;
+import :StringView;
 import Katline;
 
-auto CL::panic(CL::StringView const message) -> void
+auto CL::panic(char const *message) -> void
 {
-	Katline::kpanic(message);
+	Katline::kpanic(CL::StringView(message));
 }

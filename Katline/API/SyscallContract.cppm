@@ -8,7 +8,23 @@ export {
 	namespace Katline::Syscalls {
 
 	template<typename T> struct UserPtr {
+		constexpr UserPtr() = default;
+		constexpr UserPtr(nullptr_t)
+		    : raw(0)
+		{
+		}
+		constexpr UserPtr(T *ptr)
+		    : raw(reinterpret_cast<u64>(ptr))
+		{
+		}
+
 		u64 raw {};
+
+		constexpr auto operator=(nullptr_t) -> UserPtr &
+		{
+			raw = 0;
+			return *this;
+		}
 
 		static constexpr auto from_raw(u64 value) -> UserPtr
 		{
@@ -21,6 +37,15 @@ export {
 	};
 
 	template<typename T> struct UserPtrConst {
+		constexpr UserPtrConst() = default;
+		constexpr UserPtrConst(nullptr_t)
+		    : raw(0)
+		{
+		}
+		constexpr UserPtrConst(T *ptr)
+		    : raw(reinterpret_cast<u64>(ptr))
+		{
+		}
 		u64 raw {};
 
 		static constexpr auto from_raw(u64 value) -> UserPtrConst

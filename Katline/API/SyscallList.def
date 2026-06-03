@@ -1,5 +1,5 @@
-X(ProcessCurrent, 0, sys_process_current, Handle)
-X(ThreadCurrent, 1, sys_thread_current, Handle)
+X(ProcessCurrent, 0, sys_get_process_current, Handle)
+X(ThreadCurrent, 1, sys_get_thread_current, Handle)
 X(Yield, 2, sys_yield, void)
 X(Exit, 3, sys_exit, void, i32 /* exit code */)
 X(IPCSend, 4, sys_ipc_send, void, u64 /* endpoint */, UserPtrConst<IPC::Message> /* message */, u64 /* flags */)
