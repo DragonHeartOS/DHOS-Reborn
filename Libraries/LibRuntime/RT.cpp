@@ -5,7 +5,7 @@ extern "C" [[gnu::weak]]
 int main(int argc, char const **argv, char const **envp);
 
 extern "C" [[gnu::weak]]
-int katline_main(CL::Span<CL::StringView> args,
+int dhos_main(CL::Span<CL::StringView> args,
     CL::HashMap<CL::StringView, CL::StringView> environ);
 
 extern "C" void _start()
@@ -45,7 +45,7 @@ extern "C" void _start()
 	args.emplace(process_info.name);
 
 	int ret {};
-	if (katline_main) {
+	if (dhos_main) {
 		CL::ArrayList<CL::StringView> args;
 		for (usize i {}; i < args.size(); ++i)
 			args.emplace(CL::StringView { args[i] });
@@ -64,7 +64,7 @@ extern "C" void _start()
 			    var.substring(0, pos->first), var.substring(pos->first + 1));
 		}
 
-		ret = katline_main(args.span(), environ);
+		ret = dhos_main(args.span(), environ);
 	} else if (main) {
 		ret = main(static_cast<int>(args.size()), args.data(), envp);
 	} else {
