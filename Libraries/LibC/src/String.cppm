@@ -4,6 +4,8 @@ module;
 
 export module LibC:String;
 
+import CommonLib;
+
 export {
 
 	extern "C" [[gnu::used]] size_t strlen(char const *str)

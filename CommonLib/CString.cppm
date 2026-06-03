@@ -57,7 +57,7 @@ export {
 		revstr(s);
 	}
 
-	extern "C" auto memcpy(void *dst, void const *src, usize size) -> void *
+	auto memcpy(void *dst, void const *src, usize size) -> void *
 	{
 		auto *d = reinterpret_cast<u8 *>(dst);
 		auto const *s = reinterpret_cast<u8 const *>(src);
@@ -75,7 +75,7 @@ export {
 		return dst;
 	}
 
-	extern "C" auto memmove(void *dst, void const *src, usize size) -> void *
+	auto memmove(void *dst, void const *src, usize size) -> void *
 	{
 		auto *d = reinterpret_cast<u8 *>(dst);
 		auto const *s = reinterpret_cast<u8 const *>(src);
@@ -97,7 +97,7 @@ export {
 		return dst;
 	}
 
-	extern "C" auto memset(void *dst, int value, usize size) -> void *
+	auto memset(void *dst, int value, usize size) -> void *
 	{
 		auto *d = reinterpret_cast<u8 *>(dst);
 		u8 b = static_cast<u8>(value);
