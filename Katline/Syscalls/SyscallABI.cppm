@@ -33,7 +33,6 @@ static constexpr u32 ia32_fmask { 0xc0000084 };
 static constexpr u64 efer_syscall_enable { 1ull << 0 };
 
 static constexpr u16 kernel_code_selector { 0x08 };
-static constexpr u16 user_code_selector { 0x1b };
 
 auto init() -> void
 {
@@ -42,7 +41,7 @@ auto init() -> void
 	Arch::wrmsr(ia32_efer, efer);
 
 	auto const star {
-		(static_cast<u64>(user_code_selector - 16) << 48)
+		(static_cast<u64>(Arch::user_code_selector - 16) << 48)
 		    | (static_cast<u64>(kernel_code_selector) << 32),
 	};
 	Arch::wrmsr(ia32_star, star);
@@ -56,6 +55,10 @@ auto init() -> void
 extern "C" [[gnu::naked]] auto syscall_entry() -> void
 {
 	asm volatile("movq %rsp, %r14\n\t"
+	             "pushq %rbx\n\t"
+	             "pushq %rbp\n\t"
+	             "pushq %r12\n\t"
+	             "pushq %r13\n\t"
 	             "pushq %r8\n\t"
 	             "pushq %r11\n\t"
 	             "pushq %rcx\n\t"
@@ -73,10 +76,14 @@ extern "C" [[gnu::naked]] auto syscall_entry() -> void
 	             "movq %rbp, %rdx\n\t"
 	             "movq %r12, %rcx\n\t"
 	             "movq %r13, %r8\n\t"
-	             "movq -24(%r14), %r9\n\t"
+	             "movq -40(%r14), %r9\n\t"
 	             "callq dispatch_raw\n\t"
-	             "movq -8(%r14), %rcx\n\t"
-	             "movq -16(%r14), %r11\n\t"
+	             "movq -8(%r14), %rbx\n\t"
+	             "movq -16(%r14), %rbp\n\t"
+	             "movq -24(%r14), %r12\n\t"
+	             "movq -32(%r14), %r13\n\t"
+	             "movq -56(%r14), %rcx\n\t"
+	             "movq -48(%r14), %r11\n\t"
 	             "movq %r14, %rsp\n\t"
 	             "sysretq\n\t"
 	             "1:\n\t"

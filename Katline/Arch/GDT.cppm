@@ -6,6 +6,8 @@ import :Debug;
 
 export {
 	namespace Katline::Arch {
+	constexpr u16 user_code_selector { 0x1b };
+	constexpr u16 user_data_selector { 0x23 };
 
 	struct [[gnu::packed]] GDTEntry {
 		u16 limit0 {};

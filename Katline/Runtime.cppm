@@ -16,6 +16,7 @@ import :Paging;
 import :MemoryManager;
 import :HandleManager;
 import :SyscallABI;
+import :Bootstrap;
 
 export {
 	namespace Katline {
@@ -247,6 +248,8 @@ auto katline_main(StartupInfo &info) -> void
 
 	k_bsp_initialized.store(true, CL::MemoryOrder::Release);
 	Debug::drain_logs();
+	launch_bootstrap_process();
+	Arch::Scheduler::the().yield();
 
 	u64 last_logged {};
 	for (;;) {

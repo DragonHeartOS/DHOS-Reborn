@@ -6,6 +6,7 @@ import :Thread;
 import :Debug;
 import :GDT;
 import :HandleManager;
+import :Paging;
 import :Sync;
 
 export {
@@ -21,10 +22,14 @@ export {
 		void init();
 		void init_current_cpu();
 		auto create_process(Process *parent, u64 cr3) -> Process *;
+		auto create_user_process(Process *parent) -> Process *;
 		auto adopt_current_thread(
 		    Process *process, uptr stack_base, usize stack_size) -> Thread *;
 		auto make_thread(Process *process, uptr function_ptr,
 		    bool add_to_list = true) -> Thread *;
+		auto make_user_thread(Process *process, uptr function_ptr,
+		    uptr user_stack_top, bool add_to_list = false) -> Thread *;
+		auto start_thread(Thread *thread) -> bool;
 		void schedule();
 		auto pick_next_thread() -> Thread *;
 		auto current_thread() -> Thread *;
@@ -135,6 +140,15 @@ auto Scheduler::create_process(Process *parent, u64 cr3) -> Process *
 		m_processes.push(process);
 	}
 	return process;
+}
+
+auto Scheduler::create_user_process(Process *parent) -> Process *
+{
+	auto *root { Arch::Paging::clone_kernel_address_space() };
+	if (!root)
+		return nullptr;
+
+	return create_process(parent, Arch::Paging::phys_address(root));
 }
 
 void Scheduler::init_current_cpu()
@@ -276,6 +290,83 @@ auto Scheduler::make_thread(
 	Debug::drain_logs();
 
 	return th;
+}
+
+auto Scheduler::make_user_thread(Process *process, uptr function_ptr,
+    uptr user_stack_top, bool add_to_list) -> Thread *
+{
+	auto *cpu { current_cpu_state() };
+	if (!cpu || !process || !function_ptr || !user_stack_top)
+		return nullptr;
+
+	auto *th { new Thread {} };
+
+	{
+		Sync::ScopedIrqSpinLock guard { m_global_lock };
+		th->tid = { ++m_tid_counter };
+	}
+
+	th->tstate = ThreadState::Created;
+	th->entry_point = function_ptr;
+	th->process = process;
+
+	th->kernel_stack_base = reinterpret_cast<uptr>(new u8[KERNEL_STACK_SIZE]);
+	th->kernel_stack_size = KERNEL_STACK_SIZE;
+
+	auto stack_top { user_stack_top & ~0xFull };
+	stack_top -= 8;
+
+	th->context = CPUContext {};
+	th->context.rsp = stack_top;
+	th->context.rip = function_ptr;
+	th->context.rflags = 0x202;
+	th->context.cs = user_code_selector;
+	th->context.ss = user_data_selector;
+	th->context.ds = user_data_selector;
+	th->context.es = user_data_selector;
+	th->context.fs = user_data_selector;
+	th->context.gs = user_data_selector;
+
+	th->slice_remaining = m_default_slice_ticks;
+	th->stack_is_heap_allocated = true;
+	th->home_lapic_id = cpu->lapic_id;
+	th->last_lapic_id = cpu->lapic_id;
+
+	{
+		Sync::ScopedIrqSpinLock guard { m_global_lock };
+		process->threads.push(th);
+	}
+
+	if (add_to_list && th->tstate == ThreadState::Ready) {
+		Sync::ScopedIrqSpinLock guard { cpu->queue_lock };
+		enqueue_ready(*cpu, th);
+	}
+
+	Debug::print_formatted("[Scheduler] CPU %d created user thread pid=%d "
+	                       "tid=%d rip=0x%016x rsp=0x%016x entry=0x%016x\n",
+	    static_cast<int>(cpu->lapic_id), process->pid.id, th->tid.id,
+	    th->context.rip, th->context.rsp, th->entry_point);
+	Debug::drain_logs();
+
+	return th;
+}
+
+auto Scheduler::start_thread(Thread *thread) -> bool
+{
+	if (!thread || thread->tstate != ThreadState::Created)
+		return false;
+
+	thread->tstate = ThreadState::Ready;
+
+	auto *cpu { find_cpu_state(thread->home_lapic_id) };
+	if (!cpu || !cpu->online)
+		cpu = current_cpu_state();
+	if (!cpu)
+		return false;
+
+	Sync::ScopedIrqSpinLock guard { cpu->queue_lock };
+	enqueue_ready(*cpu, thread);
+	return true;
 }
 
 void Scheduler::schedule()

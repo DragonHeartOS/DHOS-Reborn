@@ -20,18 +20,19 @@ template<typename ExpectedList, typename ActualList>
 struct AreSyscallArgsCompatible;
 
 template<typename... Expected, typename... Actual>
-struct AreSyscallArgsCompatible<CL::TypeList<Expected...>, CL::TypeList<Actual...>> {
+struct AreSyscallArgsCompatible<CL::TypeList<Expected...>,
+    CL::TypeList<Actual...>> {
 	static constexpr bool Value = sizeof...(Expected) == sizeof...(Actual)
 	    && (__is_constructible(Expected, Actual) && ...);
 };
 
 template<typename ExpectedList, typename ActualList>
 inline constexpr bool AreSyscallArgsCompatibleV
-	= AreSyscallArgsCompatible<ExpectedList, ActualList>::Value;
+    = AreSyscallArgsCompatible<ExpectedList, ActualList>::Value;
 
 template<typename Ret, typename... Expected, typename... Actual>
 auto invoke_userspace_typed(
-	SyscallNumber id, CL::TypeList<Expected...>, Actual... args) -> Result<Ret>
+    SyscallNumber id, CL::TypeList<Expected...>, Actual... args) -> Result<Ret>
 {
 	static_assert(sizeof...(Expected) == sizeof...(Actual));
 	return invoke_userspace<Ret>(id, Expected(args)...);
@@ -170,8 +171,10 @@ auto invoke_userspace(SyscallNumber id, A0 a0, A1 a1, A2 a2, A3 a3, A4 a4)
 		using ExpectedArgs = CL::TypeList<__VA_ARGS__>; \
 		static_assert( \
 		    AreSyscallArgsCompatibleV<ExpectedArgs, CL::TypeList<A...>>, \
-		    "syscall wrapper argument types must be constructible to those declared in SyscallList.def"); \
-		return invoke_userspace_typed<ret>(SyscallNumber::name, ExpectedArgs {}, args...); \
+		    "syscall wrapper argument types must be constructible to those " \
+		    "declared in SyscallList.def"); \
+		return invoke_userspace_typed<ret>( \
+		    SyscallNumber::name, ExpectedArgs {}, args...); \
 	}
 #include "SyscallList.def"
 #undef X

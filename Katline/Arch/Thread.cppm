@@ -8,6 +8,7 @@ export {
 	namespace Katline::Arch {
 
 	enum class ThreadState : u8 {
+		Created,
 		Ready,
 		Running,
 		Blocked,

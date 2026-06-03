@@ -66,7 +66,9 @@ export {
 	auto current_root() -> PageTable *;
 	auto phys_address(PageTable const *table) -> uptr;
 	auto phys_to_virt(uptr phys) -> void *;
+	auto virt_to_phys(void const *virt) -> uptr;
 	auto create_table() -> PageTable *;
+	auto clone_kernel_address_space() -> PageTable *;
 
 	auto map(PageTable *root, uptr virt, uptr phys, PageFlags flags) -> bool;
 
@@ -126,7 +128,7 @@ auto phys_to_virt(uptr phys) -> void *
 	return reinterpret_cast<void *>(phys + g_hhdm_offset);
 }
 
-static auto virt_to_phys(void const *virt) -> uptr
+auto virt_to_phys(void const *virt) -> uptr
 {
 	return reinterpret_cast<uptr>(virt) - g_hhdm_offset;
 }
@@ -323,6 +325,22 @@ auto clone_address_space(PageTable const *root) -> PageTable *
 auto clone_current_address_space() -> PageTable *
 {
 	return clone_address_space(current_root());
+}
+
+auto clone_kernel_address_space() -> PageTable *
+{
+	auto *const current { current_root() };
+	if (!current)
+		return nullptr;
+
+	auto *root { create_table() };
+	if (!root)
+		return nullptr;
+
+	for (usize i { 256 }; i < 512; ++i)
+		root->entries[i] = current->entries[i];
+
+	return root;
 }
 
 }

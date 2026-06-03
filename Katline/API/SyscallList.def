@@ -7,3 +7,6 @@ X(IPCReceive, 5, sys_ipc_receive, void, UserPtr<IPC::Message> /* out_message */,
 X(HandleClose, 6, sys_handle_close, void, Handle)
 X(HandleDuplicate, 7, sys_handle_duplicate, Handle, Handle)
 X(GetProcessInfo, 8, sys_get_process_info, void, Handle /* process_handle */, UserPtr<ProcessInfo> /* out_process_info */, UserPtr<u64> /* in_out_buffer_size */)
+X(ProcessCreate, 9, sys_process_create, Handle)
+X(ThreadCreate, 10, sys_thread_create, Handle, Handle /* process_handle */, u64 /* entry */, u64 /* stack */)
+X(ThreadStart, 11, sys_thread_start, void, Handle /* thread_handle */)
