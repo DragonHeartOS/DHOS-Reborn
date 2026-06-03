@@ -42,7 +42,8 @@ export {
 			auto *const user_ptr { reinterpret_cast<u8 *>(
 				Arch::Paging::phys_to_virt(page->physical)) };
 
-			memcpy(reinterpret_cast<u8 *>(buffer) + copied, user_ptr, chunk);
+			memcpy(reinterpret_cast<u8 *>(buffer) + copied,
+			    user_ptr + page_offset, chunk);
 
 			copied += chunk;
 		}
@@ -78,8 +79,8 @@ export {
 			auto *const user_ptr { reinterpret_cast<u8 *>(
 				Arch::Paging::phys_to_virt(page->physical)) };
 
-			memcpy(
-			    user_ptr, reinterpret_cast<u8 const *>(buffer) + copied, chunk);
+			memcpy(user_ptr + page_offset,
+			    reinterpret_cast<u8 const *>(buffer) + copied, chunk);
 
 			copied += chunk;
 		}
@@ -126,6 +127,28 @@ export {
 			return Result<void>::Err(ErrorsV::BadAddress {});
 
 		if (!copy_to_user(raw, &value, sizeof(T)))
+			return Result<void>::Err(ErrorsV::BadAddress {});
+
+		return Result<void>::Ok();
+	}
+
+	template<typename T>
+	inline auto copy_out(UserPtr<T> ptr, void const *value, usize size)
+	    -> Result<void>
+	{
+		auto *thread { Arch::Scheduler::the().current_thread() };
+		if (!thread || !thread->process)
+			return Result<void>::Err(ErrorsV::InvalidArgument {});
+
+		auto const raw { ptr.addr() };
+		if (ptr.is_null() || size > user_space_limit
+		    || !is_valid_user_address(raw) || raw > user_space_limit - size)
+			return Result<void>::Err(ErrorsV::BadAddress {});
+
+		if (size != 0 && !value)
+			return Result<void>::Err(ErrorsV::InvalidArgument {});
+
+		if (!copy_to_user(raw, reinterpret_cast<u8 const *>(value), size))
 			return Result<void>::Err(ErrorsV::BadAddress {});
 
 		return Result<void>::Ok();

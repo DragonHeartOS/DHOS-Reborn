@@ -1,19 +1,11 @@
 export module Katline:Thread;
 
 import CommonLib;
-import :CPU;
 import KatlineAPI;
+import :CPU;
 
 export {
 	namespace Katline::Arch {
-
-	struct ProcessID {
-		u64 id;
-	};
-
-	struct ThreadID {
-		u64 id;
-	};
 
 	enum class ThreadState : u8 {
 		Ready,
@@ -39,6 +31,7 @@ export {
 		Process *parent {};
 
 		ProcessID pid {};
+		CL::String name {};
 		u64 handle_count {};
 		ProcessState state { ProcessState::Running };
 		CL::ArrayList<Thread *> threads {};

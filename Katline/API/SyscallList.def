@@ -6,3 +6,4 @@ X(IPCSend, 4, sys_ipc_send, void, u64 /* endpoint */, UserPtrConst<IPC::Message>
 X(IPCReceive, 5, sys_ipc_receive, void, UserPtr<IPC::Message> /* out_message */, u64 /* flags */)
 X(HandleClose, 6, sys_handle_close, void, Handle)
 X(HandleDuplicate, 7, sys_handle_duplicate, Handle, Handle)
+X(GetProcessInfo, 8, sys_get_process_info, void, Handle /* process_handle */, UserPtr<ProcessInfo> /* out_process_info */, UserPtr<u64> /* in_out_buffer_size */)
