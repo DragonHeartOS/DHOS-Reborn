@@ -9,11 +9,9 @@ import :Scheduler;
 export {
 	namespace Katline::Syscalls {
 
-	inline constexpr uptr user_space_limit { 0x0000800000000000ull };
-
 	constexpr auto is_valid_user_address(uptr addr) -> bool
 	{
-		return addr < user_space_limit && (addr >> 48) == 0;
+		return addr < Arch::k_user_space_limit && (addr >> 48) == 0;
 	}
 
 	template<typename T>
@@ -98,9 +96,9 @@ export {
 			return Result<T>::Err(ErrorsV::InvalidArgument {});
 
 		auto const raw { ptr.addr() };
-		if (ptr.is_null() || sizeof(T) > user_space_limit
+		if (ptr.is_null() || sizeof(T) > Arch::k_user_space_limit
 		    || !is_valid_user_address(raw)
-		    || raw > user_space_limit - sizeof(T))
+		    || raw > Arch::k_user_space_limit - sizeof(T))
 			return Result<T>::Err(ErrorsV::BadAddress {});
 
 		T value {};
@@ -121,9 +119,9 @@ export {
 			return Result<void>::Err(ErrorsV::InvalidArgument {});
 
 		auto const raw { ptr.addr() };
-		if (ptr.is_null() || sizeof(T) > user_space_limit
+		if (ptr.is_null() || sizeof(T) > Arch::k_user_space_limit
 		    || !is_valid_user_address(raw)
-		    || raw > user_space_limit - sizeof(T))
+		    || raw > Arch::k_user_space_limit - sizeof(T))
 			return Result<void>::Err(ErrorsV::BadAddress {});
 
 		if (!copy_to_user(raw, &value, sizeof(T)))
@@ -141,8 +139,9 @@ export {
 			return Result<void>::Err(ErrorsV::InvalidArgument {});
 
 		auto const raw { ptr.addr() };
-		if (ptr.is_null() || size > user_space_limit
-		    || !is_valid_user_address(raw) || raw > user_space_limit - size)
+		if (ptr.is_null() || size > Arch::k_user_space_limit
+		    || !is_valid_user_address(raw)
+		    || raw > Arch::k_user_space_limit - size)
 			return Result<void>::Err(ErrorsV::BadAddress {});
 
 		if (size != 0 && !value)
@@ -190,27 +189,8 @@ template<SyscallNumber Id> struct ArgsOf;
 	template<> struct ArgsOf<SyscallNumber::name> { \
 		using Type = CL::TypeList<__VA_ARGS__>; \
 	};
-#include <Katline/API/SyscallList.def>
+#include "Katline/API/SyscallList.def"
 #undef X
-
-template<typename T> struct IsUserPointer {
-	static constexpr bool Value = false;
-};
-
-template<typename T> struct IsUserPointer<UserPtr<T>> {
-	static constexpr bool Value = true;
-};
-
-template<typename T> struct IsUserPointer<UserPtrConst<T>> {
-	static constexpr bool Value = true;
-};
-
-template<typename T>
-inline constexpr bool IsUserPointerV = IsUserPointer<T>::Value;
-
-template<typename T>
-inline constexpr bool IsSyscallArgV = CL::IsIntegralV<T> || CL::IsEnumV<T>
-    || IsUserPointerV<T> || CL::SameAs<CL::RemoveConstRef<T>, Handle>;
 
 template<usize Index>
 constexpr auto raw_arg_at(u64 arg0, u64 arg1, u64 arg2, u64 arg3, u64 arg4)
@@ -236,6 +216,9 @@ template<typename T> constexpr auto decode_syscall_arg(u64 value) -> T
 		return T::from_raw(value);
 	} else if constexpr (CL::SameAs<CL::RemoveConstRef<T>, Handle>) {
 		return Handle { value };
+	} else if constexpr (IsFlagsV<T>) {
+		return T { static_cast<typename CL::RemoveConstRef<T>::Underlying>(
+			value) };
 	} else {
 		return static_cast<T>(value);
 	}

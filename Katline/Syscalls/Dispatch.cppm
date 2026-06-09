@@ -33,7 +33,7 @@ extern "C" auto dispatch_raw(
 #define X(name, id, fn, ret, ...) \
 	case SyscallNumber::name: \
 		return invoke_typed<SyscallNumber::name>(arg0, arg1, arg2, arg3, arg4);
-#include <Katline/API/SyscallList.def>
+#include "Katline/API/SyscallList.def"
 #undef X
 	default:
 		break;

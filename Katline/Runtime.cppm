@@ -5,6 +5,7 @@ import :FramebufferController;
 import :Thread;
 import :Logo;
 import :SerialController;
+import :ArchConstants;
 import :MemoryData;
 import :CPU;
 import :GDT;
@@ -170,15 +171,19 @@ auto katline_main(StartupInfo &info) -> void
 
 	auto *const current_root { Arch::Paging::current_root() };
 	auto const rsp { Arch::current_rsp() };
-	auto const stack_top { (rsp + 4095ull) & ~4095ull };
+	auto const stack_top {
+		(rsp + Arch::k_page_size - 1) & ~Arch::k_page_mask,
+	};
 	auto const stack_start {
 		stack_top > info.stack_size ? stack_top - info.stack_size : 0
 	};
-	for (uptr virt { stack_start }; virt < stack_top; virt += 4096ull) {
+	for (uptr virt { stack_start }; virt < stack_top;
+	    virt += Arch::k_page_size) {
 		auto const phys { Arch::Paging::translate(current_root, virt) };
 		if (phys) {
-			reserve_mmap_phys_range(info.mmap, info.hhdm_offset, *phys, 4096);
-			Memory::FA::reserve_phys_range(*phys, 4096);
+			reserve_mmap_phys_range(
+			    info.mmap, info.hhdm_offset, *phys, Arch::k_page_size);
+			Memory::FA::reserve_phys_range(*phys, Arch::k_page_size);
 		}
 	}
 	Memory::MM::init(info.mmap);
@@ -247,7 +252,7 @@ void boot_cpu(u32 lapic_id, u32 processor_id, u64 extra, u64 tsc_freq)
 
 	Arch::Scheduler::the().init();
 	auto const rsp { Arch::current_rsp() };
-	auto const stack_top { (rsp + 4095ull) & ~4095ull };
+	auto const stack_top { (rsp + Arch::k_page_size - 1) & ~Arch::k_page_mask };
 	auto const stack_start { stack_top > 65536ull ? stack_top - 65536ull : 0 };
 	Arch::Scheduler::the().adopt_current_thread(
 	    Arch::k_process, stack_start, 65536ull);

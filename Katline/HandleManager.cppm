@@ -2,6 +2,7 @@ export module Katline:HandleManager;
 
 import CommonLib;
 import KatlineAPI;
+import :MemoryObject;
 import :Thread;
 import :Sync;
 
@@ -83,6 +84,8 @@ auto HandleManager::retain_object(HandleKind kind, void *object) -> void
 		static_cast<Thread *>(object)->handle_count++;
 		break;
 	case HandleKind::MemoryObject:
+		Memory::retain_memory_object(
+		    static_cast<Memory::MemoryObject *>(object));
 		break;
 	}
 }
@@ -106,6 +109,8 @@ auto HandleManager::release_object(HandleKind kind, void *object) -> void
 		break;
 	}
 	case HandleKind::MemoryObject:
+		Memory::release_memory_object(
+		    static_cast<Memory::MemoryObject *>(object));
 		break;
 	}
 }

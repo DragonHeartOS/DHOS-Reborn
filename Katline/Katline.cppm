@@ -8,6 +8,8 @@ export import :MemoryData;
 export import :Heap;
 export import :MemoryManager;
 export import :FrameAllocator;
+export import :MemoryObject;
+export import :ArchConstants;
 export import :Paging;
 export import :Debug;
 export import :Panic;

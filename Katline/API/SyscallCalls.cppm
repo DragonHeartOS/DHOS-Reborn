@@ -38,25 +38,6 @@ auto invoke_userspace_typed(
 	return invoke_userspace<Ret>(id, Expected(args)...);
 }
 
-template<typename T> struct IsUserPointer {
-	static constexpr bool Value = false;
-};
-
-template<typename T> struct IsUserPointer<UserPtr<T>> {
-	static constexpr bool Value = true;
-};
-
-template<typename T> struct IsUserPointer<UserPtrConst<T>> {
-	static constexpr bool Value = true;
-};
-
-template<typename T>
-inline constexpr bool IsUserPointerV = IsUserPointer<T>::Value;
-
-template<typename T>
-inline constexpr bool IsSyscallArgV
-    = CL::IsIntegralV<T> || CL::IsEnumV<T> || IsUserPointerV<T> || IsHandleV<T>;
-
 template<typename T> constexpr auto encode_syscall_arg(T value) -> u64
 {
 	static_assert(IsSyscallArgV<T>, "unsupported syscall argument type");
@@ -65,6 +46,8 @@ template<typename T> constexpr auto encode_syscall_arg(T value) -> u64
 		return value.id;
 	} else if constexpr (IsUserPointerV<T>) {
 		return value.addr();
+	} else if constexpr (IsFlagsV<T>) {
+		return static_cast<u64>(value.raw());
 	} else {
 		return static_cast<u64>(value);
 	}

@@ -9,6 +9,7 @@ module;
 export module Katline:Bootstrap;
 
 import CommonLib;
+import :ArchConstants;
 import :Debug;
 import :FrameAllocator;
 import :Paging;
@@ -30,7 +31,9 @@ static auto map_bootstrap_region(Katline::Arch::Paging::PageTable *root,
 	if (size == 0)
 		return true;
 
-	auto const page_count { (size + 4095u) / 4096u };
+	auto const page_count {
+		(size + Katline::Arch::k_page_size - 1) / Katline::Arch::k_page_size,
+	};
 
 	for (usize i {}; i < page_count; ++i) {
 		auto *page { Katline::Memory::FA::allocate_zeroed_page() };
@@ -38,9 +41,12 @@ static auto map_bootstrap_region(Katline::Arch::Paging::PageTable *root,
 			return false;
 
 		auto const phys { Katline::Arch::Paging::virt_to_phys(page) };
-		auto const offset { i * 4096u };
+		auto const offset { i * Katline::Arch::k_page_size };
 		auto const remaining { size - offset };
-		auto const chunk { remaining < 4096u ? remaining : 4096u };
+		auto const chunk {
+			remaining < Katline::Arch::k_page_size ? remaining
+			                                       : Katline::Arch::k_page_size,
+		};
 
 		CL::memcpy(page, data + offset, chunk);
 
@@ -73,14 +79,14 @@ auto launch_bootstrap_process() -> void
 		kpanic("[Bootstrap] failed to map bootstrap image");
 
 	auto const stack_base { bootstrap_stack_top - bootstrap_stack_size };
-	auto stack_page_count { bootstrap_stack_size / 4096u };
+	auto stack_page_count { bootstrap_stack_size / Katline::Arch::k_page_size };
 	for (usize i {}; i < stack_page_count; ++i) {
 		auto *page { Katline::Memory::FA::allocate_zeroed_page() };
 		if (!page)
 			kpanic("[Bootstrap] failed to allocate stack page");
 
 		auto const phys { virt_to_phys(page) };
-		auto const virt { stack_base + i * 4096u };
+		auto const virt { stack_base + i * Katline::Arch::k_page_size };
 		if (!map(root, virt, phys, { PageFlag::User, PageFlag::Writable }))
 			kpanic("[Bootstrap] failed to map bootstrap stack page");
 	}

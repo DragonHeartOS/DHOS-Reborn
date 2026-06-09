@@ -26,5 +26,12 @@ export {
 		char const name[];
 	};
 
+	enum class MemoryMapFlag : u64 {
+		Writable = 1ull << 0,
+		NoExecute = 1ull << 1,
+	};
+
+	using MemoryMapFlags = CL::Flags<MemoryMapFlag>;
+
 	}
 }

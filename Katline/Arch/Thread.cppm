@@ -3,6 +3,7 @@ export module Katline:Thread;
 import CommonLib;
 import KatlineAPI;
 import :CPU;
+import :MemoryObject;
 
 export {
 	namespace Katline::Arch {
@@ -28,6 +29,14 @@ export {
 
 	struct Thread;
 
+	struct MemoryMapping {
+		uptr address {};
+		uptr page_base {};
+		usize page_count {};
+		usize size {};
+		Memory::MemoryObject *object {};
+	};
+
 	struct Process {
 		Process *parent {};
 
@@ -36,6 +45,7 @@ export {
 		u64 handle_count {};
 		ProcessState state { ProcessState::Running };
 		CL::ArrayList<Thread *> threads {};
+		CL::ArrayList<MemoryMapping> mappings {};
 		CL::MpscQueue<IPC::Message, 256> ipc_message_queue {};
 		u64 endpoint_id {};
 

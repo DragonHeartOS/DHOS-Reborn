@@ -2,6 +2,7 @@ export module Katline:Paging;
 
 import CommonLib;
 import :CPU;
+import :ArchConstants;
 import :FrameAllocator;
 
 export {
@@ -58,7 +59,7 @@ export {
 		}
 	};
 
-	struct alignas(4096) PageTable {
+	struct alignas(k_page_size) PageTable {
 		PageTableEntry entries[512] {};
 	};
 
@@ -89,8 +90,7 @@ namespace Katline::Arch::Paging {
 
 static uptr g_hhdm_offset {};
 
-static constexpr uptr page_size { 4096 };
-static constexpr uptr page_mask { page_size - 1 };
+static constexpr uptr page_mask { k_page_mask };
 
 static constexpr PageFlags table_flags_mask {
 	PageFlag::Writable,
@@ -237,7 +237,7 @@ auto map_range(
 		return false;
 
 	for (usize i {}; i < pages; ++i) {
-		auto const offset { i * page_size };
+		auto const offset { i * k_page_size };
 
 		if (!map(root, virt + offset, phys + offset, flags))
 			return false;

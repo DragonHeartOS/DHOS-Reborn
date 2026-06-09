@@ -64,5 +64,35 @@ export {
 	template<typename T>
 	inline constexpr bool IsHandleV = CL::SameAs<CL::RemoveConstRef<T>, Handle>;
 
+	template<typename T> struct IsUserPointer {
+		static constexpr bool Value = false;
+	};
+
+	template<typename T> struct IsUserPointer<UserPtr<T>> {
+		static constexpr bool Value = true;
+	};
+
+	template<typename T> struct IsUserPointer<UserPtrConst<T>> {
+		static constexpr bool Value = true;
+	};
+
+	template<typename T>
+	inline constexpr bool IsUserPointerV = IsUserPointer<T>::Value;
+
+	template<typename T> struct IsFlags {
+		static constexpr bool Value = false;
+	};
+
+	template<typename Enum> struct IsFlags<CL::Flags<Enum>> {
+		static constexpr bool Value = true;
+	};
+
+	template<typename T>
+	inline constexpr bool IsFlagsV = IsFlags<CL::RemoveConstRef<T>>::Value;
+
+	template<typename T>
+	inline constexpr bool IsSyscallArgV = CL::IsIntegralV<T> || CL::IsEnumV<T>
+	    || IsUserPointerV<T> || IsHandleV<T> || IsFlagsV<T>;
+
 	}
 }

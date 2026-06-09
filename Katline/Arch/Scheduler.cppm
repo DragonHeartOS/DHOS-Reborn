@@ -2,10 +2,12 @@ export module Katline:Scheduler;
 
 import CommonLib;
 import :CPU;
+import :ArchConstants;
 import :Thread;
 import :Debug;
 import :GDT;
 import :HandleManager;
+import :MemoryObject;
 import :Paging;
 import :Sync;
 
@@ -731,6 +733,26 @@ void Scheduler::reap_zombies()
 		    && process->state != ProcessState::Dead
 		    && !process->threads.iter().any(
 		        [](auto c) { return c && c->tstate != ThreadState::Dead; })) {
+			auto *root {
+				reinterpret_cast<Arch::Paging::PageTable *>(
+				    Arch::Paging::phys_to_virt(process->cr3)),
+			};
+			if (root) {
+				for (usize i {}; i < process->mappings.size(); ++i) {
+					auto mapping_opt { process->mappings.get(i) };
+					if (!mapping_opt)
+						continue;
+					auto const &mapping { *mapping_opt };
+
+					for (usize j {}; j < mapping.page_count; ++j)
+						Arch::Paging::unmap(
+						    root, mapping.page_base + j * Arch::k_page_size);
+
+					Memory::release_memory_object(mapping.object);
+				}
+				process->mappings.clear();
+			}
+
 			process->state = ProcessState::Dead;
 			Arch::HandleManager::the().release_owned_handles(process);
 		}

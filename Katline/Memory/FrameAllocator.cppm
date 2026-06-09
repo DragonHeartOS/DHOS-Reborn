@@ -1,6 +1,7 @@
 export module Katline:FrameAllocator;
 
 import CommonLib;
+import :ArchConstants;
 import :MemoryData;
 
 export {
@@ -22,7 +23,6 @@ export {
 
 namespace Katline::Memory {
 
-static constexpr usize page_size { 4096 };
 static constexpr usize max_frames { 1ull << 28 };
 
 static uptr g_hhdm_offset {};
@@ -30,17 +30,18 @@ static CL::BitArray<max_frames> g_frames;
 
 static constexpr auto page_align_down(uptr addr) -> uptr
 {
-	return addr & ~static_cast<uptr>(page_size - 1);
+	return addr & ~static_cast<uptr>(Arch::k_page_mask);
 }
 
 static constexpr auto page_align_up(uptr addr) -> uptr
 {
-	return (addr + page_size - 1) & ~static_cast<uptr>(page_size - 1);
+	return (addr + Arch::k_page_size - 1)
+	    & ~static_cast<uptr>(Arch::k_page_mask);
 }
 
 static constexpr auto frame_index(uptr phys) -> usize
 {
-	return static_cast<usize>(phys / page_size);
+	return static_cast<usize>(phys / Arch::k_page_size);
 }
 
 static auto phys_to_virt(uptr phys) -> void *
@@ -124,7 +125,7 @@ auto FrameAllocator::allocate_page() -> void *
 
 	auto const index { *free_frame };
 	g_frames.set(index);
-	auto const phys { static_cast<uptr>(index) * page_size };
+	auto const phys { static_cast<uptr>(index) * Arch::k_page_size };
 	return phys_to_virt(phys);
 }
 
@@ -134,7 +135,7 @@ auto FrameAllocator::allocate_zeroed_page() -> void *
 	if (!page)
 		return nullptr;
 
-	CL::memset(page, 0, page_size);
+	CL::memset(page, 0, Arch::k_page_size);
 
 	return page;
 }
