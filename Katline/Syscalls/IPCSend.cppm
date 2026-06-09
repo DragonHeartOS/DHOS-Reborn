@@ -10,13 +10,12 @@ namespace Katline::Syscalls {
 static CL::Atomic<u64> g_id_counter {};
 
 template<> struct Spec<SyscallNumber::IPCSend> {
-	static auto call(u64 endpoint, UserPtrConst<IPC::Message> message,
-	    u64 flags) -> Result<void>
+	static constexpr bool requires_current_thread = true;
+
+	static auto call(Arch::Thread *thread, u64 endpoint,
+	    UserPtrConst<IPC::Message> message, u64 flags) -> Result<void>
 	{
 		auto &sched { Arch::Scheduler::the() };
-		auto *thread { sched.current_thread() };
-		if (!thread || !thread->process)
-			return Result<void>::Err(ErrorsV::InvalidArgument {});
 
 		CL::ignore_unused(flags);
 		// We need the process list from the scheduler, that's why it's there

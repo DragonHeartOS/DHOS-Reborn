@@ -10,13 +10,12 @@ import :SyscallMemoryMapHelpers;
 namespace Katline::Syscalls {
 
 template<> struct Spec<SyscallNumber::MemoryMap> {
-	static auto call(Handle memory_object, u64 offset, u64 size,
-	    Katline::MemoryMapFlags flags, UserPtr<void *> out_addr) -> Result<void>
-	{
-		auto *thread { Arch::Scheduler::the().current_thread() };
-		if (!thread || !thread->process)
-			return Result<void>::Err(ErrorsV::InvalidArgument {});
+	static constexpr bool requires_current_thread = true;
 
+	static auto call(Arch::Thread *thread, Handle memory_object, u64 offset,
+	    u64 size, Katline::MemoryMapFlags flags, UserPtr<void *> out_addr)
+	    -> Result<void>
+	{
 		auto *object {
 			Arch::HandleManager::the().resolve<Memory::MemoryObject>(
 			    thread->process, memory_object, Arch::HandleKind::MemoryObject),
@@ -26,7 +25,7 @@ template<> struct Spec<SyscallNumber::MemoryMap> {
 
 		if (object->kind == Memory::MemoryObjectKind::MMIO) {
 			if (auto const res {
-			        require_capability(ProcessCapability::MapMMIO),
+			        require_capabilities({ ProcessCapability::MapMMIO }),
 			    };
 			    res.is_err())
 				return Result<void>::Err(res.unwrap_err());

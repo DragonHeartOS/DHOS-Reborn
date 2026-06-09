@@ -9,12 +9,10 @@ import :SyscallKernelContract;
 namespace Katline::Syscalls {
 
 template<> struct Spec<SyscallNumber::HandleClose> {
-	static auto call(Handle handle) -> Result<void>
-	{
-		auto *thread { Arch::Scheduler::the().current_thread() };
-		if (!thread || !thread->process)
-			return Result<void>::Err(ErrorsV::InvalidArgument {});
+	static constexpr bool requires_current_thread = true;
 
+	static auto call(Arch::Thread *thread, Handle handle) -> Result<void>
+	{
 		if (!Arch::HandleManager::the().close(thread->process, handle))
 			return Result<void>::Err(ErrorsV::InvalidArgument {});
 

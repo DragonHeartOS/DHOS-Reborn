@@ -10,9 +10,7 @@ export {
 	namespace Katline::Syscalls {
 
 	auto current_process() -> Arch::Process *;
-	auto has_capability(ProcessCapability capability) -> bool;
 	auto has_capabilities(ProcessCapabilityFlags capabilities) -> bool;
-	auto require_capability(ProcessCapability capability) -> Result<void>;
 	auto require_capabilities(ProcessCapabilityFlags capabilities)
 	    -> Result<void>;
 
@@ -98,13 +96,14 @@ export {
 		static_assert(__is_trivially_copyable(T),
 		    "userspace copies require trivially copyable types");
 
-		auto *thread { Arch::Scheduler::the().current_thread() };
-		if (!thread || !thread->process)
+		auto *process { current_process() };
+		if (!process)
 			return Result<T>::Err(ErrorsV::InvalidArgument {});
 
 		auto const raw { ptr.addr() };
-		if (ptr.is_null() || sizeof(T) > Arch::k_user_space_limit
-		    || !is_valid_user_address(raw)
+		if (ptr.is_null())
+			return Result<T>::Err(ErrorsV::BadAddress {});
+		if (sizeof(T) > Arch::k_user_space_limit || !is_valid_user_address(raw)
 		    || raw > Arch::k_user_space_limit - sizeof(T))
 			return Result<T>::Err(ErrorsV::BadAddress {});
 
@@ -121,13 +120,14 @@ export {
 		static_assert(__is_trivially_copyable(T),
 		    "userspace copies require trivially copyable types");
 
-		auto *thread { Arch::Scheduler::the().current_thread() };
-		if (!thread || !thread->process)
+		auto *process { current_process() };
+		if (!process)
 			return Result<void>::Err(ErrorsV::InvalidArgument {});
 
 		auto const raw { ptr.addr() };
-		if (ptr.is_null() || sizeof(T) > Arch::k_user_space_limit
-		    || !is_valid_user_address(raw)
+		if (ptr.is_null())
+			return Result<void>::Err(ErrorsV::BadAddress {});
+		if (sizeof(T) > Arch::k_user_space_limit || !is_valid_user_address(raw)
 		    || raw > Arch::k_user_space_limit - sizeof(T))
 			return Result<void>::Err(ErrorsV::BadAddress {});
 
@@ -141,13 +141,14 @@ export {
 	inline auto copy_out(UserPtr<T> ptr, void const *value, usize size)
 	    -> Result<void>
 	{
-		auto *thread { Arch::Scheduler::the().current_thread() };
-		if (!thread || !thread->process)
+		auto *process { current_process() };
+		if (!process)
 			return Result<void>::Err(ErrorsV::InvalidArgument {});
 
 		auto const raw { ptr.addr() };
-		if (ptr.is_null() || size > Arch::k_user_space_limit
-		    || !is_valid_user_address(raw)
+		if (ptr.is_null())
+			return Result<void>::Err(ErrorsV::BadAddress {});
+		if (size > Arch::k_user_space_limit || !is_valid_user_address(raw)
 		    || raw > Arch::k_user_space_limit - size)
 			return Result<void>::Err(ErrorsV::BadAddress {});
 
@@ -160,15 +161,30 @@ export {
 		return Result<void>::Ok();
 	}
 
+	template<typename S>
+	inline constexpr auto SpecRequiredCapabilitiesV = [] {
+		if constexpr (requires { S::required_capabilities; })
+			return S::required_capabilities;
+		else
+			return ProcessCapabilityFlags {};
+	}();
+
+	template<typename S>
+	inline constexpr bool SpecRequiresCurrentThreadV = [] {
+		if constexpr (requires { S::requires_current_thread; })
+			return S::requires_current_thread;
+		else
+			return false;
+	}();
+
 	template<typename T>
 	auto resolve_handle(Handle handle, Arch::HandleKind kind) -> T *
 	{
-		auto *thread { Arch::Scheduler::the().current_thread() };
-		if (!thread || !thread->process)
+		auto *process { current_process() };
+		if (!process)
 			return nullptr;
 
-		return Arch::HandleManager::the().resolve<T>(
-		    thread->process, handle, kind);
+		return Arch::HandleManager::the().resolve<T>(process, handle, kind);
 	}
 
 	inline auto validate_handle(Handle handle, Arch::HandleKind kind) -> bool
@@ -192,27 +208,10 @@ auto current_process() -> Arch::Process *
 	return thread ? thread->process : nullptr;
 }
 
-auto has_capability(ProcessCapability capability) -> bool
-{
-	auto *process { current_process() };
-	return process && process->capabilities.contains(capability);
-}
-
 auto has_capabilities(ProcessCapabilityFlags capabilities) -> bool
 {
 	auto *process { current_process() };
 	return process && process->capabilities.contains_all(capabilities);
-}
-
-auto require_capability(ProcessCapability capability) -> Result<void>
-{
-	auto *process { current_process() };
-	if (!process)
-		return Result<void>::Err(ErrorsV::InvalidArgument {});
-
-	return process->capabilities.contains(capability)
-	    ? Result<void>::Ok()
-	    : Result<void>::Err(ErrorsV::MissingCapability {});
 }
 
 auto require_capabilities(ProcessCapabilityFlags capabilities) -> Result<void>
@@ -286,20 +285,27 @@ template<typename Ret> auto encode_result(Result<Ret> const &result) -> u64
 }
 
 template<SyscallNumber Id, usize... I>
-auto invoke_typed_impl(u64 arg0, u64 arg1, u64 arg2, u64 arg3, u64 arg4,
-    CL::IndexSequence<I...>) -> u64
+auto invoke_typed_impl(Arch::Thread *thread, u64 arg0, u64 arg1, u64 arg2,
+    u64 arg3, u64 arg4, CL::IndexSequence<I...>) -> u64
 {
 	using S = Spec<Id>;
 	using Args = typename ArgsOf<Id>::Type;
 	using Return = typename ReturnOf<Id>::Type;
 
-	return encode_result<Return>(
-	    S::call(decode_syscall_arg<CL::TypeListAtT<I, Args>>(
-	        raw_arg_at<I>(arg0, arg1, arg2, arg3, arg4))...));
+	if constexpr (SpecRequiresCurrentThreadV<S>) {
+		return encode_result<Return>(S::call(thread,
+		    decode_syscall_arg<CL::TypeListAtT<I, Args>>(
+		        raw_arg_at<I>(arg0, arg1, arg2, arg3, arg4))...));
+	} else {
+		return encode_result<Return>(
+		    S::call(decode_syscall_arg<CL::TypeListAtT<I, Args>>(
+		        raw_arg_at<I>(arg0, arg1, arg2, arg3, arg4))...));
+	}
 }
 
 template<SyscallNumber Id, usize... I>
-constexpr auto has_valid_call_signature(CL::IndexSequence<I...>) -> bool
+constexpr auto has_valid_call_signature_without_thread(CL::IndexSequence<I...>)
+    -> bool
 {
 	using S = Spec<Id>;
 	using Args = typename ArgsOf<Id>::Type;
@@ -312,34 +318,75 @@ constexpr auto has_valid_call_signature(CL::IndexSequence<I...>) -> bool
 	};
 }
 
+template<SyscallNumber Id, usize... I>
+constexpr auto has_valid_call_signature_with_thread(CL::IndexSequence<I...>)
+    -> bool
+{
+	using S = Spec<Id>;
+	using Args = typename ArgsOf<Id>::Type;
+	using Return = typename ReturnOf<Id>::Type;
+
+	return requires {
+		{
+			S::call(static_cast<Arch::Thread *>(nullptr),
+			    CL::declval<CL::TypeListAtT<I, Args>>()...)
+		} -> CL::SameAs<Result<Return>>;
+	};
+}
+
 template<SyscallNumber Id>
 auto invoke_typed(u64 arg0, u64 arg1, u64 arg2, u64 arg3, u64 arg4) -> u64
 {
-	constexpr bool has_spec { requires { &Spec<Id>::call;
-}
-};
+	// not using {} initialization, cause for some strange fucking reason,
+	// clang-format shits itself: https://paste.slendi.dev/XjdFyX.png
+	constexpr bool has_spec = requires { &Spec<Id>::call; };
 
-if constexpr (!has_spec) {
-	static_assert(has_spec,
-	    "Missing syscall implementation for SyscallList.def entry. "
-	    "Add template<> struct Spec<SyscallNumber::X> with call(...).");
-	return 0;
-} else {
-	using Args = typename ArgsOf<Id>::Type;
+	using S = Spec<Id>;
+	constexpr auto required_capabilities { SpecRequiredCapabilitiesV<S> };
+	constexpr bool requires_current_thread { SpecRequiresCurrentThreadV<S> };
 
-	static_assert(CL::IsTypeListV<Args>,
-	    "SyscallList.def arguments must be a valid type list");
+	Arch::Thread *thread {};
+	if constexpr (requires_current_thread || required_capabilities.any()) {
+		thread = Arch::Scheduler::the().current_thread();
+		if (!thread || !thread->process)
+			return encode_error(SyscallError { ErrorsV::InvalidArgument {} });
 
-	constexpr usize arg_count { CL::TypeListSizeV<Args> };
-	static_assert(arg_count <= 5, "syscall argument count exceeds ABI limit");
+		if (required_capabilities.any()
+		    && !thread->process->capabilities.contains_all(
+		        required_capabilities)) {
+			return encode_error(SyscallError { ErrorsV::MissingCapability {} });
+		}
+	}
 
-	static_assert(
-	    has_valid_call_signature<Id>(CL::MakeIndexSequence<arg_count> {}),
-	    "Spec<...>::call signature must match SyscallList.def args and return "
-	    "type");
+	if constexpr (!has_spec) {
+		static_assert(has_spec,
+		    "Missing syscall implementation for SyscallList.def entry. "
+		    "Add template<> struct Spec<SyscallNumber::X> with call(...).");
+		return 0;
+	} else {
+		using Args = typename ArgsOf<Id>::Type;
 
-	return invoke_typed_impl<Id>(
-	    arg0, arg1, arg2, arg3, arg4, CL::MakeIndexSequence<arg_count> {});
-}
+		static_assert(CL::IsTypeListV<Args>,
+		    "SyscallList.def arguments must be a valid type list");
+
+		constexpr usize arg_count { CL::TypeListSizeV<Args> };
+		static_assert(
+		    arg_count <= 5, "syscall argument count exceeds ABI limit");
+
+		if constexpr (requires_current_thread) {
+			static_assert(has_valid_call_signature_with_thread<Id>(
+			                  CL::MakeIndexSequence<arg_count> {}),
+			    "Spec<...>::call signature must take Arch::Thread * when "
+			    "requires_current_thread is true");
+		} else {
+			static_assert(has_valid_call_signature_without_thread<Id>(
+			                  CL::MakeIndexSequence<arg_count> {}),
+			    "Spec<...>::call signature must match SyscallList.def args and "
+			    "return type");
+		}
+
+		return invoke_typed_impl<Id>(thread, arg0, arg1, arg2, arg3, arg4,
+		    CL::MakeIndexSequence<arg_count> {});
+	}
 }
 }

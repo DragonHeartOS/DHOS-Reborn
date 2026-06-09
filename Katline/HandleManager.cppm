@@ -59,11 +59,12 @@ export {
 		u64 m_next_handle_id { 1 };
 		Sync::SpinLock m_lock;
 
-		auto find_entry(Process *owner, Katline::Handle handle) -> Entry *;
 		auto find_entry(Process const *owner, Katline::Handle handle) const
 		    -> Entry const *;
 		auto retain_object(HandleKind kind, void *object) -> void;
 		auto release_object(HandleKind kind, void *object) -> void;
+		auto adjust_object_refcount(HandleKind kind, void *object, i32 delta)
+		    -> void;
 	};
 
 	}
@@ -71,26 +72,8 @@ export {
 
 namespace Katline::Arch {
 
-auto HandleManager::retain_object(HandleKind kind, void *object) -> void
-{
-	if (!object)
-		return;
-
-	switch (kind) {
-	case HandleKind::Process:
-		static_cast<Process *>(object)->handle_count++;
-		break;
-	case HandleKind::Thread:
-		static_cast<Thread *>(object)->handle_count++;
-		break;
-	case HandleKind::MemoryObject:
-		Memory::retain_memory_object(
-		    static_cast<Memory::MemoryObject *>(object));
-		break;
-	}
-}
-
-auto HandleManager::release_object(HandleKind kind, void *object) -> void
+auto HandleManager::adjust_object_refcount(
+    HandleKind kind, void *object, i32 delta) -> void
 {
 	if (!object)
 		return;
@@ -98,38 +81,40 @@ auto HandleManager::release_object(HandleKind kind, void *object) -> void
 	switch (kind) {
 	case HandleKind::Process: {
 		auto *process { static_cast<Process *>(object) };
-		if (process->handle_count > 0)
+		if (delta > 0)
+			process->handle_count++;
+		else if (process->handle_count > 0)
 			process->handle_count--;
 		break;
 	}
 	case HandleKind::Thread: {
 		auto *thread { static_cast<Thread *>(object) };
-		if (thread->handle_count > 0)
+		if (delta > 0)
+			thread->handle_count++;
+		else if (thread->handle_count > 0)
 			thread->handle_count--;
 		break;
 	}
 	case HandleKind::MemoryObject:
-		Memory::release_memory_object(
-		    static_cast<Memory::MemoryObject *>(object));
+		if (delta > 0) {
+			Memory::retain_memory_object(
+			    static_cast<Memory::MemoryObject *>(object));
+		} else {
+			Memory::release_memory_object(
+			    static_cast<Memory::MemoryObject *>(object));
+		}
 		break;
 	}
 }
 
-auto HandleManager::find_entry(Process *owner, Katline::Handle handle)
-    -> Entry *
+auto HandleManager::retain_object(HandleKind kind, void *object) -> void
 {
-	if (handle.is_invalid())
-		return nullptr;
+	adjust_object_refcount(kind, object, 1);
+}
 
-	auto entry_opt { m_entries.get(handle.id) };
-	if (!entry_opt)
-		return nullptr;
-	auto &entry { *entry_opt };
-
-	if (owner && entry.owner != owner)
-		return nullptr;
-
-	return &entry;
+auto HandleManager::release_object(HandleKind kind, void *object) -> void
+{
+	adjust_object_refcount(kind, object, -1);
 }
 
 auto HandleManager::find_entry(

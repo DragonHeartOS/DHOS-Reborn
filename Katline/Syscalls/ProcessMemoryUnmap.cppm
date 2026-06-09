@@ -9,19 +9,14 @@ import :SyscallMemoryMap;
 
 namespace Katline::Syscalls {
 template<> struct Spec<SyscallNumber::ProcessMemoryUnmap> {
-	static auto call(Handle process_handle, UserPtr<void> addr, u64 size)
-	    -> Result<void>
+	static constexpr bool requires_current_thread = true;
+	static constexpr ProcessCapabilityFlags required_capabilities {
+		ProcessCapability::ManageProcesses
+	};
+
+	static auto call(Arch::Thread *thread, Handle process_handle,
+	    UserPtr<void> addr, u64 size) -> Result<void>
 	{
-		if (auto const res {
-		        require_capability(ProcessCapability::ManageProcesses),
-		    };
-		    res.is_err())
-			return Result<void>::Err(res.unwrap_err());
-
-		auto *thread { Arch::Scheduler::the().current_thread() };
-		if (!thread || !thread->process)
-			return Result<void>::Err(ErrorsV::InvalidArgument {});
-
 		auto *process {
 			Arch::HandleManager::the().resolve<Arch::Process>(
 			    thread->process, process_handle, Arch::HandleKind::Process),

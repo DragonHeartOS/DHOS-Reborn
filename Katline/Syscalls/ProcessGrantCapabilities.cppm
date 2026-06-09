@@ -9,19 +9,14 @@ import :SyscallKernelContract;
 namespace Katline::Syscalls {
 
 template<> struct Spec<SyscallNumber::ProcessGrantCapabilities> {
-	static auto call(Handle process_handle, ProcessCapabilityFlags capabilities)
-	    -> Result<void>
+	static constexpr bool requires_current_thread = true;
+	static constexpr ProcessCapabilityFlags required_capabilities {
+		ProcessCapability::ManageCaps
+	};
+
+	static auto call(Arch::Thread *thread, Handle process_handle,
+	    ProcessCapabilityFlags capabilities) -> Result<void>
 	{
-		if (auto const res {
-		        require_capability(ProcessCapability::ManageCaps),
-		    };
-		    res.is_err())
-			return Result<void>::Err(res.unwrap_err());
-
-		auto *thread { Arch::Scheduler::the().current_thread() };
-		if (!thread || !thread->process)
-			return Result<void>::Err(ErrorsV::InvalidArgument {});
-
 		auto *target_process {
 			Arch::HandleManager::the().resolve<Arch::Process>(
 			    thread->process, process_handle, Arch::HandleKind::Process),

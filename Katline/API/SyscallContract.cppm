@@ -7,13 +7,18 @@ import :Syscalls;
 export {
 	namespace Katline::Syscalls {
 
-	template<typename T> struct UserPtr {
+	template<typename T, bool IsConst = false> struct UserPtr {
 		constexpr UserPtr() = default;
 		constexpr UserPtr(nullptr_t)
 		    : raw(0)
 		{
 		}
 		constexpr UserPtr(T *ptr)
+		    : raw(reinterpret_cast<u64>(ptr))
+		{
+		}
+		constexpr UserPtr(T const *ptr)
+		requires(IsConst)
 		    : raw(reinterpret_cast<u64>(ptr))
 		{
 		}
@@ -33,33 +38,16 @@ export {
 
 		constexpr auto is_null() const -> bool { return raw == 0; }
 		constexpr auto addr() const -> u64 { return raw; }
-		constexpr auto get() const -> T * { return reinterpret_cast<T *>(raw); }
-	};
-
-	template<typename T> struct UserPtrConst {
-		constexpr UserPtrConst() = default;
-		constexpr UserPtrConst(nullptr_t)
-		    : raw(0)
+		constexpr auto get() const
 		{
-		}
-		constexpr UserPtrConst(T *ptr)
-		    : raw(reinterpret_cast<u64>(ptr))
-		{
-		}
-		u64 raw {};
-
-		static constexpr auto from_raw(u64 value) -> UserPtrConst
-		{
-			return UserPtrConst { value };
-		}
-
-		constexpr auto is_null() const -> bool { return raw == 0; }
-		constexpr auto addr() const -> u64 { return raw; }
-		constexpr auto get() const -> T const *
-		{
-			return reinterpret_cast<T const *>(raw);
+			if constexpr (IsConst)
+				return reinterpret_cast<T const *>(raw);
+			else
+				return reinterpret_cast<T *>(raw);
 		}
 	};
+
+	template<typename T> using UserPtrConst = UserPtr<T, true>;
 
 	template<typename T>
 	inline constexpr bool IsHandleV = CL::SameAs<CL::RemoveConstRef<T>, Handle>;
@@ -68,11 +56,8 @@ export {
 		static constexpr bool Value = false;
 	};
 
-	template<typename T> struct IsUserPointer<UserPtr<T>> {
-		static constexpr bool Value = true;
-	};
-
-	template<typename T> struct IsUserPointer<UserPtrConst<T>> {
+	template<typename T, bool IsConst>
+	struct IsUserPointer<UserPtr<T, IsConst>> {
 		static constexpr bool Value = true;
 	};
 

@@ -78,22 +78,18 @@ auto invoke_userspace(SyscallNumber id, Args... args) -> Result<Ret>
 {
 	static_assert(
 	    sizeof...(Args) <= 5, "syscall argument count exceeds ABI limit");
-	return decode_syscall_result<Ret>(syscall_raw(static_cast<u64>(id),
-	    (sizeof...(Args) > 0 ? encode_syscall_arg(args) : 0)..., 0, 0, 0, 0,
-	    0));
-}
 
-template<typename Ret> auto invoke_userspace(SyscallNumber id) -> Result<Ret>
-{
-	return decode_syscall_result<Ret>(
-	    syscall_raw(static_cast<u64>(id), 0, 0, 0, 0, 0));
-}
-
-template<typename Ret, typename A0>
-auto invoke_userspace(SyscallNumber id, A0 a0) -> Result<Ret>
-{
-	return decode_syscall_result<Ret>(
-	    syscall_raw(static_cast<u64>(id), encode_syscall_arg(a0), 0, 0, 0, 0));
+	if constexpr (sizeof...(Args) == 0) {
+		return decode_syscall_result<Ret>(
+		    syscall_raw(static_cast<u64>(id), 0, 0, 0, 0, 0));
+	} else {
+		u64 encoded[] { encode_syscall_arg(args)... };
+		return decode_syscall_result<Ret>(syscall_raw(static_cast<u64>(id),
+		    encoded[0], sizeof...(Args) > 1 ? encoded[1] : 0,
+		    sizeof...(Args) > 2 ? encoded[2] : 0,
+		    sizeof...(Args) > 3 ? encoded[3] : 0,
+		    sizeof...(Args) > 4 ? encoded[4] : 0));
+	}
 }
 
 extern "C" auto syscall_raw(

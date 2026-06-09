@@ -9,12 +9,10 @@ import :SyscallKernelContract;
 namespace Katline::Syscalls {
 
 template<> struct Spec<SyscallNumber::HandleDuplicate> {
-	static auto call(Handle handle) -> Result<Handle>
-	{
-		auto *thread { Arch::Scheduler::the().current_thread() };
-		if (!thread || !thread->process)
-			return Result<Handle>::Err(ErrorsV::InvalidArgument {});
+	static constexpr bool requires_current_thread = true;
 
+	static auto call(Arch::Thread *thread, Handle handle) -> Result<Handle>
+	{
 		auto duplicate {
 			Arch::HandleManager::the().duplicate(thread->process, handle),
 		};

@@ -11,20 +11,15 @@ import :SyscallMemoryMap;
 namespace Katline::Syscalls {
 
 template<> struct Spec<SyscallNumber::ProcessMemoryMap> {
-	static auto call(Handle process_handle, Handle memory_object, u64 offset,
-	    u64 size, Katline::MemoryMapFlags flags, UserPtr<void *> out_addr)
-	    -> Result<void>
+	static constexpr bool requires_current_thread = true;
+	static constexpr ProcessCapabilityFlags required_capabilities {
+		ProcessCapability::ManageProcesses
+	};
+
+	static auto call(Arch::Thread *thread, Handle process_handle,
+	    Handle memory_object, u64 offset, u64 size,
+	    Katline::MemoryMapFlags flags, UserPtr<void *> out_addr) -> Result<void>
 	{
-		if (auto const res {
-		        require_capability(ProcessCapability::ManageProcesses),
-		    };
-		    res.is_err())
-			return Result<void>::Err(res.unwrap_err());
-
-		auto *thread { Arch::Scheduler::the().current_thread() };
-		if (!thread || !thread->process)
-			return Result<void>::Err(ErrorsV::InvalidArgument {});
-
 		auto *process {
 			Arch::HandleManager::the().resolve<Arch::Process>(
 			    thread->process, process_handle, Arch::HandleKind::Process),
@@ -38,7 +33,7 @@ template<> struct Spec<SyscallNumber::ProcessMemoryMap> {
 
 		if (object->kind == Memory::MemoryObjectKind::MMIO) {
 			if (auto const res {
-			        require_capability(ProcessCapability::MapMMIO),
+			        require_capabilities({ ProcessCapability::MapMMIO }),
 			    };
 			    res.is_err())
 				return Result<void>::Err(res.unwrap_err());
