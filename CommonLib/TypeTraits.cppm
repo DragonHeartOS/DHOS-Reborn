@@ -132,5 +132,11 @@ export {
 	template<typename T>
 	inline constexpr bool IsSignedIntegralV = IsSignedIntegral<T>::Value;
 
+	template<typename T> struct TypeIdentity {
+		using Type = T;
+	};
+
+	template<typename T> using TypeIdentityT = TypeIdentity<T>::Type;
+
 	}
 }
