@@ -228,7 +228,7 @@ auto katline_main(StartupInfo &info) -> void
 		    .map([](int value) { return value * 2; })
 		    .filter([](int value) { return value >= 6; })
 		    .rev()
-		    .collect<CL::ArrayList<int>>(),
+		    .collect<CL::ArrayList>(),
 	};
 
 	Debug::print_formatted("[demo] arraylist: ");

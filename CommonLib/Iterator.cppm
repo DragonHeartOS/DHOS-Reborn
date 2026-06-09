@@ -100,11 +100,14 @@ export {
 		/// @code
 		/// auto values { range(3).collect<ArrayList<int>>() };
 		/// @endcode
-		template<class Container> auto collect() && -> Container
+		template<template<class...> class Container> auto collect() &&
 		{
-			Container result;
+			using Item = RemoveConstRef<decltype(*declval<Self>().next())>;
+			Container<Item> result;
+
 			while (auto x { self().next() })
 				result.push(*x);
+
 			return result;
 		}
 
