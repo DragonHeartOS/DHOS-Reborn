@@ -24,6 +24,14 @@ template<> struct Spec<SyscallNumber::MemoryMap> {
 		if (!object)
 			return Result<void>::Err(ErrorsV::InvalidArgument {});
 
+		if (object->kind == Memory::MemoryObjectKind::MMIO) {
+			if (auto const res {
+			        require_capability(ProcessCapability::MapMMIO),
+			    };
+			    res.is_err())
+				return Result<void>::Err(res.unwrap_err());
+		}
+
 		return map_memory_object(
 		    thread->process, object, offset, size, flags, out_addr);
 	}

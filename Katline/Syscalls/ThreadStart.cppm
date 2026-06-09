@@ -11,6 +11,12 @@ namespace Katline::Syscalls {
 template<> struct Spec<SyscallNumber::ThreadStart> {
 	static auto call(Handle thread_handle) -> Result<void>
 	{
+		if (auto const res {
+		        require_capability(ProcessCapability::ManageProcesses),
+		    };
+		    res.is_err())
+			return Result<void>::Err(res.unwrap_err());
+
 		auto *thread { Arch::Scheduler::the().current_thread() };
 		if (!thread || !thread->process)
 			return Result<void>::Err(ErrorsV::InvalidArgument {});

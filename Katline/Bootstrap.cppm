@@ -68,6 +68,8 @@ auto launch_bootstrap_process() -> void
 	if (!process)
 		kpanic("[Bootstrap] failed to create bootstrap process");
 
+	process->capabilities = ProcessCapabilityFlags::all();
+
 	process->name = CL::String { "Bootstrap" };
 
 	auto *root { reinterpret_cast<PageTable *>(phys_to_virt(process->cr3)) };

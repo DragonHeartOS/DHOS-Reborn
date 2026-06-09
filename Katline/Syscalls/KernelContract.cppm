@@ -9,6 +9,13 @@ import :Scheduler;
 export {
 	namespace Katline::Syscalls {
 
+	auto current_process() -> Arch::Process *;
+	auto has_capability(ProcessCapability capability) -> bool;
+	auto has_capabilities(ProcessCapabilityFlags capabilities) -> bool;
+	auto require_capability(ProcessCapability capability) -> Result<void>;
+	auto require_capabilities(ProcessCapabilityFlags capabilities)
+	    -> Result<void>;
+
 	constexpr auto is_valid_user_address(uptr addr) -> bool
 	{
 		return addr < Arch::k_user_space_limit && (addr >> 48) == 0;
@@ -175,6 +182,50 @@ export {
 	auto invoke_typed(u64 arg0, u64 arg1, u64 arg2, u64 arg3, u64 arg4) -> u64;
 
 	}
+}
+
+namespace Katline::Syscalls {
+
+auto current_process() -> Arch::Process *
+{
+	auto *thread { Arch::Scheduler::the().current_thread() };
+	return thread ? thread->process : nullptr;
+}
+
+auto has_capability(ProcessCapability capability) -> bool
+{
+	auto *process { current_process() };
+	return process && process->capabilities.contains(capability);
+}
+
+auto has_capabilities(ProcessCapabilityFlags capabilities) -> bool
+{
+	auto *process { current_process() };
+	return process && process->capabilities.contains_all(capabilities);
+}
+
+auto require_capability(ProcessCapability capability) -> Result<void>
+{
+	auto *process { current_process() };
+	if (!process)
+		return Result<void>::Err(ErrorsV::InvalidArgument {});
+
+	return process->capabilities.contains(capability)
+	    ? Result<void>::Ok()
+	    : Result<void>::Err(ErrorsV::MissingCapability {});
+}
+
+auto require_capabilities(ProcessCapabilityFlags capabilities) -> Result<void>
+{
+	auto *process { current_process() };
+	if (!process)
+		return Result<void>::Err(ErrorsV::InvalidArgument {});
+
+	return process->capabilities.contains_all(capabilities)
+	    ? Result<void>::Ok()
+	    : Result<void>::Err(ErrorsV::MissingCapability {});
+}
+
 }
 
 namespace Katline::Syscalls {

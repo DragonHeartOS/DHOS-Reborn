@@ -110,6 +110,11 @@ export {
 			return Flags(lhs.m_bits & static_cast<Underlying>(~rhs.m_bits));
 		}
 
+		static constexpr auto all() -> Flags
+		{
+			return Flags(static_cast<Underlying>(0xffffffffffffffff));
+		}
+
 	private:
 		Underlying m_bits {};
 	};

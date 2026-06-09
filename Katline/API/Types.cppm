@@ -5,6 +5,19 @@ import CommonLib;
 export {
 	namespace Katline {
 
+	enum class ProcessCapability : u64 {
+		ManageCaps = 1ull << 0,
+		BootInfo = 1ull << 1,
+		BootFramebuffer = 1ull << 2,
+		MapMMIO = 1ull << 3,
+		ManageProcesses = 1ull << 4,
+		BootModules = 1ull << 5,
+		BootCmdline = 1ull << 6,
+		IOPort = 1ull << 7,
+	};
+
+	using ProcessCapabilityFlags = CL::Flags<ProcessCapability>;
+
 	struct Handle {
 		u64 id {};
 

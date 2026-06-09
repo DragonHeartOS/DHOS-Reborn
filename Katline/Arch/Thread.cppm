@@ -38,12 +38,16 @@ export {
 	};
 
 	struct Process {
+		using Capability = Katline::ProcessCapability;
+		using CapabilityFlags = Katline::ProcessCapabilityFlags;
+
 		Process *parent {};
 
 		ProcessID pid {};
 		CL::String name {};
 		u64 handle_count {};
 		ProcessState state { ProcessState::Running };
+		CapabilityFlags capabilities {};
 		CL::ArrayList<Thread *> threads {};
 		CL::ArrayList<MemoryMapping> mappings {};
 		CL::MpscQueue<IPC::Message, 256> ipc_message_queue {};
