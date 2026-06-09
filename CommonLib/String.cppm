@@ -1,7 +1,9 @@
 export module CommonLib:String;
 
 import :ArrayList;
-import :Span;
+import :Iterator;
+import :Option;
+import :StringOps;
 import :StringView;
 import :Types;
 
@@ -10,7 +12,8 @@ export {
 
 	/// @brief An owning string of characters.
 	/// @tparam CharTypeT The type of the characters in the string.
-	template<typename CharTypeT> struct BaseString {
+	template<typename CharTypeT>
+	struct BaseString : detail::StringOps<BaseString<CharTypeT>, CharTypeT> {
 		struct Iter : Iterator<Iter> {
 			ArrayList<CharTypeT>::Iter iter;
 			usize remaining;
@@ -119,10 +122,6 @@ export {
 			return buffer_capacity ? buffer_capacity - 1 : 0;
 		}
 
-		/// @brief Check if the string is empty.
-		/// @return True if the string is empty, false otherwise.
-		constexpr auto is_empty() const -> bool { return size() == 0; }
-
 		/// @brief Get a pointer to the characters in the string.
 		/// @return A pointer to the characters in the string.
 		constexpr auto data() -> CharTypeT * { return m_data.data(); }
@@ -138,74 +137,6 @@ export {
 		constexpr auto c_str() const -> CharTypeT const *
 		{
 			return m_data.data();
-		}
-
-		/// @brief Get a string view of the string.
-		/// @return A string view of the string.
-		constexpr auto view() const -> BaseStringView<CharTypeT>
-		{
-			return { data(), size() };
-		}
-
-		/// @brief Get a span over the string contents.
-		/// @return A span over the string contents.
-		constexpr auto span() -> Span<CharTypeT>
-		{
-			return Span<CharTypeT>(data(), size());
-		}
-
-		/// @brief Get a span over the string contents.
-		/// @return A span over the string contents.
-		constexpr auto span() const -> Span<CharTypeT const>
-		{
-			return Span<CharTypeT const>(data(), size());
-		}
-
-		/// @brief Get a span over the first characters of the string.
-		/// @param length The number of characters to include.
-		/// @return A span over the requested prefix.
-		constexpr auto span(usize length) -> Span<CharTypeT>
-		{
-			return span(0, length);
-		}
-
-		/// @brief Get a span over the first characters of the string.
-		/// @param length The number of characters to include.
-		/// @return A span over the requested prefix.
-		constexpr auto span(usize length) const -> Span<CharTypeT const>
-		{
-			return span(0, length);
-		}
-
-		/// @brief Get a span over a subrange of the string.
-		/// @param start The starting index of the span.
-		/// @param length The number of characters to include.
-		/// @return A span over the requested subrange.
-		constexpr auto span(usize start, usize length) -> Span<CharTypeT>
-		{
-			if (start >= size())
-				return Span<CharTypeT>(data(), 0);
-
-			if (start + length > size())
-				length = size() - start;
-
-			return Span<CharTypeT>(data() + start, length);
-		}
-
-		/// @brief Get a span over a subrange of the string.
-		/// @param start The starting index of the span.
-		/// @param length The number of characters to include.
-		/// @return A span over the requested subrange.
-		constexpr auto span(usize start, usize length) const
-		    -> Span<CharTypeT const>
-		{
-			if (start >= size())
-				return Span<CharTypeT const>(data(), 0);
-
-			if (start + length > size())
-				length = size() - start;
-
-			return Span<CharTypeT const>(data() + start, length);
 		}
 
 		/// @brief Clear the string, making it empty.
@@ -258,136 +189,6 @@ export {
 		{
 			return m_data[index];
 		}
-
-		/// @brief Check if the string starts with the specified prefix.
-		/// @param prefix The prefix to check for.
-		/// @return True if the string starts with the specified prefix, false
-		/// otherwise.
-		constexpr auto starts_with(
-		    BaseStringView<CharTypeT> const &prefix) const -> bool
-		{
-			if (prefix.size() > size())
-				return false;
-
-			for (usize i {}; i < prefix.size(); ++i) {
-				if (data()[i] != prefix.data()[i])
-					return false;
-			}
-
-			return true;
-		}
-
-		/// @brief Check if the string ends with the specified suffix.
-		/// @param suffix The suffix to check for.
-		/// @return True if the string ends with the specified suffix, false
-		/// otherwise.
-		constexpr auto ends_with(BaseStringView<CharTypeT> const &suffix) const
-		    -> bool
-		{
-			if (suffix.size() > size())
-				return false;
-
-			usize offset = size() - suffix.size();
-
-			for (usize i {}; i < suffix.size(); ++i) {
-				if (data()[offset + i] != suffix.data()[i])
-					return false;
-			}
-
-			return true;
-		}
-
-		/// @brief Find the first occurrence of the specified substring in the
-		/// string.
-		/// @param needle The substring to find.
-		/// @return The index of the first occurrence of the substring in the
-		/// string, or npos if the substring was not found.
-		constexpr auto find(BaseStringView<CharTypeT> const &needle) const
-		    -> usize
-		{
-			if (needle.size() == 0)
-				return 0;
-
-			if (needle.size() > size())
-				return npos;
-
-			for (usize i {}; i <= size() - needle.size(); ++i) {
-				bool found = true;
-
-				for (usize j {}; j < needle.size(); ++j) {
-					if (data()[i + j] != needle.data()[j]) {
-						found = false;
-						break;
-					}
-				}
-
-				if (found)
-					return i;
-			}
-
-			return npos;
-		}
-
-		/// @brief Check if the string contains the specified substring.
-		/// @param needle The substring to check for.
-		/// @return True if the string contains the specified substring, false
-		/// otherwise.
-		constexpr auto contains(BaseStringView<CharTypeT> const &needle) const
-		    -> bool
-		{
-			return find(needle) != npos;
-		}
-
-		/// @brief Get a substring view of the string.
-		/// @param start The starting index of the substring.
-		/// @param count The number of characters in the substring.
-		/// @return A BaseStringView into the string.
-		auto substring(usize start, usize count) const
-		    -> BaseStringView<CharTypeT>
-		{
-			if (start >= size())
-				return {};
-
-			if (start + count > size())
-				count = size() - start;
-
-			return BaseStringView(data() + start, count);
-		}
-
-		/// @brief Get a substring view of the string.
-		/// @param start The starting index of the substring.
-		/// @return A BaseStringView into the string.
-		auto substring(usize start) const -> BaseStringView<CharTypeT>
-		{
-			if (start >= size())
-				return {};
-
-			return BaseStringView(data() + start, size() - start);
-		}
-
-		constexpr auto operator==(BaseStringView<CharTypeT> const &other) const
-		    -> bool
-		{
-			return view() == other;
-		}
-
-		constexpr auto operator==(BaseString const &other) const -> bool
-		{
-			return view() == other.view();
-		}
-
-		constexpr auto operator!=(BaseStringView<CharTypeT> const &other) const
-		    -> bool
-		{
-			return !(*this == other);
-		}
-
-		constexpr auto operator!=(BaseString const &other) const -> bool
-		{
-			return !(*this == other);
-		}
-
-		static constexpr usize npos = static_cast<usize>(-1);
 
 	private:
 		ArrayList<CharTypeT> m_data;

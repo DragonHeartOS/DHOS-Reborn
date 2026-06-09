@@ -1,15 +1,19 @@
 export module CommonLib:StringView;
 
+import :StringOps;
 import :Types;
 import :Iterator;
 import :Option;
+import :Span;
 
 export {
 	namespace CL {
 
 	/// @brief A non-owning view of a string of characters.
 	/// @tparam CharTypeT The type of the characters in the string view.
-	template<typename CharTypeT> struct BaseStringView {
+	template<typename CharTypeT>
+	struct BaseStringView
+	    : detail::StringViewOps<BaseStringView<CharTypeT>, CharTypeT> {
 		struct Iter : Iterator<Iter> {
 			CharTypeT const *current { nullptr };
 			CharTypeT const *end { nullptr };
@@ -90,82 +94,6 @@ export {
 				.current = data(),
 				.end = data() + size(),
 			};
-		}
-
-		/// @brief Get a substring view of the string view.
-		/// @param start The starting index of the substring.
-		/// @param count The number of characters in the substring.
-		/// @return A BaseStringView into the string view.
-		constexpr auto substring(usize start, usize count) const
-		    -> BaseStringView<CharTypeT>
-		{
-			if (start >= size())
-				return {};
-
-			if (start + count > size())
-				count = size() - start;
-
-			return BaseStringView(data() + start, count);
-		}
-
-		/// @brief Get a substring view of the string view.
-		/// @param start The starting index of the substring.
-		/// @return A BaseStringView into the string view.
-		constexpr auto substring(usize start) const -> BaseStringView<CharTypeT>
-		{
-			if (start >= size())
-				return {};
-
-			return BaseStringView(data() + start, size() - start);
-		}
-
-		// /// @brief Get a span over the string view.
-		// /// @return A span over the string view.
-		// constexpr auto span() const -> Span<CharTypeT const>
-		// {
-		// 	return Span<CharTypeT const>(data(), size());
-		// }
-
-		// /// @brief Get a span over the first characters of the string view.
-		// /// @param length The number of characters to include.
-		// /// @return A span over the requested prefix.
-		// constexpr auto span(usize length) const -> Span<CharTypeT const>
-		// {
-		// 	return span(0, length);
-		// }
-
-		// /// @brief Get a span over a subrange of the string view.
-		// /// @param start The starting index of the span.
-		// /// @param length The number of characters to include.
-		// /// @return A span over the requested subrange.
-		// constexpr auto span(usize start, usize length) const
-		//     -> Span<CharTypeT const>
-		// {
-		// 	if (start >= size())
-		// 		return Span<CharTypeT const>(data(), 0);
-
-		// 	if (start + length > size())
-		// 		length = size() - start;
-
-		// 	return Span<CharTypeT const>(data() + start, length);
-		// }
-
-		constexpr auto operator==(BaseStringView const &other) const -> bool
-		{
-			if (size() != other.size())
-				return false;
-
-			for (usize i {}; i < size(); ++i) {
-				if (data()[i] != other.data()[i])
-					return false;
-			}
-
-			return true;
-		}
-
-		constexpr auto operator!=(BaseStringView const &other) const -> bool
-		{
-			return !(*this == other);
 		}
 
 	private:

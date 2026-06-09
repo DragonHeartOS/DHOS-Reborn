@@ -26,6 +26,7 @@ export import :Queue;
 export import :Range;
 export import :Rc;
 export import :Result;
+export import :StringOps;
 export import :Span;
 export import :String;
 export import :StringView;

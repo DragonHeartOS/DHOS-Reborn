@@ -2,6 +2,7 @@ export module CommonLib:FixedString;
 
 import :Array;
 import :String;
+import :StringOps;
 import :StringView;
 import :Types;
 
@@ -11,7 +12,9 @@ export {
 	/// @brief Like a CL::String but with a fixed size backing storage.
 	/// @tparam CharTypeT The type of the characters in the string.
 	/// @tparam CapacityT The capacity of the backing storage.
-	template<typename CharTypeT, usize CapacityT> struct BaseFixedString {
+	template<typename CharTypeT, usize CapacityT>
+	struct BaseFixedString
+	    : detail::StringOps<BaseFixedString<CharTypeT, CapacityT>, CharTypeT> {
 		constexpr BaseFixedString() { m_data[0] = '\0'; }
 
 		constexpr BaseFixedString(CharTypeT const *cstring)
@@ -44,17 +47,10 @@ export {
 
 		constexpr auto size() const -> usize { return m_size; }
 
-		constexpr auto is_empty() const -> bool { return m_size == 0; }
-
 		constexpr auto data() -> CharTypeT * { return &m_data[0]; }
 		constexpr auto data() const -> CharTypeT const * { return &m_data[0]; }
 
 		constexpr auto c_str() const -> CharTypeT const * { return &m_data[0]; }
-
-		constexpr auto view() const -> BaseStringView<CharTypeT>
-		{
-			return { data(), size() };
-		}
 
 		auto clear() -> void
 		{
@@ -107,102 +103,6 @@ export {
 		constexpr auto operator[](usize index) const -> CharTypeT const &
 		{
 			return m_data[index];
-		}
-
-		constexpr auto starts_with(
-		    BaseStringView<CharTypeT> const &prefix) const -> bool
-		{
-			if (prefix.size() > size())
-				return false;
-
-			for (usize i {}; i < prefix.size(); ++i) {
-				if (data()[i] != prefix.data()[i])
-					return false;
-			}
-
-			return true;
-		}
-
-		constexpr auto ends_with(BaseStringView<CharTypeT> const &suffix) const
-		    -> bool
-		{
-			if (suffix.size() > size())
-				return false;
-
-			usize offset = size() - suffix.size();
-
-			for (usize i {}; i < suffix.size(); ++i) {
-				if (data()[offset + i] != suffix.data()[i])
-					return false;
-			}
-
-			return true;
-		}
-
-		constexpr auto find(BaseStringView<CharTypeT> const &needle) const
-		    -> usize
-		{
-			if (needle.size() == 0)
-				return 0;
-
-			if (needle.size() > size())
-				return npos;
-
-			for (usize i {}; i <= size() - needle.size(); ++i) {
-				bool found = true;
-
-				for (usize j {}; j < needle.size(); ++j) {
-					if (data()[i + j] != needle.data()[j]) {
-						found = false;
-						break;
-					}
-				}
-
-				if (found)
-					return i;
-			}
-
-			return npos;
-		}
-
-		constexpr auto contains(BaseStringView<CharTypeT> const &needle) const
-		    -> bool
-		{
-			return find(needle) != npos;
-		}
-
-		auto substring(usize start, usize count) const
-		    -> BaseStringView<CharTypeT>
-		{
-			if (start >= size())
-				return {};
-
-			if (start + count > size())
-				count = size() - start;
-
-			return BaseStringView(data() + start, count);
-		}
-
-		constexpr auto operator==(BaseStringView<CharTypeT> const &other) const
-		    -> bool
-		{
-			return view() == other;
-		}
-
-		constexpr auto operator==(BaseFixedString const &other) const -> bool
-		{
-			return view() == other.view();
-		}
-
-		constexpr auto operator!=(BaseStringView<CharTypeT> const &other) const
-		    -> bool
-		{
-			return !(*this == other);
-		}
-
-		constexpr auto operator!=(BaseFixedString const &other) const -> bool
-		{
-			return !(*this == other);
 		}
 
 		static constexpr usize npos = static_cast<usize>(-1);
