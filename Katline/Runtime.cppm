@@ -196,55 +196,8 @@ auto katline_main(StartupInfo &info) -> void
 	Arch::Scheduler::the().init();
 	Arch::Scheduler::the().adopt_current_thread(
 	    Arch::k_process, stack_start, info.stack_size);
-	for (usize worker_index {}; worker_index < 8; worker_index++) {
-		Arch::Scheduler::the().make_thread(
-		    Arch::k_process, reinterpret_cast<uptr>(+[]() {
-			    auto *thread { Arch::Scheduler::the().current_thread() };
-			    auto const worker_id {
-				    thread ? static_cast<unsigned long long>(thread->tid.id)
-				           : 0ull,
-			    };
-			    Debug::print_formatted("[worker %llu] online\n", worker_id);
-			    u64 last_logged {};
-			    for (;;) {
-				    u64 ticks { Arch::X2APIC::timer_ticks() };
-				    u64 cur { (ticks + 50) / 125ull };
-				    if (cur != 0 && cur != last_logged) {
-					    last_logged = cur;
-					    Debug::print_formatted("[worker %llu] cur=%llu\n",
-					        worker_id, static_cast<unsigned long long>(cur));
-				    }
-			    }
-		    }));
-	}
 
 	asm volatile("sti");
-
-	CL::ArrayList<int> numbers { 1, 2, 3, 4, 5, 6, 7, 8, 9 };
-	CL::ignore_unused(numbers);
-
-	auto const transformed {
-		CL::range(10)
-		    .map([](int value) { return value * 2; })
-		    .filter([](int value) { return value >= 6; })
-		    .rev()
-		    .collect<CL::ArrayList>(),
-	};
-
-	Debug::print_formatted("[demo] arraylist: ");
-	transformed.iter().for_each(
-	    [](int value) { Debug::print_formatted("%d ", value); });
-	Debug::print_formatted("\n");
-
-	CL::HashMap<int, int> squares;
-	squares.insert_or_replace(2, 4);
-	squares.insert_or_replace(3, 9);
-
-	Debug::print_formatted("[demo] hashmap: ");
-	squares.iter().for_each([](auto const &entry) {
-		Debug::print_formatted("(%d->%d) ", entry.key, entry.value);
-	});
-	Debug::print_formatted("\n");
 
 	k_bsp_initialized.store(true, CL::MemoryOrder::Release);
 	Debug::drain_logs();
