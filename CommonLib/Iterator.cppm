@@ -98,7 +98,7 @@ export {
 		/// @return The container with the collected elements.
 		///
 		/// @code
-		/// auto values { range(3).collect<ArrayList<int>>() };
+		/// auto values { range(3).collect<ArrayList>() };
 		/// @endcode
 		template<template<class...> class Container> auto collect() &&
 		{
