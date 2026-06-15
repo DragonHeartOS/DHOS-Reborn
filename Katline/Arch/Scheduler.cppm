@@ -20,6 +20,20 @@ export {
 		QueueFull,
 	};
 
+	struct IrqSavedRegisters {
+		u64 rax {}, rbx {}, rcx {}, rdx {};
+		u64 rsi {}, rdi {}, rbp {};
+		u64 r8 {}, r9 {}, r10 {}, r11 {}, r12 {}, r13 {}, r14 {}, r15 {};
+	};
+
+	struct IrqStackFrame {
+		u64 rip {};
+		u64 cs {};
+		u64 rflags {};
+		u64 rsp {};
+		u64 ss {};
+	};
+
 	struct Scheduler {
 		void init();
 		void init_current_cpu();
@@ -32,10 +46,12 @@ export {
 		auto make_user_thread(Process *process, uptr function_ptr,
 		    uptr user_stack_top, bool add_to_list = false) -> Thread *;
 		auto start_thread(Thread *thread) -> bool;
+		auto online_cpu_count() -> usize;
 		void schedule();
 		auto pick_next_thread() -> Thread *;
 		auto current_thread() -> Thread *;
 		void on_timer_tick();
+		void on_timer_interrupt(IrqSavedRegisters *regs, IrqStackFrame *frame);
 		void yield();
 		void block_current();
 		void unblock(Thread *thread);
@@ -50,6 +66,7 @@ export {
 			u32 lapic_id {};
 			Thread *current_thread {};
 			Thread *idle_thread {};
+			Thread *handoff_thread {};
 			bool in_schedule {};
 			bool online {};
 
@@ -80,6 +97,7 @@ export {
 		void compact_ready_queue_if_needed(CPUState &cpu);
 		auto steal_thread_for_cpu(CPUState &cpu) -> Thread *;
 		void reap_zombies();
+		void clear_handoff_if_current(CPUState &cpu);
 	};
 
 	extern Process *k_process;
@@ -182,6 +200,18 @@ void Scheduler::init_current_cpu()
 	Debug::print_formatted(
 	    "[Scheduler] CPU %d online.\n", static_cast<int>(lapic_id));
 	Debug::drain_logs();
+}
+
+auto Scheduler::online_cpu_count() -> usize
+{
+	Sync::ScopedIrqSpinLock guard { m_global_lock };
+	usize count {};
+	for (usize i {}; i < m_cpus.size(); i++) {
+		auto *cpu { m_cpus[i] };
+		if (cpu && cpu->online)
+			count++;
+	}
+	return count;
 }
 
 auto Scheduler::adopt_current_thread(
@@ -377,6 +407,8 @@ void Scheduler::schedule()
 	if (!cpu)
 		return;
 
+	clear_handoff_if_current(*cpu);
+
 	Thread *prev {};
 	Thread *next {};
 
@@ -390,6 +422,7 @@ void Scheduler::schedule()
 		if (prev && prev->tstate == ThreadState::Running
 		    && prev != cpu->idle_thread) {
 			prev->tstate = ThreadState::Ready;
+			cpu->handoff_thread = prev;
 			enqueue_ready(*cpu, prev);
 		}
 
@@ -448,6 +481,7 @@ auto Scheduler::current_thread() -> Thread *
 	auto *cpu { current_cpu_state() };
 	if (!cpu)
 		return nullptr;
+	clear_handoff_if_current(*cpu);
 	return cpu->current_thread;
 }
 
@@ -458,6 +492,8 @@ void Scheduler::on_timer_tick()
 	auto *cpu { current_cpu_state() };
 	if (!cpu)
 		return;
+
+	clear_handoff_if_current(*cpu);
 
 	auto *current { cpu->current_thread };
 	if (!current || current == cpu->idle_thread
@@ -470,6 +506,133 @@ void Scheduler::on_timer_tick()
 	if (current->slice_remaining == 0) {
 		schedule();
 	}
+}
+
+void Scheduler::on_timer_interrupt(
+    IrqSavedRegisters *regs, IrqStackFrame *frame)
+{
+	reap_zombies();
+
+	auto *cpu { current_cpu_state() };
+	if (!cpu || !regs || !frame)
+		return;
+
+	clear_handoff_if_current(*cpu);
+
+	auto *current { cpu->current_thread };
+	if (!current || current == cpu->idle_thread
+	    || current->tstate != ThreadState::Running)
+		return;
+
+	if (current->slice_remaining > 0)
+		current->slice_remaining--;
+
+	if (current->slice_remaining != 0)
+		return;
+
+	auto const can_preempt_from_irq { (frame->cs & 0x3u) == 3 };
+	if (!can_preempt_from_irq) {
+		current->slice_remaining = m_default_slice_ticks;
+		return;
+	}
+
+	Thread *prev {};
+	Thread *next {};
+	Thread *skipped[16] {};
+	usize skipped_count {};
+
+	{
+		Sync::ScopedIrqSpinLock guard { cpu->queue_lock };
+		if (cpu->in_schedule)
+			return;
+		cpu->in_schedule = true;
+
+		prev = cpu->current_thread;
+		if (prev && prev->tstate == ThreadState::Running
+		    && prev != cpu->idle_thread) {
+			prev->tstate = ThreadState::Ready;
+			cpu->handoff_thread = prev;
+			enqueue_ready(*cpu, prev);
+		}
+
+		for (;;) {
+			auto *candidate { dequeue_ready(*cpu) };
+			if (!candidate)
+				break;
+			if (candidate->context.cs == user_code_selector) {
+				next = candidate;
+				break;
+			}
+			if (skipped_count < sizeof(skipped) / sizeof(skipped[0]))
+				skipped[skipped_count++] = candidate;
+		}
+
+		for (usize i {}; i < skipped_count; ++i)
+			enqueue_ready(*cpu, skipped[i]);
+
+		if (!next)
+			next = prev;
+
+		if (next) {
+			next->tstate = ThreadState::Running;
+			next->slice_remaining = m_default_slice_ticks;
+			next->last_lapic_id = cpu->lapic_id;
+			cpu->current_thread = next;
+		}
+
+		cpu->in_schedule = false;
+	}
+
+	if (!prev || !next || prev == next)
+		return;
+
+	prev->context.rax = regs->rax;
+	prev->context.rbx = regs->rbx;
+	prev->context.rcx = regs->rcx;
+	prev->context.rdx = regs->rdx;
+	prev->context.rsi = regs->rsi;
+	prev->context.rdi = regs->rdi;
+	prev->context.rbp = regs->rbp;
+	prev->context.rsp = frame->rsp;
+	prev->context.r8 = regs->r8;
+	prev->context.r9 = regs->r9;
+	prev->context.r10 = regs->r10;
+	prev->context.r11 = regs->r11;
+	prev->context.r12 = regs->r12;
+	prev->context.r13 = regs->r13;
+	prev->context.r14 = regs->r14;
+	prev->context.r15 = regs->r15;
+	prev->context.rip = frame->rip;
+	prev->context.rflags = frame->rflags;
+	prev->context.cs = frame->cs;
+	prev->context.ss = frame->ss;
+
+	if (next->process && next->process->cr3 != current_cr3())
+		load_cr3(next->process->cr3);
+
+	set_kernel_stack_for_current_cpu(
+	    next->kernel_stack_base + next->kernel_stack_size);
+
+	regs->rax = next->context.rax;
+	regs->rbx = next->context.rbx;
+	regs->rcx = next->context.rcx;
+	regs->rdx = next->context.rdx;
+	regs->rsi = next->context.rsi;
+	regs->rdi = next->context.rdi;
+	regs->rbp = next->context.rbp;
+	regs->r8 = next->context.r8;
+	regs->r9 = next->context.r9;
+	regs->r10 = next->context.r10;
+	regs->r11 = next->context.r11;
+	regs->r12 = next->context.r12;
+	regs->r13 = next->context.r13;
+	regs->r14 = next->context.r14;
+	regs->r15 = next->context.r15;
+	frame->rip = next->context.rip;
+	frame->cs = next->context.cs;
+	frame->rflags = next->context.rflags;
+	frame->rsp = next->context.rsp;
+	frame->ss = next->context.ss;
 }
 
 void Scheduler::yield() { schedule(); }
@@ -663,32 +826,32 @@ auto Scheduler::steal_thread_for_cpu(CPUState &cpu) -> Thread *
 		Thread *stolen {};
 		{
 			Sync::ScopedIrqSpinLock victim_guard { victim->queue_lock };
+
 			for (usize idx { victim->ready_threads.size() };
 			    idx > victim->ready_head; idx--) {
 				auto slot { idx - 1 };
 				auto *candidate { victim->ready_threads[slot] };
+
 				if (!candidate)
 					continue;
 				if (candidate == victim->idle_thread)
 					continue;
+				if (candidate == victim->handoff_thread)
+					continue;
 				if (candidate->tstate != ThreadState::Ready)
 					continue;
+
 				victim->ready_threads[slot] = nullptr;
 				stolen = candidate;
 				break;
 			}
+
 			compact_ready_queue_if_needed(*victim);
 		}
 
 		if (stolen) {
 			stolen->home_lapic_id = cpu.lapic_id;
 			stolen->last_lapic_id = cpu.lapic_id;
-			Debug::print_formatted(
-			    "[Scheduler] CPU %d stole tid=%d from CPU %d (retargeted).\n",
-			    static_cast<int>(cpu.lapic_id),
-			    static_cast<int>(stolen->tid.id),
-			    static_cast<int>(victim->lapic_id));
-			Debug::drain_logs();
 			return stolen;
 		}
 	}
@@ -758,6 +921,17 @@ void Scheduler::reap_zombies()
 		}
 	});
 	m_zombies = CL::move(survivors);
+}
+
+void Scheduler::clear_handoff_if_current(CPUState &cpu)
+{
+	auto *current { cpu.current_thread };
+	if (!current)
+		return;
+
+	Sync::ScopedIrqSpinLock guard { cpu.queue_lock };
+	if (cpu.handoff_thread == current)
+		cpu.handoff_thread = nullptr;
 }
 
 [[noreturn]] void thread_entry_trampoline()
