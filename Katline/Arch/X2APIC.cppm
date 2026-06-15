@@ -101,12 +101,56 @@ template<typename E> static auto fail(E error) -> CL::Result<void, Errors>
 	return CL::Result<void, Errors>::Err(Errors { CL::forward<E>(error) });
 }
 
-extern "C" [[gnu::interrupt]] auto x2apic_timer_interrupt_handler(
-    interrupt_frame *) -> void
+extern "C" auto x2apic_timer_interrupt_dispatch(
+    IrqSavedRegisters *regs, IrqStackFrame *frame) -> void;
+
+extern "C" [[gnu::naked]] auto x2apic_timer_interrupt_handler() -> void
+{
+	asm volatile("cld\n\t"
+	             "push %r15\n\t"
+	             "push %r14\n\t"
+	             "push %r13\n\t"
+	             "push %r12\n\t"
+	             "push %r11\n\t"
+	             "push %r10\n\t"
+	             "push %r9\n\t"
+	             "push %r8\n\t"
+	             "push %rbp\n\t"
+	             "push %rdi\n\t"
+	             "push %rsi\n\t"
+	             "push %rdx\n\t"
+	             "push %rcx\n\t"
+	             "push %rbx\n\t"
+	             "push %rax\n\t"
+	             "mov %rsp, %rdi\n\t"
+	             "lea 0x78(%rsp), %rsi\n\t"
+	             "sub $0x8, %rsp\n\t"
+	             "call x2apic_timer_interrupt_dispatch\n\t"
+	             "add $0x8, %rsp\n\t"
+	             "pop %rax\n\t"
+	             "pop %rbx\n\t"
+	             "pop %rcx\n\t"
+	             "pop %rdx\n\t"
+	             "pop %rsi\n\t"
+	             "pop %rdi\n\t"
+	             "pop %rbp\n\t"
+	             "pop %r8\n\t"
+	             "pop %r9\n\t"
+	             "pop %r10\n\t"
+	             "pop %r11\n\t"
+	             "pop %r12\n\t"
+	             "pop %r13\n\t"
+	             "pop %r14\n\t"
+	             "pop %r15\n\t"
+	             "iretq\n\t");
+}
+
+extern "C" auto x2apic_timer_interrupt_dispatch(
+    IrqSavedRegisters *regs, IrqStackFrame *frame) -> void
 {
 	g_timer_ticks = g_timer_ticks + 1;
 	x2apic_write(reg_eoi, 0);
-	Scheduler::the().on_timer_tick();
+	Scheduler::the().on_timer_interrupt(regs, frame);
 }
 
 static auto enable_x2apic() -> void
