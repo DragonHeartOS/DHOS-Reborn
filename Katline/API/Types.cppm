@@ -46,5 +46,14 @@ export {
 
 	using MemoryMapFlags = CL::Flags<MemoryMapFlag>;
 
+	struct ProcessMemoryMapOptions {
+		Handle process;
+		Handle memory_object;
+		u64 offset;
+		u64 size;
+		MemoryMapFlags flags;
+		void *addr;
+	};
+
 	}
 }

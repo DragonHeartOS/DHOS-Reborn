@@ -25,7 +25,14 @@ export {
 		if (size == 0)
 			return true;
 
-		auto *root { Arch::Paging::current_root() };
+		auto *process { current_process() };
+		if (!process)
+			return false;
+
+		auto *root {
+			reinterpret_cast<Arch::Paging::PageTable *>(
+			    Arch::Paging::phys_to_virt(process->cr3)),
+		};
 		usize copied {};
 		while (copied < size) {
 			auto const virt { raw + copied };
@@ -60,7 +67,14 @@ export {
 		if (size == 0)
 			return true;
 
-		auto *root { Arch::Paging::current_root() };
+		auto *process { current_process() };
+		if (!process)
+			return false;
+
+		auto *root {
+			reinterpret_cast<Arch::Paging::PageTable *>(
+			    Arch::Paging::phys_to_virt(process->cr3)),
+		};
 		usize copied {};
 		while (copied < size) {
 			auto const virt { raw + copied };
@@ -303,35 +317,27 @@ auto invoke_typed_impl(Arch::Thread *thread, u64 arg0, u64 arg1, u64 arg2,
 	}
 }
 
-template<SyscallNumber Id, usize... I>
-constexpr auto has_valid_call_signature_without_thread(CL::IndexSequence<I...>)
-    -> bool
+template<SyscallNumber Id, bool WithThread, usize... I>
+constexpr auto has_valid_call_signature(CL::IndexSequence<I...>) -> bool
 {
 	using S = Spec<Id>;
 	using Args = typename ArgsOf<Id>::Type;
 	using Return = typename ReturnOf<Id>::Type;
 
-	return requires {
-		{
-			S::call(CL::declval<CL::TypeListAtT<I, Args>>()...)
-		} -> CL::SameAs<Result<Return>>;
-	};
-}
-
-template<SyscallNumber Id, usize... I>
-constexpr auto has_valid_call_signature_with_thread(CL::IndexSequence<I...>)
-    -> bool
-{
-	using S = Spec<Id>;
-	using Args = typename ArgsOf<Id>::Type;
-	using Return = typename ReturnOf<Id>::Type;
-
-	return requires {
-		{
-			S::call(static_cast<Arch::Thread *>(nullptr),
-			    CL::declval<CL::TypeListAtT<I, Args>>()...)
-		} -> CL::SameAs<Result<Return>>;
-	};
+	if constexpr (WithThread) {
+		return requires {
+			{
+				S::call(static_cast<Arch::Thread *>(nullptr),
+				    CL::declval<CL::TypeListAtT<I, Args>>()...)
+			} -> CL::SameAs<Result<Return>>;
+		};
+	} else {
+		return requires {
+			{
+				S::call(CL::declval<CL::TypeListAtT<I, Args>>()...)
+			} -> CL::SameAs<Result<Return>>;
+		};
+	}
 }
 
 template<SyscallNumber Id>
@@ -374,12 +380,12 @@ auto invoke_typed(u64 arg0, u64 arg1, u64 arg2, u64 arg3, u64 arg4) -> u64
 		    arg_count <= 5, "syscall argument count exceeds ABI limit");
 
 		if constexpr (requires_current_thread) {
-			static_assert(has_valid_call_signature_with_thread<Id>(
+			static_assert(has_valid_call_signature<Id, true>(
 			                  CL::MakeIndexSequence<arg_count> {}),
 			    "Spec<...>::call signature must take Arch::Thread * when "
 			    "requires_current_thread is true");
 		} else {
-			static_assert(has_valid_call_signature_without_thread<Id>(
+			static_assert(has_valid_call_signature<Id, false>(
 			                  CL::MakeIndexSequence<arg_count> {}),
 			    "Spec<...>::call signature must match SyscallList.def args and "
 			    "return type");

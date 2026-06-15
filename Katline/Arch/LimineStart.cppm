@@ -219,6 +219,7 @@ extern "C" auto kernel_start() -> void
 	Katline::StartupInfo info {
 		.framebuffer = &fb,
 		.mmap = &mmap,
+		.cpu_count = static_cast<u32>(mp_request.response->cpu_count),
 		.bsp_lapic_id = mp_request.response->bsp_lapic_id,
 		.rsdp_address = reinterpret_cast<uptr>(rsdp_request.response->address),
 		.hhdm_offset = hhdm_offset,

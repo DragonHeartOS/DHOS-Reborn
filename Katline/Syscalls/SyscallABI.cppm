@@ -7,15 +7,6 @@ import :GDT;
 export {
 	namespace Katline::Syscalls {
 
-	struct RawArguments {
-		u64 number {};
-		u64 arg0 {};
-		u64 arg1 {};
-		u64 arg2 {};
-		u64 arg3 {};
-		u64 arg4 {};
-	};
-
 	auto init() -> void;
 	extern "C" auto syscall_entry() -> void;
 	extern "C" auto dispatch_raw(
@@ -54,42 +45,46 @@ auto init() -> void
 
 extern "C" [[gnu::naked]] auto syscall_entry() -> void
 {
-	asm volatile("movq %rsp, %r14\n\t"
+	asm volatile("swapgs\n\t"
+	             "movq %rsp, %gs:8\n\t"
+	             "movq %gs:0, %rsp\n\t"
+	             "testq %rsp, %rsp\n\t"
+	             "jz 1f\n\t"
+	             "andq $-16, %rsp\n\t"
+
 	             "pushq %rbx\n\t"
 	             "pushq %rbp\n\t"
 	             "pushq %r12\n\t"
 	             "pushq %r13\n\t"
-	             "pushq %r8\n\t"
-	             "pushq %r11\n\t"
+	             "pushq %r14\n\t"
+	             "pushq %r15\n\t"
 	             "pushq %rcx\n\t"
-	             "movq %rax, %r15\n\t"
-	             "movq %rdi, %rbx\n\t"
-	             "movq %rsi, %rbp\n\t"
-	             "movq %rdx, %r12\n\t"
-	             "movq %r10, %r13\n\t"
-	             "callq katline_current_kernel_stack_top\n\t"
-	             "testq %rax, %rax\n\t"
-	             "jz 1f\n\t"
-	             "movq %rax, %rsp\n\t"
-	             "movq %r15, %rdi\n\t"
-	             "movq %rbx, %rsi\n\t"
-	             "movq %rbp, %rdx\n\t"
-	             "movq %r12, %rcx\n\t"
-	             "movq %r13, %r8\n\t"
-	             "movq -40(%r14), %r9\n\t"
+	             "pushq %r11\n\t"
+
+	             "movq %r8, %r9\n\t"
+	             "movq %r10, %r8\n\t"
+	             "movq %rdx, %rcx\n\t"
+	             "movq %rsi, %rdx\n\t"
+	             "movq %rdi, %rsi\n\t"
+	             "movq %rax, %rdi\n\t"
 	             "callq dispatch_raw\n\t"
-	             "movq -8(%r14), %rbx\n\t"
-	             "movq -16(%r14), %rbp\n\t"
-	             "movq -24(%r14), %r12\n\t"
-	             "movq -32(%r14), %r13\n\t"
-	             "movq -56(%r14), %rcx\n\t"
-	             "movq -48(%r14), %r11\n\t"
-	             "movq %r14, %rsp\n\t"
+
+	             "popq %r11\n\t"
+	             "popq %rcx\n\t"
+	             "popq %r15\n\t"
+	             "popq %r14\n\t"
+	             "popq %r13\n\t"
+	             "popq %r12\n\t"
+	             "popq %rbp\n\t"
+	             "popq %rbx\n\t"
+
+	             "movq %gs:8, %rsp\n\t"
+	             "swapgs\n\t"
 	             "sysretq\n\t"
 	             "1:\n\t"
+	             "swapgs\n\t"
 	             "cli\n\t"
 	             "hlt\n\t"
 	             "jmp 1b\n\t");
 }
-
 }

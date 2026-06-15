@@ -33,7 +33,10 @@ export {
 
 		static constexpr auto from_raw(u64 value) -> UserPtr
 		{
-			return UserPtr { value };
+			if constexpr (IsConst)
+				return UserPtr { reinterpret_cast<T const *>(value) };
+			else
+				return UserPtr { reinterpret_cast<T *>(value) };
 		}
 
 		constexpr auto is_null() const -> bool { return raw == 0; }

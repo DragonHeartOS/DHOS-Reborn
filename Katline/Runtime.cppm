@@ -25,6 +25,7 @@ export {
 	struct StartupInfo {
 		Controller::Framebuffer *framebuffer;
 		Memory::MemoryMap *mmap;
+		u32 cpu_count;
 		u32 bsp_lapic_id;
 		uptr rsdp_address;
 		uptr hhdm_offset;
@@ -73,6 +74,16 @@ static auto reserve_mmap_phys_range(Memory::MemoryMap *mmap, uptr hhdm_offset,
 Controller::FramebufferController k_framebuffer_controller { nullptr };
 Controller::SerialController k_serial_controller;
 CL::Atomic<bool> k_bsp_initialized { false };
+static constexpr usize max_cpu_slots { 256 };
+static Arch::GDT s_gdt_by_lapic_id[max_cpu_slots] {};
+static Arch::TSS s_tss_by_lapic_id[max_cpu_slots] {};
+
+static auto load_cpu_segments(u32 lapic_id) -> void
+{
+	auto &gdt { s_gdt_by_lapic_id[lapic_id] };
+	auto &tss { s_tss_by_lapic_id[lapic_id] };
+	gdt.load(lapic_id, tss);
+}
 
 auto print_cpu_info(u32 lapic_id)
 {
@@ -85,43 +96,6 @@ auto print_cpu_info(u32 lapic_id)
 	    static_cast<int>(cpuid_info.stepping_id),
 	    static_cast<int>(cpuid_info.has_apic),
 	    static_cast<int>(cpuid_info.has_x2apic));
-}
-
-[[gnu::noinline]] static auto panic_test_5(u64 seed) -> u64
-{
-	u64 volatile local { seed ^ 0x1234'5678'9abc'def0ull };
-	asm volatile("int3"); // panic :3
-	return local + 0x1111ull;
-}
-
-[[gnu::noinline]] static auto panic_test_4(u64 seed) -> u64
-{
-	u64 volatile local { panic_test_5(seed + 4) };
-	return local ^ 0x2222ull;
-}
-
-[[gnu::noinline]] static auto panic_test_3(u64 seed) -> u64
-{
-	u64 volatile local { panic_test_4(seed + 3) };
-	return local + 0x3333ull;
-}
-
-[[gnu::noinline]] static auto panic_test_2(u64 seed) -> u64
-{
-	u64 volatile local { panic_test_3(seed + 2) };
-	return local ^ 0x4444ull;
-}
-
-[[gnu::noinline]] static auto panic_test_1(u64 seed) -> u64
-{
-	u64 volatile local { panic_test_2(seed + 1) };
-	return local + 0x5555ull;
-}
-
-[[gnu::noinline]] static auto panic_test() -> u64
-{
-	u64 volatile local { panic_test_1(0xabc0) };
-	return local;
 }
 
 auto katline_main(StartupInfo &info) -> void
@@ -144,9 +118,7 @@ auto katline_main(StartupInfo &info) -> void
 		kpanic("[CPU] missing APIC/x2APIC support; halting for bring-up.\n");
 	}
 
-	auto gdt = Arch::GDT {};
-	auto tss = Arch::TSS {};
-	gdt.load(info.bsp_lapic_id, tss);
+	load_cpu_segments(info.bsp_lapic_id);
 	Interrupts::init_defaults(info.bsp_lapic_id);
 	Syscalls::init();
 	auto const timer_init_result {
@@ -205,6 +177,8 @@ auto katline_main(StartupInfo &info) -> void
 	asm volatile("sti");
 
 	k_bsp_initialized.store(true, CL::MemoryOrder::Release);
+	while (Arch::Scheduler::the().online_cpu_count() < info.cpu_count)
+		asm volatile("pause");
 	Debug::drain_logs();
 	launch_bootstrap_process();
 	Arch::Scheduler::the().yield();
@@ -216,11 +190,6 @@ auto katline_main(StartupInfo &info) -> void
 		if (cur != 0 && cur != last_logged) {
 			last_logged = cur;
 			Debug::drain_logs();
-		}
-
-		if (cur & 0b100) {
-			auto const test { panic_test() };
-			CL::ignore_unused(test);
 		}
 	}
 }
@@ -234,9 +203,7 @@ void boot_cpu(u32 lapic_id, u32 processor_id, u64 extra, u64 tsc_freq)
 	CL::ignore_unused(processor_id, extra);
 
 	print_cpu_info(lapic_id);
-	auto gdt = Arch::GDT {};
-	auto tss = Arch::TSS {};
-	gdt.load(lapic_id, tss);
+	load_cpu_segments(lapic_id);
 	Interrupts::init_defaults(lapic_id);
 	Syscalls::init();
 	auto const timer_init_result {

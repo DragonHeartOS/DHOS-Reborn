@@ -14,21 +14,19 @@ template<> struct Spec<SyscallNumber::MemoryMap> {
 
 	static auto call(Arch::Thread *thread, Handle memory_object, u64 offset,
 	    u64 size, Katline::MemoryMapFlags flags, UserPtr<void *> out_addr)
-	    -> Result<void>
+	    -> Result<u64>
 	{
 		auto *object {
 			Arch::HandleManager::the().resolve<Memory::MemoryObject>(
 			    thread->process, memory_object, Arch::HandleKind::MemoryObject),
 		};
-		if (!object)
-			return Result<void>::Err(ErrorsV::InvalidArgument {});
+		if (!object) {
+			return Result<u64>::Err(ErrorsV::InvalidArgument {});
+		}
 
-		if (object->kind == Memory::MemoryObjectKind::MMIO) {
-			if (auto const res {
-			        require_capabilities({ ProcessCapability::MapMMIO }),
-			    };
-			    res.is_err())
-				return Result<void>::Err(res.unwrap_err());
+		auto const mmio_res { require_mmio_mapping_capability(object) };
+		if (mmio_res.is_err()) {
+			return Result<u64>::Err(mmio_res.unwrap_err());
 		}
 
 		return map_memory_object(

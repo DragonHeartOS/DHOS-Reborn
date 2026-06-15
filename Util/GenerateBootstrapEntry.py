@@ -56,7 +56,7 @@ def main():
 
     with open(out_h, "w", encoding="ascii") as f:
         f.write("#pragma once\n")
-        f.write("inline constexpr unsigned long long KATLINE_BOOTSTRAP_ENTRY_OFFSET = ")
+        f.write("inline constexpr unsigned long long KATLINE_BOOTSTRAP_ENTRY_ADDRESS = ")
         f.write(f"0x{start_addr:x}ull;\n")
 
     return 0

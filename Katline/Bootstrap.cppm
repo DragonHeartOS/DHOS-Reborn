@@ -94,9 +94,8 @@ auto launch_bootstrap_process() -> void
 	}
 
 	auto *thread {
-		Arch::Scheduler::the().make_user_thread(process,
-		    bootstrap_image_base + KATLINE_BOOTSTRAP_ENTRY_OFFSET,
-		    bootstrap_stack_top),
+		Arch::Scheduler::the().make_user_thread(
+		    process, KATLINE_BOOTSTRAP_ENTRY_ADDRESS, bootstrap_stack_top),
 	};
 	if (!thread)
 		kpanic("[Bootstrap] failed to create bootstrap thread");

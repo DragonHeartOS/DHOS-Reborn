@@ -3,23 +3,25 @@ OUTPUT_ARCH(i386:x86-64)
 
 ENTRY(_start)
 
+BOOTSTRAP_IMAGE_BASE = 0x0000000000400000;
+
 SECTIONS
 {
-	. = 0;
+	. = BOOTSTRAP_IMAGE_BASE;
 
-	.text : {
+	.text : AT(ADDR(.text) - BOOTSTRAP_IMAGE_BASE) {
 		*(.text .text.*)
 	}
 
-	.rodata : {
+	.rodata : AT(ADDR(.rodata) - BOOTSTRAP_IMAGE_BASE) {
 		*(.rodata .rodata.*)
 	}
 
-	.data : {
+	.data : AT(ADDR(.data) - BOOTSTRAP_IMAGE_BASE) {
 		*(.data .data.*)
 	}
 
-	.bss : {
+	.bss : AT(ADDR(.bss) - BOOTSTRAP_IMAGE_BASE) {
 		*(COMMON)
 		*(.bss .bss.*)
 	}

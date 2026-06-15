@@ -6,7 +6,6 @@ import :ArchConstants;
 import :MemoryObject;
 import :Paging;
 import :ProcessMappings;
-import :Scheduler;
 import :SyscallKernelContract;
 
 namespace Katline::Syscalls {
@@ -24,6 +23,8 @@ export {
 	auto required_page_count(u64 offset, u64 size) -> usize;
 	auto page_flags_from_memory_flags(Katline::MemoryMapFlags flags)
 	    -> Arch::Paging::PageFlags;
+	auto require_mmio_mapping_capability(Memory::MemoryObject *object)
+	    -> Result<void>;
 	auto resolve_target_root(Arch::Process *process)
 	    -> Arch::Paging::PageTable *;
 	auto rollback_mappings(Arch::Paging::PageTable *root,
@@ -33,7 +34,7 @@ export {
 	    -> Result<void>;
 	auto map_memory_object(Arch::Process *process, Memory::MemoryObject *object,
 	    u64 offset, u64 size, Katline::MemoryMapFlags flags,
-	    UserPtr<void *> out_addr) -> Result<void>;
+	    UserPtr<void *> out_addr) -> Result<u64>;
 	auto unmap_memory_object(Arch::Process *process, uptr address, u64 size)
 	    -> Result<void>;
 
@@ -62,6 +63,19 @@ auto page_flags_from_memory_flags(Katline::MemoryMapFlags flags)
 		page_flags |= Arch::Paging::PageFlag::NoExecute;
 
 	return page_flags;
+}
+
+auto require_mmio_mapping_capability(Memory::MemoryObject *object)
+    -> Result<void>
+{
+	if (!object || object->kind != Memory::MemoryObjectKind::MMIO)
+		return Result<void>::Ok();
+
+	if (auto const res { require_capabilities({ ProcessCapability::MapMMIO }) };
+	    res.is_err())
+		return Result<void>::Err(res.unwrap_err());
+
+	return Result<void>::Ok();
 }
 
 auto resolve_target_root(Arch::Process *process) -> Arch::Paging::PageTable *
@@ -102,39 +116,65 @@ auto remember_mapping(Arch::Process *process, uptr address, uptr page_base,
 
 auto map_memory_object(Arch::Process *process, Memory::MemoryObject *object,
     u64 offset, u64 size, Katline::MemoryMapFlags flags,
-    UserPtr<void *> out_addr) -> Result<void>
+    UserPtr<void *> out_addr) -> Result<u64>
 {
-	if (!process || !object || size == 0)
-		return Result<void>::Err(ErrorsV::InvalidArgument {});
+	if (!process || !object || size == 0) {
+		return Result<u64>::Err(ErrorsV::InvalidArgument {});
+	}
 
-	if (offset > object->size || size > object->size - offset)
-		return Result<void>::Err(ErrorsV::InvalidArgument {});
+	if (offset > object->size || size > object->size - offset) {
+		return Result<u64>::Err(ErrorsV::InvalidArgument {});
+	}
 
 	auto *root { resolve_target_root(process) };
-	if (!root)
-		return Result<void>::Err(ErrorsV::InvalidArgument {});
+	if (!root) {
+		return Result<u64>::Err(ErrorsV::InvalidArgument {});
+	}
 
 	auto const page_flags { page_flags_from_memory_flags(flags) };
-	if (page_flags.raw() == 0)
-		return Result<void>::Err(ErrorsV::InvalidArgument {});
+	if (page_flags.raw() == 0) {
+		return Result<u64>::Err(ErrorsV::InvalidArgument {});
+	}
+
+	auto const mmio_capability { require_mmio_mapping_capability(object) };
+	if (mmio_capability.is_err())
+		return Result<u64>::Err(mmio_capability.unwrap_err());
 
 	Memory::retain_memory_object(object);
+
+	// TODO: could probably replace with a defer later idk
+	struct Cleanup {
+		Arch::Paging::PageTable *root {};
+		CL::ArrayList<uptr> *mapped_virt {};
+		Memory::MemoryObject *object {};
+		bool active { true };
+
+		~Cleanup()
+		{
+			if (!active)
+				return;
+			if (mapped_virt)
+				rollback_mappings(root, *mapped_virt);
+			Memory::release_memory_object(object);
+		}
+
+		void dismiss() { active = false; }
+	} cleanup { root, nullptr, object };
 
 	auto const page_offset { static_cast<usize>(offset % Arch::k_page_size) };
 	auto const page_index { static_cast<usize>(offset / Arch::k_page_size) };
 	auto const page_count { required_page_count(offset, size) };
 	if (page_count == 0) {
-		Memory::release_memory_object(object);
-		return Result<void>::Err(ErrorsV::InvalidArgument {});
+		return Result<u64>::Err(ErrorsV::InvalidArgument {});
 	}
 
 	auto const base { Arch::find_free_user_region(process, page_count) };
 	if (!base) {
-		Memory::release_memory_object(object);
-		return Result<void>::Err(ErrorsV::InvalidArgument {});
+		return Result<u64>::Err(ErrorsV::InvalidArgument {});
 	}
 
 	CL::ArrayList<uptr> mapped_virt;
+	cleanup.mapped_virt = &mapped_virt;
 	for (usize i {}; i < page_count; ++i) {
 		uptr phys {};
 		switch (object->kind) {
@@ -142,9 +182,7 @@ auto map_memory_object(Arch::Process *process, Memory::MemoryObject *object,
 			auto const phys_page_index { page_index + i };
 			auto const phys_opt { object->pages.get(phys_page_index) };
 			if (!phys_opt) {
-				rollback_mappings(root, mapped_virt);
-				Memory::release_memory_object(object);
-				return Result<void>::Err(ErrorsV::InvalidArgument {});
+				return Result<u64>::Err(ErrorsV::InvalidArgument {});
 			}
 
 			phys = *phys_opt;
@@ -161,9 +199,7 @@ auto map_memory_object(Arch::Process *process, Memory::MemoryObject *object,
 			    root, base + i * Arch::k_page_size, phys, page_flags),
 		};
 		if (!res) {
-			rollback_mappings(root, mapped_virt);
-			Memory::release_memory_object(object);
-			return Result<void>::Err(ErrorsV::InvalidArgument {});
+			return Result<u64>::Err(ErrorsV::InvalidArgument {});
 		}
 
 		mapped_virt.push(base + i * Arch::k_page_size);
@@ -172,9 +208,7 @@ auto map_memory_object(Arch::Process *process, Memory::MemoryObject *object,
 	auto const mapped { reinterpret_cast<void *>(base + page_offset) };
 	auto const copy_result { copy_out(out_addr, &mapped, sizeof(mapped)) };
 	if (copy_result.is_err()) {
-		rollback_mappings(root, mapped_virt);
-		Memory::release_memory_object(object);
-		return copy_result;
+		return Result<u64>::Err(copy_result.unwrap_err());
 	}
 
 	auto const remember_result {
@@ -182,12 +216,11 @@ auto map_memory_object(Arch::Process *process, Memory::MemoryObject *object,
 		    page_count, static_cast<usize>(size), object),
 	};
 	if (remember_result.is_err()) {
-		rollback_mappings(root, mapped_virt);
-		Memory::release_memory_object(object);
-		return remember_result;
+		return Result<u64>::Err(remember_result.unwrap_err());
 	}
 
-	return Result<void>::Ok();
+	cleanup.dismiss();
+	return Result<u64>::Ok(reinterpret_cast<u64>(mapped));
 }
 
 auto unmap_memory_object(Arch::Process *process, uptr address, u64 size)

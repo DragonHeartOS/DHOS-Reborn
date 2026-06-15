@@ -4,8 +4,70 @@ set(SOURCES
     Memory/NewDelete.cpp
 )
 
-file(GLOB_RECURSE KATLINE_MODULE_SOURCES CONFIGURE_DEPENDS
-    "${CMAKE_CURRENT_SOURCE_DIR}/*.cppm"
+set(KATLINE_MODULE_SOURCES
+    Arch/ACPI.cppm
+    Arch/CPU.cppm
+    Arch/Constants.cppm
+    Arch/GDT.cppm
+    Arch/IDT.cppm
+    Arch/Interrupts.cppm
+    Arch/LimineStart.cppm
+    Arch/Paging.cppm
+    Arch/RSDP.cppm
+    Arch/Scheduler.cppm
+    Arch/Thread.cppm
+    Arch/X2APIC.cppm
+
+    Bootstrap.cppm
+
+    Controllers/FramebufferController.cppm
+    Controllers/IO.cppm
+    Controllers/SerialController.cppm
+
+    Debug.cppm
+    DebugImpl.cppm
+    DebugSink.cppm
+    Font.cppm
+    HandleManager.cppm
+    Katline.cppm
+    KernelSymbols.cppm
+    Logo.cppm
+
+    Memory/FrameAllocator.cppm
+    Memory/Heap.cppm
+    Memory/MemoryData.cppm
+    Memory/MemoryManager.cppm
+    Memory/MemoryObject.cppm
+    Memory/ProcessMappings.cppm
+
+    Panic.cppm
+    Runtime.cppm
+    Sync.cppm
+
+    Syscalls/SyscallABI.cppm
+    Syscalls/Exit.cppm
+    Syscalls/GetProcessInfo.cppm
+    Syscalls/HandleClose.cppm
+    Syscalls/HandleDuplicate.cppm
+    Syscalls/IPCReceive.cppm
+    Syscalls/IPCSend.cppm
+    Syscalls/KernelContract.cppm
+    Syscalls/MemoryCreate.cppm
+    Syscalls/MemoryMap.cppm
+    Syscalls/MemoryMapHelpers.cppm
+    Syscalls/MemoryUnmap.cppm
+    Syscalls/ProcessCreate.cppm
+    Syscalls/ProcessCurrent.cppm
+    Syscalls/ProcessGrantCapabilities.cppm
+    Syscalls/ProcessMemoryMap.cppm
+    Syscalls/ProcessMemoryUnmap.cppm
+    Syscalls/ThreadCreate.cppm
+    Syscalls/ThreadCurrent.cppm
+    Syscalls/ThreadStart.cppm
+    Syscalls/Yield.cppm
+    Syscalls/Syscalls.cppm
+
+    Syscalls/Dispatch.cppm
 )
 list(FILTER KATLINE_MODULE_SOURCES EXCLUDE REGEX "/API/")
 
