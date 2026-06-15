@@ -3,6 +3,7 @@ export module Katline:FrameAllocator;
 import CommonLib;
 import :ArchConstants;
 import :MemoryData;
+import :Sync;
 
 export {
 	namespace Katline::Memory {
@@ -27,6 +28,7 @@ static constexpr usize max_frames { 1ull << 28 };
 
 static uptr g_hhdm_offset {};
 static CL::BitArray<max_frames> g_frames;
+static Katline::Sync::SpinLock g_frames_lock;
 
 static constexpr auto page_align_down(uptr addr) -> uptr
 {
@@ -96,6 +98,8 @@ static auto free_range(uptr phys, usize size) -> void
 
 auto FrameAllocator::init(MemoryMap const *mmap, uptr hhdm_offset) -> void
 {
+	Katline::Sync::ScopedIrqSpinLock guard { g_frames_lock };
+
 	g_hhdm_offset = hhdm_offset;
 	g_frames.set_all();
 	reserve_range(0, 0x100000);
@@ -114,11 +118,14 @@ auto FrameAllocator::init(MemoryMap const *mmap, uptr hhdm_offset) -> void
 
 auto FrameAllocator::reserve_phys_range(uptr phys, usize size) -> void
 {
+	Katline::Sync::ScopedIrqSpinLock guard { g_frames_lock };
 	reserve_range(phys, size);
 }
 
 auto FrameAllocator::allocate_page() -> void *
 {
+	Katline::Sync::ScopedIrqSpinLock guard { g_frames_lock };
+
 	auto const free_frame { g_frames.find_first_clear() };
 	if (!free_frame)
 		return nullptr;
@@ -144,6 +151,8 @@ auto FrameAllocator::free_page(void *page) -> void
 {
 	if (!page)
 		return;
+
+	Katline::Sync::ScopedIrqSpinLock guard { g_frames_lock };
 
 	auto const phys { virt_to_phys(page) };
 	auto const index { frame_index(page_align_down(phys)) };
