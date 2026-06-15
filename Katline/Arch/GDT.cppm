@@ -6,8 +6,8 @@ import :Debug;
 
 export {
 	namespace Katline::Arch {
-	constexpr u16 user_code_selector { 0x1b };
-	constexpr u16 user_data_selector { 0x23 };
+	constexpr u16 user_code_selector { 0x23 };
+	constexpr u16 user_data_selector { 0x1b };
 
 	struct [[gnu::packed]] GDTEntry {
 		u16 limit0 {};
@@ -53,8 +53,8 @@ export {
 		GDTEntry null;
 		GDTEntry kernel_code;
 		GDTEntry kernel_data;
-		GDTEntry user_code;
 		GDTEntry user_data;
+		GDTEntry user_code;
 		TSSEntry tss;
 
 		void load(u32 lapic_id, TSS &tss);
@@ -66,6 +66,7 @@ export {
 	};
 
 	extern "C" auto katline_current_kernel_stack_top() -> u64;
+	extern "C" auto katline_current_kernel_data_base() -> u64;
 
 	}
 }
@@ -97,16 +98,6 @@ constexpr GDT gdt_template {
 		.base2 = 0,
 	},
 
-	.user_code = {
-		.limit0 = 0xFFFF,
-		.base0 = 0,
-		.base1 = 0,
-		.access_byte = 0xFA,
-		.limit1 = 0xF,
-		.flags = 0xA,
-		.base2 = 0,
-	},
-
 	.user_data = {
 		.limit0 = 0xFFFF,
 		.base0 = 0,
@@ -117,11 +108,30 @@ constexpr GDT gdt_template {
 		.base2 = 0,
 	},
 
+	.user_code = {
+		.limit0 = 0xFFFF,
+		.base0 = 0,
+		.base1 = 0,
+		.access_byte = 0xFA,
+		.limit1 = 0xF,
+		.flags = 0xA,
+		.base2 = 0,
+	},
+
 	.tss = {},
 };
 
 static constexpr usize max_tss_slots { 256 };
+static constexpr u32 ia32_kernel_gs_base { 0xc0000102 };
+
+struct [[gnu::packed]] KernelCpuData {
+	u64 kernel_stack_top {};
+	u64 user_rsp_on_syscall {};
+};
+
 static TSS *s_tss_by_lapic_id[max_tss_slots] {};
+alignas(
+    64) static KernelCpuData s_kernel_cpu_data_by_lapic_id[max_tss_slots] {};
 
 static void init_tss_descriptor(GDT &gdt, TSS &tss)
 {
@@ -146,8 +156,11 @@ void GDT::load(u32 lapic_id, TSS &tss)
 {
 	*this = gdt_template;
 	init_tss_descriptor(*this, tss);
-	if (lapic_id < max_tss_slots)
+	if (lapic_id < max_tss_slots) {
 		s_tss_by_lapic_id[lapic_id] = &tss;
+		wrmsr(ia32_kernel_gs_base,
+		    reinterpret_cast<u64>(&s_kernel_cpu_data_by_lapic_id[lapic_id]));
+	}
 
 	GDTR gdtr {
 		.limit = sizeof(*this) - 1,
@@ -189,6 +202,7 @@ auto set_kernel_stack_for_current_cpu(uptr stack_top) -> void
 	if (lapic_id >= max_tss_slots || !s_tss_by_lapic_id[lapic_id])
 		return;
 	s_tss_by_lapic_id[lapic_id]->rsp0 = stack_top;
+	s_kernel_cpu_data_by_lapic_id[lapic_id].kernel_stack_top = stack_top;
 }
 
 extern "C" auto katline_current_kernel_stack_top() -> u64
@@ -197,6 +211,14 @@ extern "C" auto katline_current_kernel_stack_top() -> u64
 	if (lapic_id >= max_tss_slots || !s_tss_by_lapic_id[lapic_id])
 		return 0;
 	return s_tss_by_lapic_id[lapic_id]->rsp0;
+}
+
+extern "C" auto katline_current_kernel_data_base() -> u64
+{
+	auto const lapic_id { current_lapic_id() };
+	if (lapic_id >= max_tss_slots)
+		return 0;
+	return reinterpret_cast<u64>(&s_kernel_cpu_data_by_lapic_id[lapic_id]);
 }
 
 }
