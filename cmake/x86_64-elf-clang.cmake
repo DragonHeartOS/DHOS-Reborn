@@ -18,6 +18,17 @@ set(CMAKE_CXX_COMPILER_TARGET x86_64-elf)
 set(CMAKE_C_FLAGS_INIT "--target=x86_64-elf")
 set(CMAKE_CXX_FLAGS_INIT "--target=x86_64-elf")
 
+execute_process(
+    COMMAND nix eval --raw --impure --expr "with import <nixpkgs> {}; libcxx.dev"
+    OUTPUT_VARIABLE NIX_LIBCXX_DEV
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    RESULT_VARIABLE NIX_LIBCXX_DEV_RESULT
+)
+
+if(NIX_LIBCXX_DEV_RESULT EQUAL 0)
+    set(CMAKE_CXX_FLAGS_INIT "${CMAKE_CXX_FLAGS_INIT} -isystem ${NIX_LIBCXX_DEV}/include/c++/v1")
+endif()
+
 set(CMAKE_LINKER ${LLD})
 
 find_program(LLD ld.lld REQUIRED)

@@ -1,0 +1,141 @@
+#pragma once
+
+#include <new>
+
+namespace std {
+
+using size_t = decltype(sizeof(0));
+
+struct nullopt_t {
+	explicit constexpr nullopt_t(int) noexcept { }
+};
+
+inline constexpr nullopt_t nullopt { 0 };
+
+template<typename T> class optional {
+public:
+	constexpr optional() noexcept : m_has_value { false } { }
+
+	constexpr optional(optional const &other)
+	    : m_has_value { false }
+	{
+		if (other.m_has_value)
+			emplace(*other);
+	}
+
+	constexpr optional(optional &&other)
+	    : m_has_value { false }
+	{
+		if (other.m_has_value)
+			emplace(static_cast<T &&>(*other));
+	}
+
+	constexpr optional(T const &value)
+	    : m_has_value { false }
+	{
+		emplace(value);
+	}
+
+	constexpr optional(T &&value)
+	    : m_has_value { false }
+	{
+		emplace(static_cast<T &&>(value));
+	}
+
+	constexpr ~optional() { reset(); }
+
+	constexpr auto operator=(optional const &other) -> optional &
+	{
+		if (this == &other)
+			return *this;
+
+		assign_from_other(other);
+		return *this;
+	}
+
+	constexpr auto operator=(optional &&other) -> optional &
+	{
+		if (this == &other)
+			return *this;
+
+		assign_from_other(static_cast<optional &&>(other));
+		return *this;
+	}
+
+	constexpr auto operator=(T const &value) -> optional &
+	{
+		assign_from_value(value);
+		return *this;
+	}
+
+	constexpr auto operator=(T &&value) -> optional &
+	{
+		assign_from_value(static_cast<T &&>(value));
+		return *this;
+	}
+
+	template<typename... Args> constexpr auto emplace(Args &&...args) -> T &
+	{
+		reset();
+		::new (storage()) T(static_cast<Args &&>(args)...);
+		m_has_value = true;
+		return *ptr();
+	}
+
+	constexpr auto reset() -> void
+	{
+		if (m_has_value) {
+			ptr()->~T();
+			m_has_value = false;
+		}
+	}
+
+	constexpr auto has_value() const noexcept -> bool { return m_has_value; }
+	constexpr explicit operator bool() const noexcept { return has_value(); }
+
+	constexpr auto value() & -> T & { return *ptr(); }
+	constexpr auto value() const & -> T const & { return *ptr(); }
+	constexpr auto operator*() & -> T & { return *ptr(); }
+	constexpr auto operator*() const & -> T const & { return *ptr(); }
+	constexpr auto operator->() -> T * { return ptr(); }
+	constexpr auto operator->() const -> T const * { return ptr(); }
+
+private:
+	constexpr auto storage() -> void * { return static_cast<void *>(m_storage); }
+	constexpr auto storage() const -> void const *
+	{
+		return static_cast<void const *>(m_storage);
+	}
+
+	constexpr auto ptr() -> T * { return static_cast<T *>(storage()); }
+	constexpr auto ptr() const -> T const * { return static_cast<T const *>(storage()); }
+
+	template<typename U> constexpr auto assign_from_value(U &&value) -> void
+	{
+		if (m_has_value)
+			*ptr() = static_cast<U &&>(value);
+		else
+			emplace(static_cast<U &&>(value));
+	}
+
+	constexpr auto assign_from_other(optional const &other) -> void
+	{
+		if (other.m_has_value)
+			assign_from_value(*other);
+		else
+			reset();
+	}
+
+	constexpr auto assign_from_other(optional &&other) -> void
+	{
+		if (other.m_has_value)
+			assign_from_value(static_cast<T &&>(*other));
+		else
+			reset();
+	}
+
+	alignas(T) unsigned char m_storage[sizeof(T)];
+	bool m_has_value;
+};
+
+} // namespace std

@@ -100,39 +100,39 @@ static inline auto dlist_remove_from(DList **d1p, DList *d2) -> void
 #define DLIST_INIT(v, l) dlist_init(&v->l)
 #define DLIST_REMOVE_FROM(h, d, l) \
 	{ \
-		typeof(**h) **h_ = h, *d_ = d; \
+		__typeof__(**h) **h_ = h, *d_ = d; \
 		DList *head = &(*h_)->l; \
 		dlist_remove_from(&head, &d_->l); \
 		if (head == nullptr) { \
 			*h_ = nullptr; \
 		} else { \
-			*h_ = CONTAINER(typeof(**h), l, head); \
+			*h_ = CONTAINER(__typeof__(**h), l, head); \
 		} \
 	}
 #define DLIST_PUSH(h, v, l) \
 	{ \
-		typeof(*v) **h_ = h, *v_ = v; \
+		__typeof__(*v) **h_ = h, *v_ = v; \
 		DList *head = &(*h_)->l; \
 		if (*h_ == nullptr) \
 			head = nullptr; \
 		dlist_push(&head, &v_->l); \
-		*h_ = CONTAINER(typeof(*v), l, head); \
+		*h_ = CONTAINER(__typeof__(*v), l, head); \
 	}
 #define DLIST_POP(h, l) \
 	({ \
-		typeof(**h) **h_ = h; \
+		__typeof__(**h) **h_ = h; \
 		DList *head = &(*h_)->l; \
 		DList *res = dlist_pop(&head); \
 		if (head == nullptr) { \
 			*h_ = nullptr; \
 		} else { \
-			*h_ = CONTAINER(typeof(**h), l, head); \
+			*h_ = CONTAINER(__typeof__(**h), l, head); \
 		} \
-		CONTAINER(typeof(**h), l, res); \
+		CONTAINER(__typeof__(**h), l, res); \
 	})
 #define DLIST_ITERATOR_BEGIN(h, l, it) \
 	{ \
-		typeof(*h) *h_ = h; \
+		__typeof__(*h) *h_ = h; \
 		DList *last_##it = h_->l.prev, *iter_##it = &h_->l, *next_##it; \
 		do { \
 			if (iter_##it == last_##it) { \
@@ -140,7 +140,7 @@ static inline auto dlist_remove_from(DList **d1p, DList *d2) -> void
 			} else { \
 				next_##it = iter_##it->next; \
 			} \
-			typeof(*h) *it = CONTAINER(typeof(*h), l, iter_##it);
+			__typeof__(*h) *it = CONTAINER(__typeof__(*h), l, iter_##it);
 #define DLIST_ITERATOR_END(it) \
 	} \
 	while ((iter_##it = next_##it)) \

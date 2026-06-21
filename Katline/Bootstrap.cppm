@@ -48,7 +48,7 @@ static auto map_bootstrap_region(Katline::Arch::Paging::PageTable *root,
 			                                       : Katline::Arch::k_page_size,
 		};
 
-		CL::memcpy(page, data + offset, chunk);
+		__builtin_memcpy(page, data + offset, chunk);
 
 		if (!Katline::Arch::Paging::map(root, virt_base + offset, phys, flags))
 			return false;

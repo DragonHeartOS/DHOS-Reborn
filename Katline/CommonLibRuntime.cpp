@@ -4,7 +4,8 @@ import :Platform;
 import :StringView;
 import Katline;
 
-auto CL::panic(char const *message) -> void
+extern "C" [[noreturn]] auto commonlib_platform_panic(char const *message)
+    -> void
 {
 	Katline::kpanic(CL::StringView(message));
 }

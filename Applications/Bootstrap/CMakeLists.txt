@@ -4,6 +4,7 @@ file(GLOB_RECURSE BOOTSTRAP_SOURCES CONFIGURE_DEPENDS
 
 add_executable(Bootstrap ${BOOTSTRAP_SOURCES})
 set_target_properties(Bootstrap PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_include_directories(Bootstrap PRIVATE "${CMAKE_SOURCE_DIR}/cxxstubs/include")
 
 target_link_libraries(Bootstrap PRIVATE CommonLib KatlineAPI KatlineAPIStatic)
 

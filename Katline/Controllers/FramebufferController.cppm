@@ -1,6 +1,8 @@
 export module Katline:FramebufferController;
 
 import CommonLib;
+import :Color;
+import :Math;
 import :Font;
 
 export {
@@ -20,8 +22,8 @@ export {
 		struct Cell {
 			char ch {};
 			bool inverted {};
-			CL::Color::RGBColor fg { CL::Color::WHITE };
-			CL::Color::RGBColor bg { CL::Color::BLACK };
+			Katline::Color::RGBColor fg { Katline::Color::WHITE };
+			Katline::Color::RGBColor bg { Katline::Color::BLACK };
 		};
 
 		static constexpr uint MAX_COLS { 256 };
@@ -45,16 +47,16 @@ export {
 
 		void put_logo(u8 const *data, uint width, uint height, uint x, uint y);
 
-		CL::Color::RGBColor color { CL::Color::WHITE };
-		CL::Color::RGBColor background_color { CL::Color::BLACK };
-		CL::Math::Point<uint> cursor_position {};
+		Katline::Color::RGBColor color { Katline::Color::WHITE };
+		Katline::Color::RGBColor background_color { Katline::Color::BLACK };
+		Katline::Math::Point<uint> cursor_position {};
 
 	private:
 		static constexpr uint s_font_width { 8 };
 		static constexpr uint s_font_height { 8 };
 		static constexpr uint s_text_y_offset { 72 };
 
-		static auto ansi_color(uint code) -> CL::Color::RGBColor;
+		static auto ansi_color(uint code) -> Katline::Color::RGBColor;
 
 		auto handle_ansi(char const *&string, usize *remaining = nullptr)
 		    -> bool;
@@ -65,9 +67,10 @@ export {
 		auto text_row_to_physical(uint row) const -> uint;
 		void clear_cell_row(uint row);
 		void draw_cell(uint row, uint col);
-		void draw_glyph_direct(char ch, uint y, uint x, CL::Color::RGBColor fg,
-		    CL::Color::RGBColor bg, bool inverted);
-		auto pack_color(CL::Color::RGBColor c) const -> u32;
+		void draw_glyph_direct(char ch, uint y, uint x,
+		    Katline::Color::RGBColor fg, Katline::Color::RGBColor bg,
+		    bool inverted);
+		auto pack_color(Katline::Color::RGBColor c) const -> u32;
 
 		Framebuffer *m_framebuffer {};
 		uint m_first_row {};
@@ -88,11 +91,11 @@ FramebufferController::FramebufferController(Framebuffer *framebuffer)
 {
 }
 
-auto FramebufferController::ansi_color(uint code) -> CL::Color::RGBColor
+auto FramebufferController::ansi_color(uint code) -> Katline::Color::RGBColor
 {
 	switch (code) {
 	case 30:
-		return CL::Color::BLACK;
+		return Katline::Color::BLACK;
 	case 31:
 		return { 255, 0, 0 };
 	case 32:
@@ -106,9 +109,9 @@ auto FramebufferController::ansi_color(uint code) -> CL::Color::RGBColor
 	case 36:
 		return { 0, 255, 255 };
 	case 37:
-		return CL::Color::WHITE;
+		return Katline::Color::WHITE;
 	default:
-		return CL::Color::WHITE;
+		return Katline::Color::WHITE;
 	}
 }
 
@@ -133,8 +136,8 @@ bool FramebufferController::handle_ansi(char const *&s, usize *remaining)
 			auto code = have_value ? value : 0;
 
 			if (code == 0) {
-				color = CL::Color::WHITE;
-				background_color = CL::Color::BLACK;
+				color = Katline::Color::WHITE;
+				background_color = Katline::Color::BLACK;
 			} else if (code >= 30 && code <= 37) {
 				color = ansi_color(code);
 			} else if (code >= 40 && code <= 47) {
@@ -205,7 +208,7 @@ auto FramebufferController::text_row_to_physical(uint row) const -> uint
 	return (m_first_row + row) % r;
 }
 
-auto FramebufferController::pack_color(CL::Color::RGBColor c) const -> u32
+auto FramebufferController::pack_color(Katline::Color::RGBColor c) const -> u32
 {
 	return static_cast<u32>(c.b) | (static_cast<u32>(c.g) << 8)
 	    | (static_cast<u32>(c.r) << 16) | 0xff000000;
@@ -245,7 +248,7 @@ void FramebufferController::rect(uint y1, uint x1, uint y2, uint x2)
 }
 
 void FramebufferController::draw_glyph_direct(char ch, uint y, uint x,
-    CL::Color::RGBColor fg, CL::Color::RGBColor bg, bool inverted)
+    Katline::Color::RGBColor fg, Katline::Color::RGBColor bg, bool inverted)
 {
 	if (!m_framebuffer || !m_framebuffer->data)
 		return;

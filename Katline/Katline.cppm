@@ -3,6 +3,7 @@ export module Katline;
 import CommonLib;
 
 export import :FramebufferController;
+export import :Color;
 export import :SerialController;
 export import :MemoryData;
 export import :Heap;
@@ -25,3 +26,4 @@ export import :Runtime;
 export import :Scheduler;
 export import :GDT;
 export import :Syscalls;
+export import :Math;

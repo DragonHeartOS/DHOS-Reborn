@@ -1,6 +1,7 @@
 module;
 
 #include <stdarg.h>
+#include <string.h>
 
 export module Katline:DebugImpl;
 
@@ -176,10 +177,10 @@ static auto write_formatted_impl(char const *str, va_list vl) -> void
 					break;
 				case Length::Default:
 				default:
-					CL::itoa(va_arg(vl, int), temp);
+					i64_to_dec(static_cast<i64>(va_arg(vl, int)), temp);
 					break;
 				}
-				auto const len { CL::strlen(temp) };
+				auto const len { ::strlen(temp) };
 				append_padded(temp, len, numeric_width, zero_pad);
 				break;
 			}
@@ -201,7 +202,7 @@ static auto write_formatted_impl(char const *str, va_list vl) -> void
 					    static_cast<u64>(va_arg(vl, unsigned int)), temp);
 					break;
 				}
-				auto const len { CL::strlen(temp) };
+				auto const len { ::strlen(temp) };
 				append_padded(temp, len, numeric_width, zero_pad);
 				break;
 			}
@@ -224,7 +225,7 @@ static auto write_formatted_impl(char const *str, va_list vl) -> void
 				}
 				usize width = zero_pad ? numeric_width : 0;
 				u64_to_hex(value, temp, width);
-				append_string(temp, CL::strlen(temp));
+				append_string(temp, ::strlen(temp));
 				break;
 			}
 			case 's': {
@@ -233,7 +234,7 @@ static auto write_formatted_impl(char const *str, va_list vl) -> void
 				if (!s)
 					s = "(null)";
 
-				usize len { CL::strlen(s) };
+				usize len { ::strlen(s) };
 
 				if (precision >= 0 && static_cast<usize>(precision) < len)
 					len = static_cast<usize>(precision);

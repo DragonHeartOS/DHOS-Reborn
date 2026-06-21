@@ -1,4 +1,7 @@
 
+
+#include <new>
+
 #include <stdint.h>
 
 import CommonLib;
@@ -34,23 +37,25 @@ auto operator new[](usize size) -> void *
 	allocation_panic();
 }
 
-auto operator new(usize size, std::align_val_t alignment) noexcept -> void *
+auto operator new(usize size, std::align_val_t alignment) -> void *
 {
 	if (size == 0)
 		size = 1;
 
-	if (auto *ptr = MemoryManager::allocate_aligned(size, alignment.value))
+	if (auto *ptr
+	    = MemoryManager::allocate_aligned(size, static_cast<usize>(alignment)))
 		return ptr;
 
 	allocation_panic();
 }
 
-auto operator new[](usize size, std::align_val_t alignment) noexcept -> void *
+auto operator new[](usize size, std::align_val_t alignment) -> void *
 {
 	if (size == 0)
 		size = 1;
 
-	if (auto *ptr = MemoryManager::allocate_aligned(size, alignment.value))
+	if (auto *ptr
+	    = MemoryManager::allocate_aligned(size, static_cast<usize>(alignment)))
 		return ptr;
 
 	allocation_panic();
@@ -78,7 +83,7 @@ auto operator new(usize size, std::align_val_t alignment,
 	if (size == 0)
 		size = 1;
 
-	return MemoryManager::allocate_aligned(size, alignment.value);
+	return MemoryManager::allocate_aligned(size, static_cast<usize>(alignment));
 }
 
 auto operator new[](usize size, std::align_val_t alignment,
@@ -87,7 +92,7 @@ auto operator new[](usize size, std::align_val_t alignment,
 	if (size == 0)
 		size = 1;
 
-	return MemoryManager::allocate_aligned(size, alignment.value);
+	return MemoryManager::allocate_aligned(size, static_cast<usize>(alignment));
 }
 
 auto operator delete(void *ptr) noexcept -> void { MemoryManager::free(ptr); }

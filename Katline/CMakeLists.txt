@@ -1,6 +1,6 @@
 set(SOURCES
-    CommonLibRuntime.cpp
     CxxAbiStubs.cpp
+    CommonLibRuntime.cpp
     Memory/NewDelete.cpp
 )
 
@@ -24,6 +24,7 @@ set(KATLINE_MODULE_SOURCES
     Controllers/IO.cppm
     Controllers/SerialController.cppm
 
+    Color.cppm
     Debug.cppm
     DebugImpl.cppm
     DebugSink.cppm
@@ -32,6 +33,7 @@ set(KATLINE_MODULE_SOURCES
     Katline.cppm
     KernelSymbols.cppm
     Logo.cppm
+    Math.cppm
 
     Memory/FrameAllocator.cppm
     Memory/Heap.cppm
@@ -80,8 +82,10 @@ target_sources(${KERNEL_TARGET}_core
         FILE_SET cxx_modules TYPE CXX_MODULES FILES
             ${KATLINE_MODULE_SOURCES}
 )
-target_link_libraries(${KERNEL_TARGET}_core PRIVATE CommonLib KatlineAPI)
+target_link_libraries(${KERNEL_TARGET}_core PRIVATE CommonLibKernel KatlineAPI)
 target_include_directories(${KERNEL_TARGET}_core PUBLIC .)
+target_include_directories(${KERNEL_TARGET}_core PRIVATE
+    "${COMMONLIB_KERNEL_STUB_INCLUDE_DIR}")
 target_compile_definitions(${KERNEL_TARGET}_core PRIVATE KATLINE_BOOTSTRAP_BIN_PATH="${BOOTSTRAP_BIN_PATH}")
 target_include_directories(${KERNEL_TARGET}_core PRIVATE "${CMAKE_BINARY_DIR}/Applications/Bootstrap")
 target_compile_options(${KERNEL_TARGET}_core PRIVATE
@@ -90,9 +94,9 @@ add_dependencies(${KERNEL_TARGET}_core BootstrapImage)
 
 add_executable(${KERNEL_TARGET}_seed
     $<TARGET_OBJECTS:${KERNEL_TARGET}_core>
-    $<TARGET_OBJECTS:CommonLib>
+    $<TARGET_OBJECTS:CommonLibKernel>
 )
-target_link_libraries(${KERNEL_TARGET}_seed PRIVATE CommonLib KatlineAPI)
+target_link_libraries(${KERNEL_TARGET}_seed PRIVATE CommonLibKernel KatlineAPI)
 target_include_directories(${KERNEL_TARGET}_seed PUBLIC .)
 set_property(TARGET ${KERNEL_TARGET}_seed PROPERTY OUTPUT_NAME Katline.seed)
 set_property(TARGET ${KERNEL_TARGET}_seed PROPERTY LINK_FLAGS "${KERNEL_LINK_FLAGS}")
@@ -112,9 +116,9 @@ add_custom_command(
 add_executable(${KERNEL_TARGET}
     ${KERNEL_SYMBOLS_CPP}
     $<TARGET_OBJECTS:${KERNEL_TARGET}_core>
-    $<TARGET_OBJECTS:CommonLib>
+    $<TARGET_OBJECTS:CommonLibKernel>
 )
-target_link_libraries(${KERNEL_TARGET} PRIVATE CommonLib KatlineAPI)
+target_link_libraries(${KERNEL_TARGET} PRIVATE CommonLibKernel KatlineAPI)
 target_include_directories(${KERNEL_TARGET} PUBLIC .)
 set_property(TARGET ${KERNEL_TARGET} PROPERTY OUTPUT_NAME Katline)
 set_property(TARGET ${KERNEL_TARGET} PROPERTY LINK_FLAGS "${KERNEL_LINK_FLAGS}")

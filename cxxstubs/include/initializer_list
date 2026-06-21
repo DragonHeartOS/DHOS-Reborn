@@ -1,0 +1,37 @@
+#pragma once
+
+namespace std {
+
+using size_t = decltype(sizeof(0));
+
+template<typename T> class initializer_list {
+public:
+	using value_type = T;
+	using reference = T const &;
+	using const_reference = T const &;
+	using size_type = size_t;
+	using iterator = T const *;
+	using const_iterator = T const *;
+
+	constexpr initializer_list() noexcept
+	    : m_begin { nullptr }
+	    , m_size { 0 }
+	{
+	}
+
+	constexpr auto begin() const noexcept -> iterator { return m_begin; }
+	constexpr auto end() const noexcept -> iterator { return m_begin + m_size; }
+	constexpr auto size() const noexcept -> size_type { return m_size; }
+
+private:
+	constexpr initializer_list(T const *begin, size_type size) noexcept
+	    : m_begin { begin }
+	    , m_size { size }
+	{
+	}
+
+	T const *m_begin;
+	size_type m_size;
+};
+
+} // namespace std

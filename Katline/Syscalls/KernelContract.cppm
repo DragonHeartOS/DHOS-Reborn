@@ -52,7 +52,7 @@ export {
 			auto *const user_ptr { reinterpret_cast<u8 *>(
 				Arch::Paging::phys_to_virt(page->physical)) };
 
-			CL::memcpy(reinterpret_cast<u8 *>(buffer) + copied,
+			__builtin_memcpy(reinterpret_cast<u8 *>(buffer) + copied,
 			    user_ptr + page_offset, chunk);
 
 			copied += chunk;
@@ -96,7 +96,7 @@ export {
 			auto *const user_ptr { reinterpret_cast<u8 *>(
 				Arch::Paging::phys_to_virt(page->physical)) };
 
-			CL::memcpy(user_ptr + page_offset,
+			__builtin_memcpy(user_ptr + page_offset,
 			    reinterpret_cast<u8 const *>(buffer) + copied, chunk);
 
 			copied += chunk;

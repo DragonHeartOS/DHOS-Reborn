@@ -1,4 +1,5 @@
-add_library(LibRuntime STATIC RT.cpp CommonLibRuntime.cpp OperatorNewDelete.cpp)
+add_library(LibRuntime STATIC RT.cpp OperatorNewDelete.cpp)
+target_include_directories(LibRuntime PRIVATE "${CMAKE_SOURCE_DIR}/cxxstubs/include")
 
 set(LIBUTIL_CXX_FLAGS -ffreestanding -fno-stack-protector -fno-pic -mabi=sysv -mno-80387 -mno-mmx -mno-3dnow -mno-sse -mno-sse2 -mno-red-zone -fPIC)
 

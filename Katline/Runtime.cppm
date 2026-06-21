@@ -50,8 +50,60 @@ auto drain_logs() -> void;
 void print_formatted(char const *str, ...);
 }
 
-extern "C" void memcpy(void *a, void const *b, usize c) { CL::memcpy(a, b, c); }
-extern "C" void memset(void *a, int v, usize c) { CL::memset(a, v, c); }
+extern "C" auto memcpy(void *dst, void const *src, usize size) -> void *
+{
+	auto *d = static_cast<unsigned char *>(dst);
+	auto const *s = static_cast<unsigned char const *>(src);
+	for (usize i {}; i < size; ++i)
+		d[i] = s[i];
+	return dst;
+}
+
+extern "C" auto memmove(void *dst, void const *src, usize size) -> void *
+{
+	auto *d = static_cast<unsigned char *>(dst);
+	auto const *s = static_cast<unsigned char const *>(src);
+	if (d == s || size == 0)
+		return dst;
+	if (d < s) {
+		for (usize i {}; i < size; ++i)
+			d[i] = s[i];
+	} else {
+		for (usize i = size; i-- > 0;)
+			d[i] = s[i];
+	}
+	return dst;
+}
+
+extern "C" auto memset(void *dst, int value, usize size) -> void *
+{
+	auto *d = static_cast<unsigned char *>(dst);
+	unsigned char const byte = static_cast<unsigned char>(value);
+	for (usize i {}; i < size; ++i)
+		d[i] = byte;
+	return dst;
+}
+
+extern "C" auto memcmp(void const *lhs, void const *rhs, usize size) -> int
+{
+	auto const *a = static_cast<unsigned char const *>(lhs);
+	auto const *b = static_cast<unsigned char const *>(rhs);
+	for (usize i {}; i < size; ++i) {
+		if (a[i] != b[i])
+			return static_cast<int>(a[i]) - static_cast<int>(b[i]);
+	}
+	return 0;
+}
+
+extern "C" auto strlen(char const *str) -> usize
+{
+	usize len {};
+	if (str == nullptr)
+		return 0;
+	while (str[len] != '\0')
+		++len;
+	return len;
+}
 
 namespace Katline {
 

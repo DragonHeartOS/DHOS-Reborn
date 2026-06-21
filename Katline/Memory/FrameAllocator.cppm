@@ -142,7 +142,7 @@ auto FrameAllocator::allocate_zeroed_page() -> void *
 	if (!page)
 		return nullptr;
 
-	CL::memset(page, 0, Arch::k_page_size);
+	__builtin_memset(page, 0, Arch::k_page_size);
 
 	return page;
 }
