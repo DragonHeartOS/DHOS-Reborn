@@ -1,3 +1,5 @@
+#include <string.h>
+
 import CommonLib;
 import KatlineAPI;
 
@@ -40,7 +42,7 @@ extern "C" void _start()
 	}
 
 	auto *name { new char[process_info.name_len + 1] };
-	CL::memcpy(name, process_info.name, process_info.name_len);
+	memcpy(name, process_info.name, process_info.name_len);
 	name[process_info.name_len] = '\0';
 	args.emplace(process_info.name);
 
@@ -55,8 +57,10 @@ extern "C" void _start()
 		for (char const **entry { envp }; entry && *entry; entry++) {
 			CL::StringView var { *entry };
 
-			auto pos { var.iter().enumerate().find_if(
-				[](auto const &x) { return x.second == '='; }) };
+			auto pos {
+				var.iter().enumerate().find_if(
+				    [](auto const &x) { return x.second.value == '='; }),
+			};
 			if (pos.is_none())
 				continue;
 

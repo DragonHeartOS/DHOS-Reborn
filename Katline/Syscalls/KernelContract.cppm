@@ -1,3 +1,7 @@
+module;
+
+#include <string.h>
+
 export module Katline:SyscallKernelContract;
 
 import CommonLib;
@@ -49,11 +53,12 @@ export {
 				    ? page->page_size - page_offset
 				    : size - copied,
 			};
-			auto *const user_ptr { reinterpret_cast<u8 *>(
-				Arch::Paging::phys_to_virt(page->physical)) };
+			auto *const user_ptr {
+				reinterpret_cast<u8 *>(
+				    Arch::Paging::phys_to_virt(page->physical)),
+			};
 
-			__builtin_memcpy(reinterpret_cast<u8 *>(buffer) + copied,
-			    user_ptr + page_offset, chunk);
+			memcpy(reinterpret_cast<u8 *>(buffer) + copied, user_ptr, chunk);
 
 			copied += chunk;
 		}
@@ -96,8 +101,8 @@ export {
 			auto *const user_ptr { reinterpret_cast<u8 *>(
 				Arch::Paging::phys_to_virt(page->physical)) };
 
-			__builtin_memcpy(user_ptr + page_offset,
-			    reinterpret_cast<u8 const *>(buffer) + copied, chunk);
+			memcpy(
+			    user_ptr, reinterpret_cast<u8 const *>(buffer) + copied, chunk);
 
 			copied += chunk;
 		}
