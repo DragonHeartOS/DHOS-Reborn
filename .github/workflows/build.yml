@@ -23,7 +23,7 @@ jobs:
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@main
       - name: Building default package
-        run: nix build .#default --print-build-logs --accept-flake-config
+        run: nix build path:.#default --print-build-logs --accept-flake-config
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
