@@ -107,7 +107,7 @@ void IDT::init(u32 lapic_id)
 
 	asm volatile("cli");
 	asm volatile("lidt %0" : : "m"(idtr));
-	Debug::write_formatted("[IDT]: Loaded for CPU %d.\n", lapic_id);
+	Debug::write_formatted("[IDT] Loaded for CPU %d.\n", lapic_id);
 }
 
 auto IDT::set_handler(u8 vector, void (*handler)()) -> void
