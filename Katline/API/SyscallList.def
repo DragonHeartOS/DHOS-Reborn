@@ -16,3 +16,4 @@ X(MemoryUnmap, 14, sys_memory_unmap, void, UserPtr<void> /* addr */, u64 /* size
 X(ProcessMemoryUnmap, 15, sys_process_memory_unmap, void, Handle /* process */, UserPtr<void> /* addr */, u64 /* size */)
 X(ProcessGrantCapabilities, 16, sys_process_grant_capabilities, void, Handle /* process */, ProcessCapabilityFlags /* capabilities */)
 X(MemoryCreate, 17, sys_memory_create, Handle, u64 /* size */)
+X(DebugU64, 18, sys_debug_u64, void, u64 /* tag */, u64 /* value */)

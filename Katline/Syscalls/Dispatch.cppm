@@ -23,6 +23,7 @@ import :SyscallMemoryUnmap;
 import :SyscallProcessMemoryUnmap;
 import :SyscallProcessGrantCapabilities;
 import :SyscallMemoryCreate;
+import :SyscallDebugU64;
 
 export {
 	namespace Katline::Syscalls {

@@ -48,6 +48,7 @@ set(KATLINE_MODULE_SOURCES
 
     Syscalls/SyscallABI.cppm
     Syscalls/Exit.cppm
+    Syscalls/DebugU64.cppm
     Syscalls/GetProcessInfo.cppm
     Syscalls/HandleClose.cppm
     Syscalls/HandleDuplicate.cppm
