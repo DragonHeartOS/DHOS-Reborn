@@ -56,6 +56,7 @@ export {
 		void block_current();
 		void unblock(Thread *thread);
 		[[noreturn]] void thread_exit();
+		auto process_by_endpoint(u64 endpoint) -> Process *;
 		auto send_ipc_message(u64 endpoint, IPC::Message &message)
 		    -> IPCSendStatus;
 
@@ -130,6 +131,7 @@ void Scheduler::init()
 				.endpoint_id = 0,
 				.cr3 = current_cr3(),
 			};
+			k_process->ipc_message_queue.init();
 			m_processes.push(k_process);
 			m_global_initialized = true;
 		}
@@ -570,6 +572,9 @@ void Scheduler::on_timer_interrupt(
 		for (usize i {}; i < skipped_count; ++i)
 			enqueue_ready(*cpu, skipped[i]);
 
+		if (!next && skipped_count > 0)
+			next = skipped[0];
+
 		if (!next)
 			next = prev;
 
@@ -700,17 +705,23 @@ void Scheduler::unblock(Thread *thread)
 auto Scheduler::send_ipc_message(u64 endpoint, IPC::Message &message)
     -> IPCSendStatus
 {
+	auto *process_opt { process_by_endpoint(endpoint) };
+	if (!process_opt)
+		return IPCSendStatus::InvalidEndpoint;
+
+	return process_opt->ipc_message_queue.try_push(message)
+	    ? IPCSendStatus::Ok
+	    : IPCSendStatus::QueueFull;
+}
+
+auto Scheduler::process_by_endpoint(u64 endpoint) -> Process *
+{
+	Sync::ScopedIrqSpinLock guard { m_global_lock };
 	auto process_opt {
 		m_processes.iter().find_if(
 		    [&](auto v) { return v->endpoint_id == endpoint; }),
 	};
-	if (!process_opt)
-		return IPCSendStatus::InvalidEndpoint;
-
-	auto &process { *process_opt };
-	return process->ipc_message_queue.try_push(message)
-	    ? IPCSendStatus::Ok
-	    : IPCSendStatus::QueueFull;
+	return process_opt ? *process_opt : nullptr;
 }
 
 auto Scheduler::local_lapic_id() const -> u32 { return current_lapic_id(); }
