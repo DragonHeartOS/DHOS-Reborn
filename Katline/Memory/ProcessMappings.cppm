@@ -46,14 +46,17 @@ auto find_free_user_region(Process const *process, usize page_count) -> uptr
 				continue;
 
 			auto const &mapping { *mapping_opt };
-			if (!range_overlaps(base, candidate_size, mapping.address,
-			        static_cast<uptr>(mapping.size)))
+			auto const mapping_size {
+				static_cast<uptr>(mapping.page_count) * k_page_size,
+			};
+			if (!range_overlaps(
+			        base, candidate_size, mapping.page_base, mapping_size))
 				continue;
 
 			free = false;
-			auto const mapping_end { mapping.address + mapping.size };
+			auto const mapping_end { mapping.page_base + mapping_size };
 			if (mapping_end > base)
-				base = mapping_end;
+				base = mapping_end - k_page_size;
 			break;
 		}
 

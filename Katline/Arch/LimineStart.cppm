@@ -5,6 +5,7 @@ module;
 export module Katline:LimineStart;
 
 import CommonLib;
+import KatlineAPI;
 import :Runtime;
 
 static auto limine_type_to_katline_type(uint64_t type)
@@ -31,6 +32,9 @@ static auto limine_type_to_katline_type(uint64_t type)
 		return Katline::Memory::MemoryType::RESERVED;
 	}
 }
+
+static constexpr usize k_max_boot_modules { 256 };
+static constexpr usize k_max_boot_framebuffers { 32 };
 
 static constexpr uint64_t kernel_stack_size = 65536;
 
@@ -135,6 +139,29 @@ extern "C" void kernel_start();
 
 [[gnu::used,
     gnu::section(
+        ".limine_"
+        "request"
+        "s")]] static limine_executable_cmdline_request volatile executable_cmdline_request
+    = {
+	      .id = LIMINE_EXECUTABLE_CMDLINE_REQUEST_ID,
+	      .revision = 0,
+	      .response = nullptr,
+      };
+
+[[gnu::used,
+    gnu::section(".limine_"
+                 "request"
+                 "s")]] static limine_module_request volatile module_request
+    = {
+	      .id = LIMINE_MODULE_REQUEST_ID,
+	      .revision = 0,
+	      .response = nullptr,
+	      .internal_module_count = 0,
+	      .internal_modules = nullptr,
+      };
+
+[[gnu::used,
+    gnu::section(
         ".limine_requests_"
         "start")]] static uint64_t volatile limine_requests_start_marker[]
     = LIMINE_REQUESTS_START_MARKER;
@@ -156,6 +183,7 @@ extern "C" auto kernel_start() -> void
 	    || hhdm_request.response == nullptr || rsdp_request.response == nullptr
 	    || mp_request.response == nullptr
 	    || tsc_frequency_request.response == nullptr
+	    || executable_cmdline_request.response == nullptr
 	    || executable_address_request.response == nullptr
 	    || executable_file_request.response == nullptr
 	    || executable_file_request.response->executable_file == nullptr) {
@@ -207,6 +235,68 @@ extern "C" auto kernel_start() -> void
 		.data = memory_map_entries,
 	};
 
+	static Katline::BootModule boot_modules[k_max_boot_modules];
+	usize boot_module_count {};
+	if (module_request.response && module_request.response->modules) {
+		boot_module_count = module_request.response->module_count;
+		if (boot_module_count > k_max_boot_modules)
+			boot_module_count = k_max_boot_modules;
+
+		for (usize i {}; i < boot_module_count; ++i) {
+			auto *const module { module_request.response->modules[i] };
+			auto const *const name {
+				module && module->string     ? module->string
+				    : module && module->path ? module->path
+				                             : nullptr,
+			};
+			boot_modules[i] = Katline::BootModule {
+				.name = CL::Span<char const>(name, strlen(name)),
+				.address = module ? module->address : nullptr,
+				.size = module ? module->size : 0,
+			};
+		}
+	}
+
+	static Katline::BootFramebuffer boot_framebuffers[k_max_boot_framebuffers];
+	usize boot_framebuffer_count {};
+	if (framebuffer_request.response
+	    && framebuffer_request.response->framebuffers) {
+		boot_framebuffer_count
+		    = framebuffer_request.response->framebuffer_count;
+		if (boot_framebuffer_count > k_max_boot_framebuffers)
+			boot_framebuffer_count = k_max_boot_framebuffers;
+
+		for (usize i {}; i < boot_framebuffer_count; ++i) {
+			auto const *const framebuffer {
+				framebuffer_request.response->framebuffers[i]
+			};
+			boot_framebuffers[i] = Katline::BootFramebuffer {
+				.address = framebuffer ? framebuffer->address : nullptr,
+				.width = framebuffer ? framebuffer->width : 0,
+				.height = framebuffer ? framebuffer->height : 0,
+				.pitch = framebuffer ? framebuffer->pitch : 0,
+				.bpp = framebuffer ? static_cast<u64>(framebuffer->bpp) : 0,
+				.format
+				= framebuffer ? static_cast<u64>(framebuffer->memory_model) : 0,
+				.edid = CL::Span<u8 const>(
+				    reinterpret_cast<u8 const *>(
+				        framebuffer ? framebuffer->edid : nullptr),
+				    framebuffer ? framebuffer->edid_size : 0),
+			};
+		}
+	}
+
+	Katline::BootData const boot_data {
+		.cmdline = {
+			.text = CL::Span<char const>(executable_cmdline_request.response->cmdline,
+			    strlen(executable_cmdline_request.response->cmdline)),
+		},
+		.modules = CL::Span<Katline::BootModule const>(boot_modules,
+		    boot_module_count),
+		.framebuffers = CL::Span<Katline::BootFramebuffer const>(
+		    boot_framebuffers, boot_framebuffer_count),
+	};
+
 	for (uint i {}; i < mp_request.response->cpu_count; i++) {
 		auto *cpu = mp_request.response->cpus[i];
 		cpu->goto_address = [](limine_mp_info *info) {
@@ -230,7 +320,7 @@ extern "C" auto kernel_start() -> void
 		.kernel_size = executable_file_request.response->executable_file->size,
 	};
 
-	Katline::katline_main(info);
+	Katline::katline_main(info, boot_data);
 
 	for (;;)
 		asm("hlt");

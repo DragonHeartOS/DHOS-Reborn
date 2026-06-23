@@ -5,6 +5,32 @@ import CommonLib;
 export {
 	namespace Katline {
 
+	struct BootCmdlineView {
+		CL::Span<char const> text;
+	};
+
+	struct BootModule {
+		CL::Span<char const> name;
+		void const *address;
+		u64 size;
+	};
+
+	struct BootFramebuffer {
+		void *address;
+		u64 width;
+		u64 height;
+		u64 pitch;
+		u64 bpp;
+		u64 format;
+		CL::Span<u8 const> edid;
+	};
+
+	struct BootData {
+		BootCmdlineView cmdline;
+		CL::Span<BootModule const> modules;
+		CL::Span<BootFramebuffer const> framebuffers;
+	};
+
 	enum class ProcessCapability : u64 {
 		ManageCaps = 1ull << 0,
 		BootInfo = 1ull << 1,
@@ -53,6 +79,61 @@ export {
 		u64 size;
 		MemoryMapFlags flags;
 		void *addr;
+	};
+
+	struct BootInfoTable {
+		u64 total_len;
+		u64 modules_offset;
+		u64 modules_len;
+		u64 cmdline_offset;
+		u64 cmdline_len;
+		u64 framebuffers_offset;
+		u64 framebuffers_len;
+	};
+
+	struct BootCmdline {
+		u64 len;
+		char data[];
+	};
+
+	struct BootModuleList {
+		u64 len;
+		u64 entries_offset;
+	};
+
+	struct BootModuleEntry {
+		u64 id;
+		u64 name_offset;
+		u64 name_len;
+		u64 size;
+		u64 flags;
+	};
+
+	struct BootFramebufferList {
+		u64 len;
+		u64 entries_offset;
+	};
+
+	struct BootFramebufferEntry {
+		u64 id;
+		u64 width;
+		u64 height;
+		u64 pitch;
+		u64 bpp;
+		u64 format;
+		u64 size;
+		u64 edid_len;
+		u64 edid_offset;
+		u64 flags;
+	};
+
+	enum class KernelMessageType : u64 {
+		GetBootInfo = 1,
+		GetBootModuleMemoryObjectById = 2,
+		GetCmdlineMemoryObject = 3,
+		GetFramebufferMemoryObjectById = 4,
+		GrantIOPortRange = 5,
+		GetPageSize = 6,
 	};
 
 	}

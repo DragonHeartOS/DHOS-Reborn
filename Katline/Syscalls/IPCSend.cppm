@@ -2,6 +2,7 @@ export module Katline:SyscallIPCSend;
 
 import CommonLib;
 import KatlineAPI;
+import :Runtime;
 import :Scheduler;
 import :SyscallKernelContract;
 
@@ -23,6 +24,12 @@ template<> struct Spec<SyscallNumber::IPCSend> {
 		return copy_in(message).and_then([&](IPC::Message msg) -> Result<void> {
 			msg.sender = thread->process->endpoint_id;
 			msg.id = g_id_counter.fetch_add(1);
+
+			if (endpoint == 0) {
+				if (!Katline::kernel_handle_ipc_message(msg))
+					return Result<void>::Err(ErrorsV::InvalidArgument {});
+				return Result<void>::Ok();
+			}
 
 			// TODO: Should probably validate the handles before actually send
 			// ing the IPC message. Since there's currently no use of handles,
