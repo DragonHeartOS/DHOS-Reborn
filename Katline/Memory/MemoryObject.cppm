@@ -98,12 +98,6 @@ auto MemoryObject::create_allocated(usize size) -> MemoryObject *
 		}
 
 		object->pages.push(Arch::Paging::virt_to_phys(page));
-		if (page_count <= 16 || i == 0 || i + 1 == page_count
-		    || ((i + 1) % 16u) == 0) {
-			Debug::print_formatted("[MemoryObject] allocated page %d/%d\n",
-			    static_cast<int>(i + 1), static_cast<int>(page_count));
-			Debug::drain_logs();
-		}
 	}
 
 	return object;
