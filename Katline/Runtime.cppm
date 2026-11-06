@@ -456,14 +456,16 @@ static auto load_cpu_segments(u32 lapic_id) -> void
 auto print_cpu_info(u32 lapic_id)
 {
 	auto const cpuid_info { Arch::CPUID::query_cpuid() };
-	Debug::print_formatted(
-	    "[CPU%d] vendor=%s family=%d model=%d stepping=%d apic=%d x2apic=%d\n",
+	auto const brand { Arch::brand_string() };
+
+	Debug::print_formatted("[CPU%d] vendor=%s family=%d model=%d stepping=%d "
+	                       "apic=%d x2apic=%d brand=%s\n",
 	    lapic_id, cpuid_info.vendor_id,
 	    static_cast<int>(cpuid_info.family + cpuid_info.ext_family),
 	    static_cast<int>((cpuid_info.ext_model << 4) | cpuid_info.model),
 	    static_cast<int>(cpuid_info.stepping_id),
 	    static_cast<int>(cpuid_info.has_apic),
-	    static_cast<int>(cpuid_info.has_x2apic));
+	    static_cast<int>(cpuid_info.has_x2apic), brand.c_str());
 }
 
 static auto send_kernel_ipc_reply(u64 endpoint, IPC::Message const &message)

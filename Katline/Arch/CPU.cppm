@@ -71,6 +71,8 @@ export {
 	auto rdtsc() -> u64;
 	auto rdtscp() -> u64;
 
+	auto brand_string() -> CL::FixedString<48>;
+
 	}
 }
 
@@ -203,6 +205,23 @@ auto rdtscp() -> u64
 	asm volatile("rdtscp" : "=a"(low), "=d"(high), "=c"(aux));
 	CL::ignore_unused(aux);
 	return (static_cast<u64>(high) << 32) | static_cast<u64>(low);
+}
+
+auto brand_string() -> CL::FixedString<48>
+{
+	if (CPUIDRegs::cpuid(0x80000000, 0).eax < 0x80000004)
+		return "";
+
+	CL::FixedString<48> ret {};
+	for (u8 i = 0; i < 3; i++) {
+		auto const r { CPUIDRegs::cpuid(0x80000002 + i, 0) };
+
+		ret.append_bytes(r.eax);
+		ret.append_bytes(r.ebx);
+		ret.append_bytes(r.ecx);
+		ret.append_bytes(r.edx);
+	}
+	return ret;
 }
 
 void CPUContext::save_current()
