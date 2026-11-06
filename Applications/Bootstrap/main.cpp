@@ -498,15 +498,9 @@ extern "C" [[noreturn]] auto _start() -> void
 	auto const loader_process { loader_process_res.get_ok_unsafe() };
 	debug_point(0xB002, loader_process.id);
 
-	auto const loader_caps {
-		Katline::ProcessCapabilityFlags {
-		    Katline::ProcessCapability::ManageCaps,
-		    Katline::ProcessCapability::BootInfo,
-		    Katline::ProcessCapability::MapMMIO,
-		    Katline::ProcessCapability::ManageProcesses,
-		    Katline::ProcessCapability::IOPort,
-		},
-	};
+	// Needs all capabilities since it may load device drivers and other very
+	// important processes.
+	auto const loader_caps { Katline::ProcessCapabilityFlags::all() };
 	if (auto const grant_res {
 	        Katline::Syscalls::sys_process_grant_capabilities(
 	            loader_process, loader_caps),
@@ -589,14 +583,13 @@ extern "C" [[noreturn]] auto _start() -> void
 
 	debug_point(0xB006, process_manager_module.found);
 	if (process_manager_module.found) {
-
+		// It doesn't need driver capabilities, those are in the Loader process!
 		auto const process_manager_caps {
 			Katline::ProcessCapabilityFlags {
 			    Katline::ProcessCapability::ManageCaps,
 			    Katline::ProcessCapability::BootInfo,
 			    Katline::ProcessCapability::MapMMIO,
 			    Katline::ProcessCapability::ManageProcesses,
-			    Katline::ProcessCapability::IOPort,
 			},
 		};
 		auto const request {

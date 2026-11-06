@@ -439,6 +439,7 @@ extern "C" auto dhos_main(CL::Span<CL::StringView>,
 	Katline::BootInfoTable const *boot_info {};
 	u8 const *boot_blob {};
 	Katline::Handle boot_handle {};
+
 	auto ensure_boot_data_loaded = [&]() -> bool {
 		if (boot_info && boot_blob)
 			return true;
