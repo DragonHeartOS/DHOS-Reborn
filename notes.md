@@ -121,15 +121,15 @@ struct BootFramebufferEntry { // handle in IPC handles
 
 - First user process started directly by the kernel.
 - Reads `BootInfoTable` from kernel via IPC.
-- Uses its own tiny built-in loader to start `Loader`.
-- Uses `Loader` to start `ProcessManager`.
+- Uses its own tiny built-in loader to start `Loader.exe`.
+- Uses `Loader.exe` to start `ProcessManager`.
 - Reads boot modules and command line from the boot info table.
 - ~~Dies~~ Exits after it starts PM and Loader.
 
 ## Loader
 
 - Loads and parses ELF files.
-- Starts after bootstrap loads it from the boot module payloads.
+- Starts after bootstrap loads `Loader.exe` from the boot module payloads.
 
 ## ProcessManager
 
@@ -147,8 +147,8 @@ struct BootFramebufferEntry { // handle in IPC handles
 3. Bootstrap asks the kernel for `BootInfoTable`.
 4. Bootstrap reads cmdline and module metadata.
 5. Bootstrap fetches module payloads by ID.
-6. Bootstrap starts Loader using its own tiny bootstrap ELF loader.
-7. Bootstrap asks Loader to start ProcessManager.
+6. Bootstrap starts `Loader.exe` using its own tiny bootstrap ELF loader.
+7. Bootstrap asks `Loader.exe` to start ProcessManager.
 8. ProcessManager becomes the normal service and process orchestrator.
 
 ## IPC

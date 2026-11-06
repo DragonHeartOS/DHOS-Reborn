@@ -74,6 +74,7 @@ export {
 namespace Katline::Arch {
 
 export auto set_kernel_stack_for_current_cpu(uptr stack_top) -> void;
+export auto prepare_gs_for_user_entry() -> void;
 
 constexpr GDT gdt_template {
 	.null = {},
@@ -122,6 +123,7 @@ constexpr GDT gdt_template {
 };
 
 static constexpr usize max_tss_slots { 256 };
+static constexpr u32 ia32_gs_base { 0xc0000101 };
 static constexpr u32 ia32_kernel_gs_base { 0xc0000102 };
 
 struct [[gnu::packed]] KernelCpuData {
@@ -203,6 +205,16 @@ auto set_kernel_stack_for_current_cpu(uptr stack_top) -> void
 		return;
 	s_tss_by_lapic_id[lapic_id]->rsp0 = stack_top;
 	s_kernel_cpu_data_by_lapic_id[lapic_id].kernel_stack_top = stack_top;
+}
+
+auto prepare_gs_for_user_entry() -> void
+{
+	auto const lapic_id { current_lapic_id() };
+	if (lapic_id >= max_tss_slots)
+		return;
+	wrmsr(ia32_gs_base, 0);
+	wrmsr(ia32_kernel_gs_base,
+	    reinterpret_cast<u64>(&s_kernel_cpu_data_by_lapic_id[lapic_id]));
 }
 
 extern "C" auto katline_current_kernel_stack_top() -> u64

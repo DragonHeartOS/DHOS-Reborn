@@ -14,7 +14,6 @@ namespace Katline::Debug {
 
 static Sync::SpinLock s_output_lock;
 
-static CL::Atomic<bool> s_framebuffer_logging_enabled { false };
 static CL::Atomic<bool> s_log_queue_ready { false };
 
 struct LogEntry {
@@ -276,8 +275,6 @@ static auto write_formatted_impl(char const *str, va_list vl) -> void
 		Sync::ScopedIrqSpinLock guard { s_output_lock };
 
 		debug_write_serial(entry.data, entry.len);
-		if (s_framebuffer_logging_enabled.load())
-			debug_write_framebuffer(entry.data, entry.len);
 		return;
 	}
 
@@ -290,11 +287,6 @@ auto init_log_queue() -> void
 	s_log_queue_ready.store(true);
 }
 
-auto set_framebuffer_logging_enabled(bool enabled) -> void
-{
-	s_framebuffer_logging_enabled.store(enabled);
-}
-
 auto drain_logs() -> void
 {
 	if (!s_log_queue_ready.load())
@@ -304,8 +296,8 @@ auto drain_logs() -> void
 
 	while (auto entry = s_log_queue.try_pop()) {
 		debug_write_serial(entry->data, entry->len);
-		if (s_framebuffer_logging_enabled.load())
-			debug_write_framebuffer(entry->data, entry->len);
+		// if (s_framebuffer_logging_enabled.load())
+		//	debug_write_framebuffer(entry->data, entry->len);
 	}
 }
 

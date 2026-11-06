@@ -48,14 +48,14 @@ add_subdirectory(Katline)
 add_custom_target(image
     COMMAND "${CMAKE_SOURCE_DIR}/Util/BuildDiskImage.sh"
     WORKING_DIRECTORY "${CMAKE_BINARY_DIR}"
-    DEPENDS ${KERNEL_TARGET}
+    DEPENDS ${KERNEL_TARGET} Loader ProcessManager
     USES_TERMINAL
 )
 
 add_custom_target(cdrom
     COMMAND "${CMAKE_SOURCE_DIR}/Util/BuildCDROMImage.sh"
     WORKING_DIRECTORY "${CMAKE_BINARY_DIR}"
-    DEPENDS ${KERNEL_TARGET}
+    DEPENDS ${KERNEL_TARGET} Loader ProcessManager
     USES_TERMINAL
 )
 

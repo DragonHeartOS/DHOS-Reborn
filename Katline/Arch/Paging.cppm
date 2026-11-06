@@ -151,8 +151,10 @@ static auto table_flags(PageFlags flags) -> PageFlags
 static auto ensure_next_table(PageTableEntry &entry, PageFlags flags)
     -> PageTable *
 {
-	if (entry.present())
+	if (entry.present()) {
+		entry.value |= table_flags(flags).raw();
 		return table_from_entry(entry);
+	}
 
 	auto *const table { create_table() };
 	if (!table)
@@ -192,7 +194,13 @@ static auto walk(PageTable *root, uptr virt, bool create, PageFlags flags)
 		if (entry.flags().contains(PageFlag::PageSize))
 			return { &entry, level - 1 };
 
-		table = table_from_entry(entry);
+		if (create) {
+			table = ensure_next_table(entry, flags);
+			if (!table)
+				return {};
+		} else {
+			table = table_from_entry(entry);
+		}
 	}
 
 	return { &table->entries[table_index(virt, 1)], 1 };

@@ -29,6 +29,7 @@ static constexpr usize max_frames { 1ull << 28 };
 static uptr g_hhdm_offset {};
 static CL::BitArray<max_frames> g_frames;
 static Katline::Sync::SpinLock g_frames_lock;
+static usize g_next_free_hint {};
 
 static constexpr auto page_align_down(uptr addr) -> uptr
 {
@@ -102,6 +103,7 @@ auto FrameAllocator::init(MemoryMap const *mmap, uptr hhdm_offset) -> void
 
 	g_hhdm_offset = hhdm_offset;
 	g_frames.set_all();
+	g_next_free_hint = 0;
 	reserve_range(0, 0x100000);
 
 	for (u64 i {}; i < mmap->size; ++i) {
@@ -126,14 +128,51 @@ auto FrameAllocator::allocate_page() -> void *
 {
 	Katline::Sync::ScopedIrqSpinLock guard { g_frames_lock };
 
-	auto const free_frame { g_frames.find_first_clear() };
-	if (!free_frame)
-		return nullptr;
+	using FrameBits = decltype(g_frames);
+	using Word = FrameBits::Word;
 
-	auto const index { *free_frame };
-	g_frames.set(index);
-	auto const phys { static_cast<uptr>(index) * Arch::k_page_size };
-	return phys_to_virt(phys);
+	auto const word_bits { FrameBits::word_bits };
+	auto const word_count { FrameBits::word_count };
+	auto const start_word { g_next_free_hint / word_bits };
+	auto const start_bit { g_next_free_hint % word_bits };
+	auto *words { g_frames.words() };
+
+	auto first_clear_bit_index = [](Word word) -> usize {
+		usize bit {};
+		while ((word & Word { 1 }) == 0) {
+			word >>= 1;
+			++bit;
+		}
+		return bit;
+	};
+
+	for (usize pass {}; pass < 2; ++pass) {
+		usize word_index { pass == 0 ? start_word : 0 };
+		usize end_word { pass == 0 ? word_count : start_word };
+
+		for (; word_index < end_word; ++word_index) {
+			Word free_bits { static_cast<Word>(~words[word_index]) };
+			if (word_index == word_count - 1)
+				free_bits &= FrameBits::last_mask;
+			if (pass == 0 && word_index == start_word && start_bit != 0)
+				free_bits
+				    &= static_cast<Word>(~((Word { 1 } << start_bit) - 1));
+			if (free_bits == 0)
+				continue;
+
+			auto const bit_index { first_clear_bit_index(free_bits) };
+			auto const index { word_index * word_bits + bit_index };
+			if (index >= max_frames)
+				break;
+
+			g_frames.set(index);
+			g_next_free_hint = index + 1 < max_frames ? index + 1 : 0;
+			auto const phys { static_cast<uptr>(index) * Arch::k_page_size };
+			return phys_to_virt(phys);
+		}
+	}
+
+	return nullptr;
 }
 
 auto FrameAllocator::allocate_zeroed_page() -> void *
@@ -160,6 +199,8 @@ auto FrameAllocator::free_page(void *page) -> void
 		return;
 
 	g_frames.clear(index);
+	if (index < g_next_free_hint)
+		g_next_free_hint = index;
 }
 
 }

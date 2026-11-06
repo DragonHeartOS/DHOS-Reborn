@@ -1,6 +1,7 @@
 export module Katline:SyscallThreadStart;
 
 import CommonLib;
+import :Debug;
 import :HandleManager;
 import :Scheduler;
 import KatlineAPI;
@@ -10,9 +11,6 @@ namespace Katline::Syscalls {
 
 template<> struct Spec<SyscallNumber::ThreadStart> {
 	static constexpr bool requires_current_thread = true;
-	static constexpr ProcessCapabilityFlags required_capabilities {
-		ProcessCapability::ManageProcesses
-	};
 
 	static auto call(Arch::Thread *thread, Handle thread_handle) -> Result<void>
 	{
@@ -25,6 +23,11 @@ template<> struct Spec<SyscallNumber::ThreadStart> {
 
 		if (!Arch::Scheduler::the().start_thread(target))
 			return Result<void>::Err(ErrorsV::InvalidArgument {});
+
+		Debug::print_formatted("[Syscall] thread_start tid=%d pid=%d\n",
+		    static_cast<int>(target->tid.id),
+		    target->process ? static_cast<int>(target->process->pid.id) : -1);
+		Debug::drain_logs();
 
 		return Result<void>::Ok();
 	}

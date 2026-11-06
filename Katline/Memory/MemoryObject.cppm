@@ -2,6 +2,7 @@ export module Katline:MemoryObject;
 
 import CommonLib;
 import :ArchConstants;
+import :Debug;
 import :FrameAllocator;
 import :Paging;
 
@@ -80,6 +81,15 @@ auto MemoryObject::create_allocated(usize size) -> MemoryObject *
 	object->ref_count = 0;
 
 	auto const page_count { page_align_up(size) / Arch::k_page_size };
+	auto const reserve_res { object->pages.reserve(page_count) };
+	if (reserve_res.is_err()) {
+		delete object;
+		return nullptr;
+	}
+
+	Debug::print_formatted("[MemoryObject] create_allocated size=%d pages=%d\n",
+	    static_cast<int>(size), static_cast<int>(page_count));
+	Debug::drain_logs();
 	for (usize i {}; i < page_count; ++i) {
 		auto *page { Memory::FA::allocate_zeroed_page() };
 		if (!page) {
@@ -88,6 +98,12 @@ auto MemoryObject::create_allocated(usize size) -> MemoryObject *
 		}
 
 		object->pages.push(Arch::Paging::virt_to_phys(page));
+		if (page_count <= 16 || i == 0 || i + 1 == page_count
+		    || ((i + 1) % 16u) == 0) {
+			Debug::print_formatted("[MemoryObject] allocated page %d/%d\n",
+			    static_cast<int>(i + 1), static_cast<int>(page_count));
+			Debug::drain_logs();
+		}
 	}
 
 	return object;

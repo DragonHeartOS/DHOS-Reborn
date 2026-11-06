@@ -33,7 +33,7 @@ is_headless() {
 
 if [ "$SYSTEM" = 'QEMU' ] ; then
     QEMU_BIN='qemu-system-x86_64'
-    QEMU_ARGS="-m 1G -serial stdio -smp ${SMP_COUNT}"
+    QEMU_ARGS="-m 4G -serial stdio -smp ${SMP_COUNT}"
 
     if is_headless ; then
         echo 'Running headless'

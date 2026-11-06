@@ -34,7 +34,7 @@ export {
 	    -> Result<void>;
 	auto map_memory_object(Arch::Process *process, Memory::MemoryObject *object,
 	    u64 offset, u64 size, Katline::MemoryMapFlags flags,
-	    UserPtr<void *> out_addr) -> Result<u64>;
+	    UserPtr<void *> out_addr, uptr requested_addr = 0) -> Result<u64>;
 	auto unmap_memory_object(Arch::Process *process, uptr address, u64 size)
 	    -> Result<void>;
 
@@ -114,9 +114,40 @@ auto remember_mapping(Arch::Process *process, uptr address, uptr page_base,
 	return Result<void>::Ok();
 }
 
+static auto can_use_requested_base(
+    Arch::Process *process, uptr page_base, usize page_count) -> bool
+{
+	if (!process || page_count == 0
+	    || (page_base & (Arch::k_page_size - 1)) != 0)
+		return false;
+
+	auto const span_bytes { static_cast<uptr>(page_count) * Arch::k_page_size };
+	if (span_bytes == 0 || page_base == 0
+	    || page_base > Arch::k_user_space_limit)
+		return false;
+	if (page_base > Arch::k_user_space_limit - span_bytes)
+		return false;
+
+	for (usize i {}; i < process->mappings.size(); ++i) {
+		auto mapping_opt { process->mappings.get(i) };
+		if (!mapping_opt)
+			continue;
+
+		auto const &mapping { *mapping_opt };
+		auto const mapping_size {
+			static_cast<uptr>(mapping.page_count) * Arch::k_page_size,
+		};
+		if (Arch::range_overlaps(
+		        page_base, span_bytes, mapping.page_base, mapping_size))
+			return false;
+	}
+
+	return true;
+}
+
 auto map_memory_object(Arch::Process *process, Memory::MemoryObject *object,
     u64 offset, u64 size, Katline::MemoryMapFlags flags,
-    UserPtr<void *> out_addr) -> Result<u64>
+    UserPtr<void *> out_addr, uptr requested_addr) -> Result<u64>
 {
 	if (!process || !object || size == 0) {
 		return Result<u64>::Err(ErrorsV::InvalidArgument {});
@@ -168,7 +199,17 @@ auto map_memory_object(Arch::Process *process, Memory::MemoryObject *object,
 		return Result<u64>::Err(ErrorsV::InvalidArgument {});
 	}
 
-	auto const base { Arch::find_free_user_region(process, page_count) };
+	uptr base {};
+	if (requested_addr != 0) {
+		if (requested_addr < page_offset)
+			return Result<u64>::Err(ErrorsV::InvalidArgument {});
+
+		base = requested_addr - page_offset;
+		if (!can_use_requested_base(process, base, page_count))
+			return Result<u64>::Err(ErrorsV::InvalidArgument {});
+	} else {
+		base = Arch::find_free_user_region(process, page_count);
+	}
 	if (!base) {
 		return Result<u64>::Err(ErrorsV::InvalidArgument {});
 	}

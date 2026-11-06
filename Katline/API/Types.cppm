@@ -60,6 +60,7 @@ export {
 
 	struct ProcessInfo {
 		ProcessID pid;
+		u64 endpoint_id;
 		u64 handle_count;
 		u64 name_len;
 		char const name[];

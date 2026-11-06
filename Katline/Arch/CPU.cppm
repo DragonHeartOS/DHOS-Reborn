@@ -302,6 +302,12 @@ void CPUContext::save_current()
 	             "jmp *0x80(%rsi)\n\t"
 
 	             "3:\n\t"
+	             "testq %rdi, %rdi\n\t"
+	             "jz 4f\n\t"
+	             "cmpq $0x23, 0x90(%rdi)\n\t"
+	             "jne 4f\n\t"
+	             "swapgs\n\t"
+	             "4:\n\t"
 	             "pushq 0x98(%rsi)\n\t"
 	             "pushq 0x38(%rsi)\n\t"
 	             "pushq 0x88(%rsi)\n\t"

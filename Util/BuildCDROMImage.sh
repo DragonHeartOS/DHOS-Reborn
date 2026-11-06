@@ -10,6 +10,11 @@ if [ ! -f "Katline/Katline" ] ; then
     exit 1
 fi
 
+if [ ! -f "Applications/Loader/Loader.exe" ] ; then
+    echo 'Loader not built. Please build the Loader application.'
+    exit 1
+fi
+
 if ! command -v xorriso &>/dev/null; then
     echo 'Xorisso not found. Please install.'
     exit 1
@@ -21,7 +26,7 @@ echo 'Building limine-install'
 make -C ../limine
 
 mkdir -p iso_root
-cp -v Katline/Katline ../limine.conf ../limine/limine-bios.sys ../limine/limine-bios-cd.bin ../limine/limine-uefi-cd.bin iso_root/
+cp -v Katline/Katline Applications/ProcessManager/ProcessManager.exe Applications/Loader/Loader.exe ../limine.conf ../limine/limine-bios.sys ../limine/limine-bios-cd.bin ../limine/limine-uefi-cd.bin iso_root/
 mkdir -p iso_root/EFI/BOOT
 cp -v ../limine/BOOTX64.EFI iso_root/EFI/BOOT/BOOTX64.EFI
 

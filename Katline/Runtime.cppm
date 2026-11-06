@@ -4,7 +4,6 @@ export module Katline:Runtime;
 
 import CommonLib;
 import KatlineAPI;
-import :FramebufferController;
 import :Thread;
 import :Logo;
 import :SerialController;
@@ -27,7 +26,6 @@ export {
 	namespace Katline {
 
 	struct StartupInfo {
-		Controller::Framebuffer *framebuffer;
 		Memory::MemoryMap *mmap;
 		u32 cpu_count;
 		u32 bsp_lapic_id;
@@ -39,7 +37,6 @@ export {
 		u64 kernel_size;
 	};
 
-	extern Controller::FramebufferController k_framebuffer_controller;
 	extern Controller::SerialController k_serial_controller;
 
 	void katline_main(StartupInfo &info, BootData const &boot);
@@ -50,7 +47,6 @@ export {
 }
 
 namespace Katline::Debug {
-void set_framebuffer_logging_enabled(bool enabled);
 auto drain_logs() -> void;
 void print_formatted(char const *str, ...);
 }
@@ -444,7 +440,6 @@ static auto reserve_mmap_phys_range(Memory::MemoryMap *mmap, uptr hhdm_offset,
 	}
 }
 
-Controller::FramebufferController k_framebuffer_controller { nullptr };
 Controller::SerialController k_serial_controller;
 CL::Atomic<bool> k_bsp_initialized { false };
 static constexpr usize max_cpu_slots { 256 };
@@ -488,9 +483,6 @@ auto kernel_handle_ipc_message(IPC::Message const &message) -> bool
 
 	auto boot_info_sender { [](u64 endpoint) -> Arch::Process * {
 		auto *process { Arch::Scheduler::the().process_by_endpoint(endpoint) };
-		if (!process
-		    || !process->capabilities.contains(ProcessCapability::BootInfo))
-			return nullptr;
 		return process;
 	} };
 
@@ -515,6 +507,9 @@ auto kernel_handle_ipc_message(IPC::Message const &message) -> bool
 				    static_cast<int>(request.sender));
 				return;
 			}
+			Debug::print_formatted("[IPC] opened reply handle=%d endpoint=%d\n",
+			    static_cast<int>(handle.id), static_cast<int>(request.sender));
+			Debug::drain_logs();
 			reply_builder.handle<0>(handle);
 		}
 		auto const reply { reply_builder.build() };
@@ -525,6 +520,11 @@ auto kernel_handle_ipc_message(IPC::Message const &message) -> bool
 			Debug::print_formatted(
 			    "[IPC] failed to enqueue %s reply for endpoint %d\n",
 			    error_message, static_cast<int>(request.sender));
+		} else {
+			Debug::print_formatted(
+			    "[IPC] enqueued reply endpoint=%d cookie=0x%016x\n",
+			    static_cast<int>(request.sender), reply.cookie);
+			Debug::drain_logs();
 		}
 	} };
 
@@ -534,6 +534,11 @@ auto kernel_handle_ipc_message(IPC::Message const &message) -> bool
 			return nullptr;
 
 		auto const &module { boot->modules[id] };
+		Debug::print_formatted(
+		    "[IPC] build module id=%d size=%d addr=0x%016x\n",
+		    static_cast<int>(id), static_cast<int>(module.size),
+		    reinterpret_cast<u64>(module.address));
+		Debug::drain_logs();
 		if (module.size == 0 || !module.address)
 			return nullptr;
 
@@ -541,12 +546,18 @@ auto kernel_handle_ipc_message(IPC::Message const &message) -> bool
 			static_cast<usize>(module.size)) };
 		if (!object)
 			return nullptr;
+		Debug::print_formatted("[IPC] module object created size=%d\n",
+		    static_cast<int>(object->size));
+		Debug::drain_logs();
 
 		if (!write_boot_blob(
 		        object, 0, module.address, static_cast<usize>(module.size))) {
 			delete object;
 			return nullptr;
 		}
+		Debug::print_formatted(
+		    "[IPC] module object copied id=%d\n", static_cast<int>(id));
+		Debug::drain_logs();
 
 		return object;
 	} };
@@ -591,6 +602,11 @@ auto kernel_handle_ipc_message(IPC::Message const &message) -> bool
 	} };
 
 	auto const type { IPC::type_of<KernelMessageType>(message) };
+	Debug::print_formatted(
+	    "[IPC] kernel message type=%d sender=%d cookie=0x%016x\n",
+	    static_cast<int>(static_cast<u64>(type)),
+	    static_cast<int>(message.sender), message.cookie);
+	Debug::drain_logs();
 	switch (type) {
 	case KernelMessageType::GetBootInfo: {
 		auto *sender_process { boot_info_sender(message.sender) };
@@ -671,11 +687,6 @@ auto katline_main(StartupInfo &info, BootData const &boot) -> void
 	k_serial_controller.init();
 
 	Debug::drain_logs();
-	k_framebuffer_controller
-	    = Controller::FramebufferController(info.framebuffer);
-	k_framebuffer_controller.put_logo(
-	    Logo::Data, Logo::Width, Logo::Height, 10, 10);
-	Debug::set_framebuffer_logging_enabled(true);
 
 	auto const cpuid_info { Arch::CPUID::query_cpuid() };
 	print_cpu_info(info.bsp_lapic_id);

@@ -1,3 +1,7 @@
+module;
+
+#include <string.h>
+
 export module Katline:SyscallGetProcessInfo;
 
 import CommonLib;
@@ -24,13 +28,20 @@ template<> struct Spec<SyscallNumber::GetProcessInfo> {
 			return copy_out(
 			    buffer_size, sizeof(ProcessInfo) + actual_process->name.size());
 		} else {
-			auto const *info = new ProcessInfo {
-				.pid = actual_process->pid,
-				.handle_count = actual_process->handle_count,
-				.name_len = actual_process->name.size(),
+			auto const total_size {
+				sizeof(ProcessInfo) + actual_process->name.size(),
 			};
-			return copy_out(process_info, info,
-			    sizeof(ProcessInfo) + actual_process->name.size());
+			if (total_size > 512)
+				return Result<void>::Err(ErrorsV::InvalidArgument {});
+			alignas(ProcessInfo) char storage[512] {};
+			auto *info { reinterpret_cast<ProcessInfo *>(storage) };
+			info->pid = actual_process->pid;
+			info->endpoint_id = actual_process->endpoint_id;
+			info->handle_count = actual_process->handle_count;
+			info->name_len = actual_process->name.size();
+			memcpy(const_cast<char *>(info->name), actual_process->name.data(),
+			    actual_process->name.size());
+			return copy_out(process_info, info, total_size);
 		}
 	}
 };

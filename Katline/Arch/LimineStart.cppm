@@ -200,15 +200,6 @@ extern "C" auto kernel_start() -> void
 			asm("hlt");
 	}
 
-	Katline::Controller::Framebuffer fb {
-		(u64)fb_tag->address,
-		(u16)fb_tag->width,
-		(u16)fb_tag->height,
-		(u16)fb_tag->pitch,
-		fb_tag->bpp,
-		(u8 *)fb_tag->address,
-	};
-
 	static Katline::Memory::MemoryData memory_map_entries[256];
 	auto memory_map_entry_count { mmap_tag->entry_count };
 	if (memory_map_entry_count > 256)
@@ -307,7 +298,6 @@ extern "C" auto kernel_start() -> void
 	}
 
 	Katline::StartupInfo info {
-		.framebuffer = &fb,
 		.mmap = &mmap,
 		.cpu_count = static_cast<u32>(mp_request.response->cpu_count),
 		.bsp_lapic_id = mp_request.response->bsp_lapic_id,

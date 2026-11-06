@@ -20,11 +20,9 @@ set(KATLINE_MODULE_SOURCES
 
     Bootstrap.cppm
 
-    Controllers/FramebufferController.cppm
     Controllers/IO.cppm
     Controllers/SerialController.cppm
 
-    Color.cppm
     Debug.cppm
     DebugImpl.cppm
     DebugSink.cppm

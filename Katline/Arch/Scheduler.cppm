@@ -85,7 +85,7 @@ export {
 		u64 m_pid_counter {};
 		CL::Atomic<u64> m_endpoint_counter { 1 };
 		u64 m_tid_counter {};
-		u32 m_default_slice_ticks { 8 };
+		u32 m_default_slice_ticks { 1024 };
 
 		auto local_lapic_id() const -> u32;
 		auto find_cpu_state(u32 lapic_id) -> CPUState *;
@@ -131,6 +131,9 @@ void Scheduler::init()
 				.endpoint_id = 0,
 				.cr3 = current_cr3(),
 			};
+			if (k_process->threads.reserve(8).is_err()
+			    || k_process->mappings.reserve(64).is_err())
+				return;
 			k_process->ipc_message_queue.init();
 			m_processes.push(k_process);
 			m_global_initialized = true;
@@ -152,6 +155,11 @@ auto Scheduler::the() -> Scheduler &
 auto Scheduler::create_process(Process *parent, u64 cr3) -> Process *
 {
 	auto *process { new Process {} };
+	if (process->threads.reserve(8).is_err()
+	    || process->mappings.reserve(64).is_err()) {
+		delete process;
+		return nullptr;
+	}
 	{
 		Sync::ScopedIrqSpinLock guard { m_global_lock };
 		process->parent = parent;
@@ -413,6 +421,8 @@ void Scheduler::schedule()
 
 	Thread *prev {};
 	Thread *next {};
+	Thread *skipped[16] {};
+	usize skipped_count {};
 
 	{
 		Sync::ScopedIrqSpinLock guard { cpu->queue_lock };
@@ -422,13 +432,30 @@ void Scheduler::schedule()
 
 		prev = cpu->current_thread;
 		if (prev && prev->tstate == ThreadState::Running
-		    && prev != cpu->idle_thread) {
+		    && prev != cpu->idle_thread
+		    && prev->context.cs == user_code_selector) {
 			prev->tstate = ThreadState::Ready;
 			cpu->handoff_thread = prev;
 			enqueue_ready(*cpu, prev);
 		}
 
-		next = dequeue_ready(*cpu);
+		for (;;) {
+			auto *candidate { dequeue_ready(*cpu) };
+			if (!candidate)
+				break;
+			if (candidate->context.cs == user_code_selector) {
+				next = candidate;
+				break;
+			}
+			if (skipped_count < sizeof(skipped) / sizeof(skipped[0]))
+				skipped[skipped_count++] = candidate;
+		}
+
+		for (usize i {}; i < skipped_count; ++i)
+			enqueue_ready(*cpu, skipped[i]);
+
+		if (!next && skipped_count > 0)
+			next = skipped[0];
 	}
 
 	if (!next)
@@ -436,8 +463,25 @@ void Scheduler::schedule()
 
 	{
 		Sync::ScopedIrqSpinLock guard { cpu->queue_lock };
-		if (!next)
-			next = dequeue_ready(*cpu);
+		if (!next) {
+			for (;;) {
+				auto *candidate { dequeue_ready(*cpu) };
+				if (!candidate)
+					break;
+				if (candidate->context.cs == user_code_selector) {
+					next = candidate;
+					break;
+				}
+				if (skipped_count < sizeof(skipped) / sizeof(skipped[0]))
+					skipped[skipped_count++] = candidate;
+			}
+
+			for (usize i {}; i < skipped_count; ++i)
+				enqueue_ready(*cpu, skipped[i]);
+
+			if (!next && skipped_count > 0)
+				next = skipped[0];
+		}
 		if (!next)
 			next = cpu->idle_thread;
 
@@ -451,6 +495,18 @@ void Scheduler::schedule()
 		next->slice_remaining = m_default_slice_ticks;
 		next->last_lapic_id = cpu->lapic_id;
 		cpu->current_thread = next;
+		Debug::print_formatted(
+		    "[Scheduler] schedule switch cpu=%d prev_pid=%d prev_tid=%d "
+		    "next_pid=%d next_tid=%d next_cs=0x%x\n",
+		    static_cast<int>(cpu->lapic_id),
+		    prev && prev->process ? static_cast<int>(prev->process->pid.id)
+		                          : -1,
+		    prev ? static_cast<int>(prev->tid.id) : -1,
+		    next && next->process ? static_cast<int>(next->process->pid.id)
+		                          : -1,
+		    next ? static_cast<int>(next->tid.id) : -1,
+		    next ? static_cast<unsigned>(next->context.cs) : 0u);
+		Debug::drain_logs();
 		cpu->in_schedule = false;
 	}
 
@@ -459,6 +515,8 @@ void Scheduler::schedule()
 
 	set_kernel_stack_for_current_cpu(
 	    next->kernel_stack_base + next->kernel_stack_size);
+	if (next->context.cs == user_code_selector)
+		prepare_gs_for_user_entry();
 	CPUContext::switch_to(prev ? &prev->context : nullptr, &next->context);
 }
 
@@ -498,9 +556,10 @@ void Scheduler::on_timer_tick()
 	clear_handoff_if_current(*cpu);
 
 	auto *current { cpu->current_thread };
-	if (!current || current == cpu->idle_thread
-	    || current->tstate != ThreadState::Running)
+	if (!current || current->tstate != ThreadState::Running)
 		return;
+	if (current == cpu->idle_thread)
+		current->slice_remaining = 0;
 
 	if (current->slice_remaining > 0)
 		current->slice_remaining--;
@@ -522,9 +581,10 @@ void Scheduler::on_timer_interrupt(
 	clear_handoff_if_current(*cpu);
 
 	auto *current { cpu->current_thread };
-	if (!current || current == cpu->idle_thread
-	    || current->tstate != ThreadState::Running)
+	if (!current || current->tstate != ThreadState::Running)
 		return;
+	if (current == cpu->idle_thread)
+		current->slice_remaining = 0;
 
 	if (current->slice_remaining > 0)
 		current->slice_remaining--;
@@ -532,7 +592,9 @@ void Scheduler::on_timer_interrupt(
 	if (current->slice_remaining != 0)
 		return;
 
-	auto const can_preempt_from_irq { (frame->cs & 0x3u) == 3 };
+	auto const can_preempt_from_irq {
+		current == cpu->idle_thread || (frame->cs & 0x3u) == 3,
+	};
 	if (!can_preempt_from_irq) {
 		current->slice_remaining = m_default_slice_ticks;
 		return;
@@ -551,7 +613,8 @@ void Scheduler::on_timer_interrupt(
 
 		prev = cpu->current_thread;
 		if (prev && prev->tstate == ThreadState::Running
-		    && prev != cpu->idle_thread) {
+		    && prev != cpu->idle_thread
+		    && prev->context.cs == user_code_selector) {
 			prev->tstate = ThreadState::Ready;
 			cpu->handoff_thread = prev;
 			enqueue_ready(*cpu, prev);
@@ -582,7 +645,20 @@ void Scheduler::on_timer_interrupt(
 			next->tstate = ThreadState::Running;
 			next->slice_remaining = m_default_slice_ticks;
 			next->last_lapic_id = cpu->lapic_id;
+			auto const prev_tid = cpu->current_thread->tid;
 			cpu->current_thread = next;
+			Debug::print_formatted(
+			    "[Scheduler] irq switch cpu=%d prev_pid=%d prev_tid=%d "
+			    "next_pid=%d next_tid=%d next_cs=0x%x prev_thread=0x%x\n",
+			    static_cast<int>(cpu->lapic_id),
+			    prev && prev->process ? static_cast<int>(prev->process->pid.id)
+			                          : -1,
+			    prev ? static_cast<int>(prev->tid.id) : -1,
+			    next && next->process ? static_cast<int>(next->process->pid.id)
+			                          : -1,
+			    next ? static_cast<int>(next->tid.id) : -1,
+			    next ? static_cast<unsigned>(next->context.cs) : 0u, prev_tid);
+			Debug::drain_logs();
 		}
 
 		cpu->in_schedule = false;
@@ -617,6 +693,8 @@ void Scheduler::on_timer_interrupt(
 
 	set_kernel_stack_for_current_cpu(
 	    next->kernel_stack_base + next->kernel_stack_size);
+	if (next->context.cs == user_code_selector)
+		prepare_gs_for_user_entry();
 
 	regs->rax = next->context.rax;
 	regs->rbx = next->context.rbx;
@@ -689,13 +767,15 @@ void Scheduler::unblock(Thread *thread)
 			asm volatile("hlt");
 	}
 	if (current) {
+		Debug::print_formatted(
+		    "[Scheduler] thread_exit pid=%d tid=%d state=%d entry=0x%016x\n",
+		    current->process ? static_cast<int>(current->process->pid.id) : -1,
+		    static_cast<int>(current->tid.id),
+		    static_cast<int>(current->tstate), current->entry_point);
+		Debug::drain_logs();
 		current->tstate = ThreadState::Dead;
 		Sync::ScopedIrqSpinLock global_guard { m_global_lock };
 		m_zombies.push(current);
-	}
-	{
-		Sync::ScopedIrqSpinLock queue_guard { cpu->queue_lock };
-		cpu->current_thread = nullptr;
 	}
 	schedule();
 	for (;;)
@@ -776,6 +856,13 @@ void Scheduler::enqueue_ready(CPUState &cpu, Thread *thread)
 		return;
 	if (is_in_ready_queue(cpu, thread))
 		return;
+	Debug::print_formatted(
+	    "[Scheduler] enqueue_ready cpu=%d pid=%d tid=%d cs=0x%x\n",
+	    static_cast<int>(cpu.lapic_id),
+	    thread->process ? static_cast<int>(thread->process->pid.id) : -1,
+	    static_cast<int>(thread->tid.id),
+	    static_cast<unsigned>(thread->context.cs));
+	Debug::drain_logs();
 	cpu.ready_threads.push(thread);
 }
 
@@ -789,6 +876,14 @@ auto Scheduler::dequeue_ready(CPUState &cpu) -> Thread *
 			continue;
 		if (candidate->tstate != ThreadState::Ready)
 			continue;
+		Debug::print_formatted(
+		    "[Scheduler] dequeue_ready cpu=%d pid=%d tid=%d cs=0x%x\n",
+		    static_cast<int>(cpu.lapic_id),
+		    candidate->process ? static_cast<int>(candidate->process->pid.id)
+		                       : -1,
+		    static_cast<int>(candidate->tid.id),
+		    static_cast<unsigned>(candidate->context.cs));
+		Debug::drain_logs();
 		compact_ready_queue_if_needed(cpu);
 		return candidate;
 	}
@@ -880,56 +975,7 @@ void Scheduler::reap_zombies()
 	m_zombies.iter().for_each([&](auto *thread) {
 		if (!thread)
 			return;
-		if (thread->handle_count > 0) {
-			survivors.push(thread);
-			return;
-		}
-
-		auto *process { thread->process };
-		if (process) {
-			for (usize j {}; j < process->threads.size(); j++) {
-				if (process->threads[j] == thread) {
-					process->threads.remove_at(j);
-					break;
-				}
-			}
-		}
-
-		if (thread->stack_is_heap_allocated && thread->kernel_stack_base) {
-			auto *stack {
-				reinterpret_cast<u8 *>(thread->kernel_stack_base),
-			};
-			delete[] stack;
-		}
-		delete thread;
-
-		if (process && process != k_process
-		    && process->state != ProcessState::Dead
-		    && !process->threads.iter().any(
-		        [](auto c) { return c && c->tstate != ThreadState::Dead; })) {
-			auto *root {
-				reinterpret_cast<Arch::Paging::PageTable *>(
-				    Arch::Paging::phys_to_virt(process->cr3)),
-			};
-			if (root) {
-				for (usize i {}; i < process->mappings.size(); ++i) {
-					auto mapping_opt { process->mappings.get(i) };
-					if (!mapping_opt)
-						continue;
-					auto const &mapping { *mapping_opt };
-
-					for (usize j {}; j < mapping.page_count; ++j)
-						Arch::Paging::unmap(
-						    root, mapping.page_base + j * Arch::k_page_size);
-
-					Memory::release_memory_object(mapping.object);
-				}
-				process->mappings.clear();
-			}
-
-			process->state = ProcessState::Dead;
-			Arch::HandleManager::the().release_owned_handles(process);
-		}
+		survivors.push(thread);
 	});
 	m_zombies = CL::move(survivors);
 }

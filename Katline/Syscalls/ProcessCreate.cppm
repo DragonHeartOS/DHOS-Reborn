@@ -1,6 +1,7 @@
 export module Katline:SyscallProcessCreate;
 
 import CommonLib;
+import :Debug;
 import :HandleManager;
 import :Scheduler;
 import KatlineAPI;
@@ -21,6 +22,13 @@ template<> struct Spec<SyscallNumber::ProcessCreate> {
 		};
 		if (!process)
 			return Result<Handle>::Err(ErrorsV::InvalidArgument {});
+
+		Debug::print_formatted(
+		    "[Syscall] process_create parent_pid=%d child_pid=%d endpoint=%d\n",
+		    thread->process ? static_cast<int>(thread->process->pid.id) : -1,
+		    static_cast<int>(process->pid.id),
+		    static_cast<int>(process->endpoint_id));
+		Debug::drain_logs();
 
 		auto handle {
 			Arch::HandleManager::the().open(

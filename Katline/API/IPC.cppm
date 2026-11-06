@@ -19,8 +19,7 @@ export {
 	};
 
 	template<typename TypeEnum>
-	requires(CL::IsEnumV<TypeEnum>)
-	class MessageBuilder {
+	requires(CL::IsEnumV<TypeEnum>) class MessageBuilder {
 	public:
 		constexpr explicit MessageBuilder(TypeEnum type)
 		{
@@ -57,8 +56,7 @@ export {
 			return *this;
 		}
 
-		template<usize Index>
-		constexpr auto arg(u64 value) -> MessageBuilder &
+		template<usize Index> constexpr auto arg(u64 value) -> MessageBuilder &
 		{
 			static_assert(Index < 6, "IPC message arg index out of bounds");
 			m_message.args[Index] = value;

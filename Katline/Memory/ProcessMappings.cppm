@@ -32,7 +32,7 @@ auto find_free_user_region(Process const *process, usize page_count) -> uptr
 		return 0;
 
 	auto const span_bytes { static_cast<uptr>(page_count) * k_page_size };
-	auto const search_start { k_page_size };
+	auto const search_start { 0x0000400000000000ull };
 	if (span_bytes == 0 || search_start > k_user_space_limit - span_bytes)
 		return 0;
 
