@@ -856,13 +856,6 @@ void Scheduler::enqueue_ready(CPUState &cpu, Thread *thread)
 		return;
 	if (is_in_ready_queue(cpu, thread))
 		return;
-	Debug::print_formatted(
-	    "[Scheduler] enqueue_ready cpu=%d pid=%d tid=%d cs=0x%x\n",
-	    static_cast<int>(cpu.lapic_id),
-	    thread->process ? static_cast<int>(thread->process->pid.id) : -1,
-	    static_cast<int>(thread->tid.id),
-	    static_cast<unsigned>(thread->context.cs));
-	Debug::drain_logs();
 	cpu.ready_threads.push(thread);
 }
 
@@ -876,14 +869,6 @@ auto Scheduler::dequeue_ready(CPUState &cpu) -> Thread *
 			continue;
 		if (candidate->tstate != ThreadState::Ready)
 			continue;
-		Debug::print_formatted(
-		    "[Scheduler] dequeue_ready cpu=%d pid=%d tid=%d cs=0x%x\n",
-		    static_cast<int>(cpu.lapic_id),
-		    candidate->process ? static_cast<int>(candidate->process->pid.id)
-		                       : -1,
-		    static_cast<int>(candidate->tid.id),
-		    static_cast<unsigned>(candidate->context.cs));
-		Debug::drain_logs();
 		compact_ready_queue_if_needed(cpu);
 		return candidate;
 	}
