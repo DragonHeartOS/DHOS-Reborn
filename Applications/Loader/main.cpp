@@ -12,7 +12,7 @@ static constexpr u64 k_user_stack_top { 0x00007fffffffe000ull };
 
 enum class BootLoaderMessageType : u64 {
 	Ready = 0x100,
-	LoadBootModuleById = 0x101,
+	LoadExecutable = 0x101,
 };
 
 namespace ELF {
@@ -54,12 +54,6 @@ struct ProgramHeader {
 
 } // namespace ELF
 
-struct BootModuleView {
-	bool found {};
-	u64 id {};
-	u64 size {};
-};
-
 static auto next_cookie() -> u64
 {
 	static u64 cookie { k_boot_cookie_base };
@@ -87,12 +81,10 @@ static auto send_message(u64 endpoint, Katline::IPC::Message const &message)
 	}
 }
 
-static auto send_kernel_message(Katline::KernelMessageType type, u64 arg0 = 0)
+static auto send_kernel_message(Katline::KernelMessageType type)
     -> Katline::IPC::Message
 {
 	auto builder { Katline::IPC::make_request(type).cookie(next_cookie()) };
-	if (type == Katline::KernelMessageType::GetBootModuleMemoryObjectById)
-		builder.arg<0>(arg0);
 	auto const request { builder.build() };
 	if (!send_message(0, request))
 		fatal(1);
@@ -160,32 +152,6 @@ static auto map_memory_object(Katline::Handle handle, u64 offset, u64 size,
 	if (res.is_err())
 		return nullptr;
 	return reinterpret_cast<T *>(*res);
-}
-
-static auto find_boot_module_by_id(Katline::BootInfoTable const *boot_info,
-    u8 const *boot_blob, u64 module_id) -> BootModuleView
-{
-	auto const *module_list {
-		reinterpret_cast<Katline::BootModuleList const *>(
-		    boot_blob + boot_info->modules_offset),
-	};
-	auto const *entries {
-		reinterpret_cast<Katline::BootModuleEntry const *>(
-		    boot_blob + module_list->entries_offset),
-	};
-
-	for (u64 i {}; i < module_list->len; ++i) {
-		auto const &entry { entries[i] };
-		if (entry.id != module_id)
-			continue;
-		return BootModuleView {
-			.found = true,
-			.id = entry.id,
-			.size = entry.size,
-		};
-	}
-
-	return {};
 }
 
 static auto elf_segment_flags(ELF::ProgramHeader const &header)
@@ -434,100 +400,29 @@ extern "C" auto dhos_main(CL::Span<CL::StringView>,
 		fatal(6);
 	Katline::Syscalls::sys_debug_u64(0x1002, 3);
 
-	void *boot_info_map {};
-	void *boot_blob_map {};
-	Katline::BootInfoTable const *boot_info {};
-	u8 const *boot_blob {};
-	Katline::Handle boot_handle {};
-
-	auto ensure_boot_data_loaded = [&]() -> bool {
-		if (boot_info && boot_blob)
-			return true;
-
-		auto const boot_reply {
-			send_kernel_message(Katline::KernelMessageType::GetBootInfo),
-		};
-		if (boot_reply.status != 0 || boot_reply.handles[0].is_invalid())
-			return false;
-
-		boot_handle = boot_reply.handles[0];
-		boot_info = map_memory_object<Katline::BootInfoTable const>(boot_handle,
-		    0, sizeof(Katline::BootInfoTable),
-		    Katline::MemoryMapFlags { Katline::MemoryMapFlag::Writable },
-		    &boot_info_map);
-		if (!boot_info)
-			return false;
-
-		boot_blob
-		    = map_memory_object<u8 const>(boot_handle, 0, boot_info->total_len,
-		        Katline::MemoryMapFlags { Katline::MemoryMapFlag::Writable },
-		        &boot_blob_map);
-		return boot_blob != nullptr;
-	};
-
 	Katline::Syscalls::sys_debug_u64(0x1002, 4);
 	for (;;) {
 		auto const request { receive_message() };
 		if (static_cast<BootLoaderMessageType>(request.type)
-		    != BootLoaderMessageType::LoadBootModuleById)
+		    != BootLoaderMessageType::LoadExecutable)
 			continue;
 
 		Katline::Syscalls::sys_debug_u64(0x1002, 0x4000);
-
-		if (!ensure_boot_data_loaded()) {
-			auto const reply {
-				Katline::IPC::make_reply(
-				    request, BootLoaderMessageType::LoadBootModuleById, 2)
-				    .build(),
-			};
-			send_message(request.sender, reply);
-			continue;
-		}
 		Katline::Syscalls::sys_debug_u64(0x1002, 0x4001);
-
-		auto const module {
-			find_boot_module_by_id(boot_info, boot_blob, request.args[0]),
+		auto const *image {
+			reinterpret_cast<void const *>(request.args[0]),
 		};
-		u64 status {};
-		if (!module.found) {
-			status = 1;
-		} else {
-			auto const module_reply {
-				send_kernel_message(
-				    Katline::KernelMessageType::GetBootModuleMemoryObjectById,
-				    module.id),
-			};
-			if (module_reply.status != 0
-			    || module_reply.handles[0].is_invalid()) {
-				status = 2;
-			} else {
-				void *module_map {};
-				auto const *module_blob {
-					map_memory_object<u8 const>(module_reply.handles[0], 0,
-					    module.size,
-					    Katline::MemoryMapFlags {
-					        Katline::MemoryMapFlag::Writable,
-					    },
-					    &module_map),
-				};
-				if (!module_blob) {
-					status = 3;
-				} else {
-					auto const child_caps {
-						Katline::ProcessCapabilityFlags(request.args[1]),
-					};
-					status = load_elf_into_new_process(
-					    module_blob, module.size, page_size, child_caps);
-					Katline::Syscalls::sys_memory_unmap(
-					    module_map, module.size);
-				}
-				Katline::Syscalls::sys_handle_close(module_reply.handles[0]);
-			}
-		}
+		auto const child_caps {
+			Katline::ProcessCapabilityFlags(request.args[2]),
+		};
+		auto const status {
+			load_elf_into_new_process(
+			    image, request.args[1], page_size, child_caps),
+		};
 
 		auto const reply {
 			Katline::IPC::make_reply(
-			    request, BootLoaderMessageType::LoadBootModuleById, status)
+			    request, BootLoaderMessageType::LoadExecutable, status)
 			    .build(),
 		};
 		send_message(request.sender, reply);

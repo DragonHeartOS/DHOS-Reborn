@@ -3,6 +3,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE INTERNAL "")
 
 project(dhos VERSION 0.1 LANGUAGES CXX ASM_NASM)
 
+include(cmake/DHOSBuild.cmake)
+
 set(WARNING_FLAGS -Wall -Wextra -Wconversion -Wsign-conversion -Wno-varargs)
 set(COMMON_COMPILER_FLAGS ${WARNING_FLAGS})
 set(CXX_COMPILER_FLAGS ${COMMON_COMPILER_FLAGS} -fno-exceptions -fno-rtti)
@@ -48,14 +50,14 @@ add_subdirectory(Katline)
 add_custom_target(image
     COMMAND "${CMAKE_SOURCE_DIR}/Util/BuildDiskImage.sh"
     WORKING_DIRECTORY "${CMAKE_BINARY_DIR}"
-    DEPENDS ${KERNEL_TARGET} Loader ProcessManager
+    DEPENDS ${KERNEL_TARGET} BootImage
     USES_TERMINAL
 )
 
 add_custom_target(cdrom
     COMMAND "${CMAKE_SOURCE_DIR}/Util/BuildCDROMImage.sh"
     WORKING_DIRECTORY "${CMAKE_BINARY_DIR}"
-    DEPENDS ${KERNEL_TARGET} Loader ProcessManager
+    DEPENDS ${KERNEL_TARGET} BootImage
     USES_TERMINAL
 )
 

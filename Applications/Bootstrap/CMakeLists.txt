@@ -2,19 +2,13 @@ file(GLOB_RECURSE BOOTSTRAP_SOURCES CONFIGURE_DEPENDS
 	"${CMAKE_CURRENT_SOURCE_DIR}/*.cpp"
 )
 
-add_executable(Bootstrap ${BOOTSTRAP_SOURCES})
-set_target_properties(Bootstrap PROPERTIES POSITION_INDEPENDENT_CODE ON)
-target_include_directories(Bootstrap PRIVATE "${CMAKE_SOURCE_DIR}/cxxstubs/include")
-
-target_link_libraries(Bootstrap PRIVATE CommonLib KatlineAPI KatlineAPIStatic)
-
-set(BOOTSTRAP_CXX_FLAGS -ffreestanding -fPIC -fno-stack-protector -mabi=sysv -mno-80387 -mno-mmx -mno-3dnow -mno-sse -mno-sse2 -mno-red-zone)
-
-target_compile_options(Bootstrap PRIVATE
-	$<$<COMPILE_LANGUAGE:CXX>:${CXX_COMPILER_FLAGS} ${BOOTSTRAP_CXX_FLAGS}>
+dhos_add_executable(Bootstrap
+    SOURCES ${BOOTSTRAP_SOURCES}
+    PIC
+    INCLUDE_DIRECTORIES "${CMAKE_SOURCE_DIR}/cxxstubs/include"
+    LINK_LIBRARIES CommonLib KatlineAPI KatlineAPIStatic
+    LINKER_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/linker.ld"
 )
-
-set_property(TARGET Bootstrap PROPERTY LINK_FLAGS "-nostdlib -static -T ${CMAKE_CURRENT_SOURCE_DIR}/linker.ld")
 
 set(BOOTSTRAP_BIN "${CMAKE_CURRENT_BINARY_DIR}/Bootstrap.bin")
 set(BOOTSTRAP_ENTRY_HEADER "${CMAKE_CURRENT_BINARY_DIR}/BootstrapEntry.h")

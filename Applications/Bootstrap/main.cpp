@@ -12,10 +12,14 @@ static constexpr u64 k_loader_boot_endpoint { 2 };
 static constexpr u64 k_loader_stack_size { 0x4000 };
 static constexpr u64 k_loader_stack_top { 0x00007fffffffe000ull };
 static constexpr u64 k_bootstrap_endpoint_mailbox { 0x00000000fff00000ull };
+static constexpr u64 k_boot_archive_base { 0x0000000100000000ull };
+static constexpr char k_boot_archive_name[] { "boot.tar" };
+static constexpr char k_loader_name[] { "Loader.exe" };
+static constexpr char k_order_file_name[] { "load-order.txt" };
 
 enum class BootLoaderMessageType : u64 {
 	Ready = 0x100,
-	LoadBootModuleById = 0x101,
+	LoadExecutable = 0x101,
 };
 
 namespace ELF {
@@ -61,6 +65,18 @@ struct BootModuleView {
 	bool found {};
 	u64 id {};
 	u64 size {};
+};
+
+struct TarEntryView {
+	bool found {};
+	u8 const *data {};
+	u64 size {};
+};
+
+struct TextLineView {
+	char const *data {};
+	u64 size {};
+	u64 next_offset {};
 };
 
 static auto next_cookie() -> u64
@@ -206,6 +222,90 @@ static auto find_boot_module(Katline::BootInfoTable const *boot_info,
 	}
 
 	return {};
+}
+
+static auto parse_tar_size(u8 const *field) -> u64
+{
+	u64 value {};
+	for (u64 i {}; i < 12; ++i) {
+		auto const byte { field[i] };
+		if (byte == 0 || byte == ' ')
+			break;
+		value = value * 8 + static_cast<u64>(byte - '0');
+	}
+	return value;
+}
+
+static auto tar_field_size(u8 const *field, u64 max_size) -> u64
+{
+	u64 size {};
+	while (size < max_size && field[size] != 0)
+		++size;
+	return size;
+}
+
+static auto find_tar_file(u8 const *archive, u64 archive_size, char const *name,
+    u64 name_size) -> TarEntryView
+{
+	static constexpr u64 k_tar_block_size { 512 };
+	static constexpr u64 k_tar_header_size_offset { 124 };
+
+	if (!archive || archive_size < k_tar_block_size)
+		return {};
+
+	for (u64 offset {}; offset <= archive_size - k_tar_block_size;) {
+		auto const *header { archive + offset };
+		if (header[0] == 0)
+			return {};
+
+		auto const name_size_in_header { tar_field_size(header, 100) };
+		auto const file_size {
+			parse_tar_size(header + k_tar_header_size_offset),
+		};
+		auto const data_offset { offset + k_tar_block_size };
+		if (file_size > archive_size - data_offset)
+			return {};
+		auto const padded_size {
+			(file_size + k_tar_block_size - 1) & ~(k_tar_block_size - 1),
+		};
+		if (padded_size > archive_size - data_offset)
+			return {};
+
+		if (name_size_in_header == name_size
+		    && memcmp(header, name, static_cast<unsigned long>(name_size))
+		        == 0) {
+			return TarEntryView {
+				.found = true,
+				.data = archive + data_offset,
+				.size = file_size,
+			};
+		}
+
+		offset = data_offset + padded_size;
+	}
+
+	return {};
+}
+
+static auto next_text_line(
+    char const *text, u64 text_size, u64 offset, TextLineView *line_out) -> bool
+{
+	if (!text || !line_out || offset >= text_size)
+		return false;
+	auto end { offset };
+	while (end < text_size && text[end] != '\n')
+		++end;
+	auto line_size { end - offset };
+	if (line_size != 0 && text[offset + line_size - 1] == '\r')
+		--line_size;
+	if (line_size == 0)
+		return false;
+	*line_out = TextLineView {
+		.data = text + offset,
+		.size = line_size,
+		.next_offset = end < text_size ? end + 1 : end,
+	};
+	return true;
 }
 
 static auto elf_segment_flags(ELF::ProgramHeader const &header)
@@ -480,17 +580,59 @@ extern "C" [[noreturn]] auto _start() -> void
 	if (!boot_blob)
 		fatal(5);
 
-	auto const loader_module {
-		find_boot_module(
-		    boot_info, boot_blob, "Loader.exe", sizeof("Loader.exe") - 1),
+	auto const boot_archive_module {
+		find_boot_module(boot_info, boot_blob, k_boot_archive_name,
+		    sizeof(k_boot_archive_name) - 1),
 	};
-	auto const process_manager_module {
-		find_boot_module(boot_info, boot_blob, "ProcessManager.exe",
-		    sizeof("ProcessManager.exe") - 1),
-	};
-	if (!loader_module.found)
+	if (!boot_archive_module.found)
 		fatal(6);
-	debug_point(0xB001, loader_module.id);
+	debug_point(0xB001, boot_archive_module.id);
+
+	auto const boot_archive_reply {
+		send_kernel_message(
+		    Katline::KernelMessageType::GetBootModuleMemoryObjectById,
+		    boot_archive_module.id),
+	};
+	if (boot_archive_reply.status != 0
+	    || boot_archive_reply.handles[0].is_invalid())
+		fatal(9);
+
+	void *boot_archive_map {};
+	auto const *boot_archive {
+		map_memory_object<u8 const>(boot_archive_reply.handles[0], 0,
+		    boot_archive_module.size,
+		    Katline::MemoryMapFlags { Katline::MemoryMapFlag::Writable },
+		    &boot_archive_map),
+	};
+	if (!boot_archive)
+		fatal(10);
+
+	auto const order_file {
+		find_tar_file(boot_archive, boot_archive_module.size, k_order_file_name,
+		    sizeof(k_order_file_name) - 1),
+	};
+	if (!order_file.found)
+		fatal(11);
+	TextLineView loader_order_entry {};
+	if (!next_text_line(reinterpret_cast<char const *>(order_file.data),
+	        order_file.size, 0, &loader_order_entry)
+	    || loader_order_entry.size != sizeof(k_loader_name) - 1
+	    || memcmp(loader_order_entry.data, k_loader_name,
+	           static_cast<unsigned long>(loader_order_entry.size))
+	        != 0)
+		fatal(11);
+
+	auto const loader_file {
+		find_tar_file(boot_archive, boot_archive_module.size, k_loader_name,
+		    sizeof(k_loader_name) - 1),
+	};
+	if (!loader_file.found)
+		fatal(11);
+
+	auto const boot_blob_size { boot_info->total_len };
+	Katline::Syscalls::sys_memory_unmap(
+	    boot_info_map, sizeof(Katline::BootInfoTable));
+	Katline::Syscalls::sys_memory_unmap(boot_blob_map, boot_blob_size);
 
 	auto const loader_process_res { Katline::Syscalls::sys_process_create() };
 	if (loader_process_res.is_err())
@@ -540,28 +682,19 @@ extern "C" [[noreturn]] auto _start() -> void
 	Katline::Syscalls::sys_memory_unmap(mailbox_local_map, sizeof(u64));
 	Katline::Syscalls::sys_handle_close(mailbox_handle);
 
-	auto const loader_reply {
-		send_kernel_message(
-		    Katline::KernelMessageType::GetBootModuleMemoryObjectById,
-		    loader_module.id),
+	Katline::ProcessMemoryMapOptions archive_options {
+		.process = loader_process,
+		.memory_object = boot_archive_reply.handles[0],
+		.offset = 0,
+		.size = boot_archive_module.size,
+		.flags = Katline::MemoryMapFlags { Katline::MemoryMapFlag::NoExecute },
+		.addr = reinterpret_cast<void *>(k_boot_archive_base),
 	};
-	if (loader_reply.status != 0 || loader_reply.handles[0].is_invalid())
-		fatal(9);
-	debug_point(0xB004, loader_reply.handles[0].id);
-
-	void *loader_module_map {};
-	auto const *loader_blob {
-		map_memory_object<u8 const>(loader_reply.handles[0], 0,
-		    loader_module.size,
-		    Katline::MemoryMapFlags { Katline::MemoryMapFlag::Writable },
-		    &loader_module_map),
-	};
-	if (!loader_blob)
+	if (raw_process_memory_map(&archive_options) < 0)
 		fatal(10);
-	debug_point(0xB005, loader_module.size);
 
 	if (!start_elf_process(
-	        loader_process, loader_blob, loader_module.size, page_size))
+	        loader_process, loader_file.data, loader_file.size, page_size))
 		fatal(11);
 
 	for (;;) {
@@ -574,35 +707,60 @@ extern "C" [[noreturn]] auto _start() -> void
 		break;
 	}
 
-	auto const boot_blob_size { boot_info->total_len };
-	Katline::Syscalls::sys_memory_unmap(
-	    boot_info_map, sizeof(Katline::BootInfoTable));
-	Katline::Syscalls::sys_memory_unmap(boot_blob_map, boot_blob_size);
-	Katline::Syscalls::sys_memory_unmap(loader_module_map, loader_module.size);
-	Katline::Syscalls::sys_handle_close(loader_reply.handles[0]);
+	auto const service_caps {
+		Katline::ProcessCapabilityFlags {
+		    Katline::ProcessCapability::ManageCaps,
+		    Katline::ProcessCapability::BootInfo,
+		    Katline::ProcessCapability::MapMMIO,
+		    Katline::ProcessCapability::ManageProcesses,
+		},
+	};
+	auto const *order_text {
+		reinterpret_cast<char const *>(order_file.data),
+	};
+	auto order_offset { loader_order_entry.next_offset };
+	for (;;) {
+		TextLineView entry_name {};
+		if (!next_text_line(
+		        order_text, order_file.size, order_offset, &entry_name))
+			break;
+		order_offset = entry_name.next_offset;
+		auto const executable {
+			find_tar_file(boot_archive, boot_archive_module.size,
+			    entry_name.data, entry_name.size),
+		};
+		if (!executable.found)
+			fatal(12);
 
-	debug_point(0xB006, process_manager_module.found);
-	if (process_manager_module.found) {
-		// It doesn't need driver capabilities, those are in the Loader process!
-		auto const process_manager_caps {
-			Katline::ProcessCapabilityFlags {
-			    Katline::ProcessCapability::ManageCaps,
-			    Katline::ProcessCapability::BootInfo,
-			    Katline::ProcessCapability::MapMMIO,
-			    Katline::ProcessCapability::ManageProcesses,
-			},
+		auto const executable_address {
+			k_boot_archive_base
+			    + static_cast<u64>(executable.data - boot_archive),
 		};
 		auto const request {
-			Katline::IPC::make_request(
-			    BootLoaderMessageType::LoadBootModuleById)
+			Katline::IPC::make_request(BootLoaderMessageType::LoadExecutable)
 			    .cookie(next_cookie())
-			    .arg<0>(process_manager_module.id)
-			    .arg<1>(process_manager_caps.raw())
+			    .arg<0>(executable_address)
+			    .arg<1>(executable.size)
+			    .arg<2>(service_caps.raw())
 			    .build(),
 		};
 		if (!send_message(k_loader_boot_endpoint, request))
 			fatal(13);
+
+		for (;;) {
+			auto const reply { receive_message() };
+			if (reply.sender != k_loader_boot_endpoint
+			    || reply.cookie != request.cookie)
+				continue;
+			if (reply.status != 0)
+				fatal(14);
+			break;
+		}
 	}
+
+	Katline::Syscalls::sys_memory_unmap(
+	    boot_archive_map, boot_archive_module.size);
+	Katline::Syscalls::sys_handle_close(boot_archive_reply.handles[0]);
 
 	Katline::Syscalls::sys_handle_close(loader_process);
 	Katline::Syscalls::sys_handle_close(boot_handle);

@@ -1,0 +1,93 @@
+function(_dhos_add_target target kind)
+    set(options PIC STRIP)
+    set(one_value_args OUTPUT_NAME LINKER_SCRIPT)
+    set(multi_value_args SOURCES INCLUDE_DIRECTORIES PUBLIC_INCLUDE_DIRECTORIES LINK_LIBRARIES PUBLIC_LINK_LIBRARIES COMPILE_OPTIONS LINK_OPTIONS)
+    cmake_parse_arguments(PARSE_ARGV 2 DHOS "${options}" "${one_value_args}" "${multi_value_args}")
+
+    if(DHOS_UNPARSED_ARGUMENTS)
+        message(FATAL_ERROR "Unknown arguments for ${target}: ${DHOS_UNPARSED_ARGUMENTS}")
+    endif()
+
+    if(DHOS_KEYWORDS_MISSING_VALUES)
+        message(FATAL_ERROR "Missing values for ${target}: ${DHOS_KEYWORDS_MISSING_VALUES}")
+    endif()
+
+    if(kind STREQUAL "EXECUTABLE")
+        add_executable(${target} ${DHOS_SOURCES})
+        set(_compile_flags ${CXX_COMPILER_FLAGS} -ffreestanding -fno-stack-protector)
+        set(_link_options -nostdlib -static)
+        if(NOT DHOS_PIC)
+            list(APPEND _compile_flags -fno-pic -fno-pie)
+            list(APPEND _link_options -no-pie)
+        else()
+            set_property(TARGET ${target} PROPERTY POSITION_INDEPENDENT_CODE ON)
+        endif()
+    elseif(kind STREQUAL "STATIC_LIBRARY")
+        add_library(${target} STATIC ${DHOS_SOURCES})
+        if(DHOS_PIC)
+            set_property(TARGET ${target} PROPERTY POSITION_INDEPENDENT_CODE ON)
+            set(_compile_flags ${CXX_COMPILER_FLAGS} -ffreestanding -fno-stack-protector)
+        else()
+            set(_compile_flags ${CXX_COMPILER_FLAGS} -ffreestanding -fno-stack-protector -fno-pic)
+        endif()
+    elseif(kind STREQUAL "SHARED_LIBRARY")
+        add_library(${target} SHARED ${DHOS_SOURCES})
+        set_property(TARGET ${target} PROPERTY POSITION_INDEPENDENT_CODE ON)
+        set(_compile_flags ${CXX_COMPILER_FLAGS} -ffreestanding -fno-stack-protector)
+    else()
+        message(FATAL_ERROR "Unsupported DHOS target kind: ${kind}")
+    endif()
+
+    list(APPEND _compile_flags -mabi=sysv -mno-80387 -mno-mmx -mno-3dnow -mno-sse -mno-sse2 -mno-red-zone)
+    list(APPEND _compile_flags ${DHOS_COMPILE_OPTIONS})
+
+    target_compile_options(${target} PRIVATE
+        "$<$<COMPILE_LANGUAGE:CXX>:${_compile_flags}>"
+    )
+
+    if(DHOS_INCLUDE_DIRECTORIES)
+        target_include_directories(${target} PRIVATE ${DHOS_INCLUDE_DIRECTORIES})
+    endif()
+    if(DHOS_PUBLIC_INCLUDE_DIRECTORIES)
+        target_include_directories(${target} PUBLIC ${DHOS_PUBLIC_INCLUDE_DIRECTORIES})
+    endif()
+    if(DHOS_LINK_LIBRARIES)
+        target_link_libraries(${target} PRIVATE ${DHOS_LINK_LIBRARIES})
+    endif()
+    if(DHOS_PUBLIC_LINK_LIBRARIES)
+        target_link_libraries(${target} PUBLIC ${DHOS_PUBLIC_LINK_LIBRARIES})
+    endif()
+
+    if(kind STREQUAL "EXECUTABLE")
+        if(DHOS_LINKER_SCRIPT)
+            list(APPEND _link_options "-T${DHOS_LINKER_SCRIPT}")
+        endif()
+        list(APPEND _link_options ${DHOS_LINK_OPTIONS})
+        target_link_options(${target} PRIVATE ${_link_options})
+    elseif(DHOS_LINK_OPTIONS)
+        target_link_options(${target} PRIVATE ${DHOS_LINK_OPTIONS})
+    endif()
+
+    if(DHOS_OUTPUT_NAME)
+        set_property(TARGET ${target} PROPERTY OUTPUT_NAME "${DHOS_OUTPUT_NAME}")
+    endif()
+
+    if(DHOS_STRIP)
+        add_custom_command(TARGET ${target} POST_BUILD
+            COMMAND "${CMAKE_STRIP}" --strip-all "$<TARGET_FILE:${target}>"
+            VERBATIM
+        )
+    endif()
+endfunction()
+
+function(dhos_add_executable target)
+    _dhos_add_target(${target} EXECUTABLE ${ARGN})
+endfunction()
+
+function(dhos_add_static_library target)
+    _dhos_add_target(${target} STATIC_LIBRARY ${ARGN})
+endfunction()
+
+function(dhos_add_shared_library target)
+    _dhos_add_target(${target} SHARED_LIBRARY ${ARGN})
+endfunction()

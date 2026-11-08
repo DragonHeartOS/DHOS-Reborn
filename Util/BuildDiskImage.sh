@@ -11,8 +11,8 @@ if [ ! -f "Katline/Katline" ]; then
     exit 1
 fi
 
-if [ ! -f "Applications/Loader/Loader.exe" ]; then
-    echo 'Loader not built. Please build the Loader application.'
+if [ ! -f "boot.tar" ]; then
+    echo 'Boot image not built. Please build the BootImage target.'
     exit 1
 fi
 
@@ -99,7 +99,7 @@ echo 'Copying files'
 sudo mkdir -p "$MOUNT_DIR/EFI/BOOT"
 
 sudo cp -v Katline/Katline "$MOUNT_DIR/"
-sudo cp -v Applications/Loader/Loader.exe "$MOUNT_DIR/Loader.exe"
+sudo cp -v boot.tar "$MOUNT_DIR/boot.tar"
 sudo cp -v ../limine.conf "$MOUNT_DIR/limine.conf"
 
 if [ -f ../limine/limine-bios.sys ]; then
