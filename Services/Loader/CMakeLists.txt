@@ -7,6 +7,6 @@ dhos_add_executable(Loader
     OUTPUT_NAME "Loader.exe"
     INCLUDE_DIRECTORIES "${CMAKE_SOURCE_DIR}/cxxstubs/include"
     LINK_LIBRARIES LibC CommonLib KatlineAPI KatlineAPIStatic LibRuntime
-    LINKER_SCRIPT "${CMAKE_SOURCE_DIR}/Applications/Bootstrap/linker.ld"
+    LINKER_SCRIPT "${CMAKE_SOURCE_DIR}/Services/Bootstrap/linker.ld"
     STRIP
 )

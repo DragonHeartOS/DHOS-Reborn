@@ -86,7 +86,7 @@ target_include_directories(${KERNEL_TARGET}_core PUBLIC .)
 target_include_directories(${KERNEL_TARGET}_core PRIVATE
     "${COMMONLIB_KERNEL_STUB_INCLUDE_DIR}")
 target_compile_definitions(${KERNEL_TARGET}_core PRIVATE KATLINE_BOOTSTRAP_BIN_PATH="${BOOTSTRAP_BIN_PATH}")
-target_include_directories(${KERNEL_TARGET}_core PRIVATE "${CMAKE_BINARY_DIR}/Applications/Bootstrap")
+target_include_directories(${KERNEL_TARGET}_core PRIVATE "${CMAKE_BINARY_DIR}/Services/Bootstrap")
 target_compile_options(${KERNEL_TARGET}_core PRIVATE
     $<$<COMPILE_LANGUAGE:CXX>:${CXX_COMPILER_FLAGS} ${KERNEL_CXX_FLAGS}>)
 add_dependencies(${KERNEL_TARGET}_core BootstrapImage)

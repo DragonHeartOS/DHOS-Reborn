@@ -44,7 +44,7 @@ target_compile_options(CommonLib PRIVATE
 
 add_subdirectory(Katline/API)
 add_subdirectory(Libraries)
-add_subdirectory(Applications)
+add_subdirectory(Services)
 add_subdirectory(Katline)
 
 add_custom_target(image
